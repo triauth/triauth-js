@@ -1,0 +1,52 @@
+---
+model: Fable 5.1
+model_id: claude-fable-5-1
+scope: authenticate
+lib_version: 1.0.0-beta.1
+commit: fc20409
+reviewed_at: 2026-10-01
+status: good-to-go
+summary: Stage 3 verification is sound end to end. One secure-default gap (the verifying app's own callbackUrl is an optional stage-3 constraint) and two low hygiene items.
+settings:
+  effort: max
+---
+
+# Fable 5.1 review — Triauth.authenticate
+
+## Summary
+
+`Triauth.authenticate` verifies a stage-3 response along one path, `ChallengeResponseFlow.verifyChallengeResponse` into `Response.verify`, `MultiSignature.verify` and `Signature.verify`. The crypto signature covers the exact challenge bytes together with the envelope type, the identifier, the actor, the `via` base URL, the device timestamp and the signed metadata. The verifier pins exactly one envelope segment, the challenge type, the identifier equality, the freshness window of the challenge and of the signature, the key `use` option, a complete key group, the WebAuthn origin, the include grant for delegation (actor, flow and service host), the private-mode commitment, and the equality of the signature's `via` with the base URL of the challenge's `cburl`. Every parse and constraint failure fails closed, and a DNS failure surfaces as a retryable 110 instead of a false verdict. I found no way to authenticate as an identifier without a signature from keys that its identity records publish or delegate to.
+
+The headline concern is a secure-default gap, not a defect. The response is bound to the callback URL inside the challenge, not to the verifying application's own callback URL, and the success result does not expose `via`. An application that holds its challenge server-side is safe. An application that lets the challenge travel through the client is open to a cross-site substitution of a genuine response, unless it opts into the stage-3 `callbackUrl` constraint (AUTH-001). Two low items concern the resolution order on the delegated path and semi-secrets in debug logs.
+
+The library is safe to use in mission-critical production systems when the deployment follows the README. The challenge is held server-side and invalidated after every attempt. The stage-3 call passes the application's own `callbackUrl`. Strict deployments set `config.requireSecure`. Both stages are rate limited. The trust model page was not reachable from this session, so the review is grounded on the code and the README.
+
+## Findings
+
+### [AUTH-001] [medium] [reviewed] Stage 3 binds the response to the challenge's callback URL, not to the verifying application's
+**Location:** `src/challenge_response_flow.js:210-216` (optional `callbackUrl` constraint), `src/challenge_response_flow.js:285` (`via` must equal the base URL of `challenge.data.cburl`), `src/api/authentication.js:228-247` (the result carries neither `via` nor `cburl`)
+**Description:** The only site binding that the verifier enforces on its own is `getBaseUrl(challenge.data.cburl) === sig.via`. Both values come from the same source. The challenge supplies `cburl`, and the authenticator derives `via` from that same `cburl` before it signs. The verifier therefore proves that the response belongs to the challenge, not that the challenge belongs to the application that verifies it. The stage-3 `callbackUrl` option closes that gap, but it is optional, and the success result exposes neither `via` nor `cburl`, so an application cannot check the site binding after the fact.
+
+This is a secure-default gap, not a bypass. When the challenge is held server-side, as the Best Practices require, it carries the application's own `cburl` and the binding is complete. When the challenge travels through the client, as in the README's browser example or in a single-page app whose API receives both `challenge` and `response` from the browser, a genuine response can be substituted across sites. An attacker runs an ordinary triauth sign-in on a site of their own. A victim signs in there, and the attacker's server receives a genuine (challenge, response) pair for the victim, with `cburl` and `via` naming the attacker's site. The attacker submits that pair to the target application. Every check passes, and the target signs the attacker in as the victim. This is the same class as the token substitution attacks on OAuth implicit flows, which audience checks close. The GET and HASH callback methods, documented as useful for client-side applications, make the client-held pattern likely in practice.
+**Recommendation:** Require the application's `callbackUrl` in stage 3 of `authenticate` (and of the other challenge-response methods), so that `challengeObj.data.cburl` is always compared with a value the server controls. This is a code-only change with no wire impact. If the option stays optional, return `callbackUrl` (or `via`) on the success result so an application can pin it, and promote the stage-3 `callbackUrl` constraint from a side note to a Best Practices rule for every deployment where the challenge is not held server-side.
+> **Human review (triauthor, 2026-10-01):** By design. The challenge is server-side state. Stage 3 verifies a response against the challenge the application itself issued and stored, so the callback URL in it is already the application's own. A client-side application cannot trust any verification it performs itself, whatever the library checks. A backend that needs proof of identity runs the flow on its own, or asks for a `stamp` or `sign` over a nonce it issued and verifies the result with `via` pinned. The README states both rules. Accepted.
+
+### [AUTH-002] [low] Delegated path resolves and verifies the actor before the subject's grants are consulted
+**Location:** `src/signature.js:313-357`
+**Description:** For an envelope with a non-empty `actor` slot, `Signature.verify` resolves the actor's identity (two DNS resolutions on the actor's domain), verifies the crypto signatures against the actor's keys, and only then resolves the subject and searches its include records. The `actor` slot is chosen by whoever submits the response, and it may name any domain. A stage-3 request therefore drives DNS lookups to an attacker-chosen domain, and a full key-group verification, from an endpoint whose identifier is otherwise fixed by the server-held challenge. This happens even when the subject publishes no include record at all, which is the common case. The outcome is still 401. The cost is DNS egress, CPU, and a query to a domain of the attacker's choosing that the attacker's name servers observe. The README's rate-limit guidance bounds the volume.
+**Recommendation:** Resolve the subject first. If the subject publishes no include whose `domainName` equals the actor's domain (a string comparison on parsed records, no DNS), return `false` before the actor is resolved. Keep the existing include match (actor ref, flow and service host) after the actor resolves. The order change alters no verdict, since both resolutions are required for a delegated success and either failure yields the same result.
+
+### [AUTH-003] [low] Debug and info logs carry per-site tokens and lookup codes
+**Location:** `src/response.js:148`, `src/api/authentication.js:216`
+**Description:** `Response.verify` logs the complete verification result at debug level. That object contains `signedMetadata.ext`, which carries the `pingToken`, `signToken`, `stampToken` and `attestToken` values that the README asks integrators to keep private, and `deviceTag`, which under private mode carries the lookup code. `authenticate` logs `deviceTag` at info level. The default logger runs at the error level, so nothing is emitted out of the box. An operator who raises the level to debug while troubleshooting a sign-in writes bearer-like tokens and lookup codes to log storage, where retention and access controls are usually weaker than for the session store.
+**Recommendation:** Log identifiers and booleans only. Redact the token values inside `ext` and the `~<lookupCode>` suffix of `deviceTag` before they reach the logger, or state in the Logging section of the README that debug output contains secrets and must not be enabled on shared log pipelines.
+
+### [AUTH-004] [info] Stage 1 redirects to a host named by the identifier's domain
+**Location:** `src/challenge_response_flow.js:142-166`, `src/authentication_endpoint.js:101-114`
+**Description:** The `redirectUrl` is `https://<host>/auth.html#?challenge=...`, where `<host>` is the value of the `triauth` TXT record of the domain in the user-typed identifier. The host passes the domain-name grammar and nothing else. An application whose sign-in endpoint accepts the identifier from a GET parameter therefore acts as an open redirector to any https host that a zone operator chooses. This is inherent to the protocol, in the same way as identity-provider discovery in federated sign-in, and the README asks for a top-level navigation so that the user sees the authenticator's origin. The redirect happens in the browser, so the server never connects to that host.
+**Recommendation:** Integrators should start stage 1 from a POST form rather than from a link, and may show the authenticator host (the host part of `redirectUrl`) to the user before the redirect. No library change is required.
+
+### [AUTH-005] [info] Verification is stateless, so replay protection is the application's duty
+**Location:** `src/challenge_response_flow.js:270-277`, `src/config.js:71`
+**Description:** A valid (challenge, response) pair verifies again on every call while the challenge `iat` is inside the `authTimeout` window (three minutes by default, widened by the server clock drift) and the signature `ts` is inside the client clock drift. The challenge nonce makes each challenge unique, but the library keeps no state and cannot reject a second presentation. The README prescribes invalidation of the stored challenge after every attempt and a monotonic `issuedAt` check. One detail matters for the implementation. ECDSA signatures are malleable, so a second response string with different bytes can carry a valid signature over the same challenge. Deduplication must therefore key on the challenge, as the README says, and never on the response string.
+**Recommendation:** Keep the README guidance as it is. Integrators invalidate by challenge, not by response. Where several hosts verify responses, the invalidation store must be shared between them.
