@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>404 — page not found | play.triauth.org</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/svg+xml" href="/assets/icon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
+  <meta name="theme-color" content="#3451b2" />
+  <style>
+    :root {
+      --brand:#3451b2; --brand-hover:#2c4699; --ink:#1b1b1b; --muted:#5a5f68; --bg:#fff;
+      --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0; min-height:100vh; padding:24px;
+      display:flex; align-items:center; justify-content:center;
+      font-family:var(--font); color:var(--ink); background:var(--bg);
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    }
+    .wrap { text-align:center; max-width:440px; }
+    .mark { width:56px; height:56px; display:block; margin:0 auto 24px; }
+    h1 { margin:0; font-size:3rem; font-weight:700; letter-spacing:-0.02em; color:var(--brand); }
+    p { margin:10px 0 26px; color:var(--muted); font-size:1rem; line-height:1.6; }
+    a.btn {
+      display:inline-flex; align-items:center; gap:6px;
+      background:var(--brand); color:#fff; text-decoration:none;
+      font-size:0.95rem; font-weight:500; padding:10px 18px; border-radius:6px;
+      transition:background 0.15s;
+    }
+    a.btn:hover { background:var(--brand-hover); }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <h1>404</h1>
+    <p>That page doesn't exist</p>
+    <a class="btn" href="/">Back to the playground</a>
+  </main>
+</body>
+</html>

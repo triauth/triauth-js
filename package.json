@@ -1,18 +1,85 @@
 {
   "name": "triauth",
-  "version": "0.0.1",
-  "description": "triauth: password-less sign-in for web. Placeholder - real release coming; see https://www.triauth.org/",
-  "license": "BSD-3-Clause",
-  "author": "Triauth <devs@triauth.org>",
-  "homepage": "https://www.triauth.org/",
+  "version": "1.0.0-beta.1",
+  "description": "Authentication for modern web - a client library for the triauth protocol.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/triauth.cjs",
+  "module": "./dist/triauth.mjs",
+  "browser": "./dist/triauth.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/triauth.mjs",
+      "require": "./dist/triauth.cjs",
+      "browser": "./dist/triauth.js",
+      "default": "./dist/triauth.mjs"
+    }
+  },
+  "files": [
+    "dist/triauth.mjs",
+    "dist/triauth.mjs.map",
+    "dist/triauth.min.mjs",
+    "dist/triauth.min.mjs.map",
+    "dist/triauth.cjs",
+    "dist/triauth.cjs.map",
+    "dist/triauth.js",
+    "dist/triauth.js.map",
+    "dist/triauth.min.js",
+    "dist/triauth.min.js.map",
+    "dist/types/"
+  ],
+  "scripts": {
+    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
+    "check": "npm run lint && npm run typecheck && npm run coverage",
+    "build": "npm run build:rollup && npm run build:types",
+    "build:rollup": "rollup -c",
+    "build:types": "tsc -p tsconfig.json",
+    "build:playground": "npm run clean && (npm run jsdoc || true) && npm run coverage && npm run build",
+    "prepack": "npm run clean && npm run build",
+    "dev": "concurrently --names rollup,server --prefix-colors blue,green \"rollup -c -w\" \"http-server dist -a 127.0.0.1 -p 8080 --cors -c-1\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "jsdoc": "jsdoc -c jsdoc.config.json",
+    "lint": "eslint src",
+    "test": "mocha --timeout 25000 --node-option=experimental-global-webcrypto --require ./test/setup.js test/test.js",
+    "test:unit": "mocha --timeout 25000 --node-option=experimental-global-webcrypto --require ./test/setup.js test/test_unit.js",
+    "test:json": "mocha --timeout 25000 --node-option=experimental-global-webcrypto --require ./test/setup.js test/test_json.js",
+    "coverage": "c8 --report-dir=dist/coverage --reporter=html --reporter=text-summary --check-coverage --branches=95 --functions=95 --lines=95 --statements=95 npm run test",
+    "coverage:unit": "c8 --report-dir=dist/coverage-json --reporter=html --reporter=text-summary npm run test:unit",
+    "coverage:json": "c8 --report-dir=dist/coverage-json --reporter=html --reporter=text-summary npm run test:json",
+    "ai-review": "node test/ai-reviews/_harness/run.mjs"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/triauth/triauth-js.git"
   },
-  "main": "index.js",
-  "files": [
-    "index.js",
-    "README.md",
-    "LICENSE"
-  ]
+  "author": "triauthor",
+  "bugs": {
+    "url": "https://github.com/triauth/triauth-js/issues"
+  },
+  "homepage": "https://github.com/triauth/triauth-js#readme",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-terser": "^1.0.0",
+    "@types/node": "^26.4.0",
+    "c8": "^12.0.0",
+    "concurrently": "^10.0.5",
+    "eslint": "^10.9.1",
+    "globals": "^17.11.0",
+    "http-server": "^14.1.1",
+    "jsdoc": "^4.0.4",
+    "magic-string": "^1.2.3",
+    "mocha": "^11.8.0",
+    "rollup": "^4.63.1",
+    "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "serialize-javascript": "^7.0.6",
+    "diff": "^8.0.4"
+  }
 }

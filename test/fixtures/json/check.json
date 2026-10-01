@@ -1,0 +1,2268 @@
+{
+  "title": "check",
+  "description": "Coverage of Triauth.check: argument validation (101/102), identifier validation (210-216), DNS resolution failure (110), and the success/failure paths through Identity.resolve() + IdentityKeys.findByTag().",
+  "dnsEntries": {
+    "triauthdemo.org": {
+      "TXT": [
+        "triauth auth.triauthdemo.org mode=public"
+      ]
+    },
+    "john._at.triauthdemo.org": {
+      "TXT": [
+        "initials JD",
+        "name John Doe",
+        "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+      ]
+    },
+    "nokeys._at.triauthdemo.org": {
+      "TXT": [
+        "name No Keys",
+        "initials NK"
+      ]
+    },
+    "dimly._at.triauthdemo.org": {
+      "TXT": [
+        {
+          "value": "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+          "ttl": 60,
+          "dnssec": false
+        }
+      ]
+    },
+    "broken-endpoint.example": {
+      "_error": "SERVFAIL"
+    },
+    "broken-identity.example": {
+      "TXT": [
+        "triauth auth.broken-identity.example mode=public"
+      ]
+    },
+    "user._at.broken-identity.example": {
+      "_error": "SERVFAIL"
+    },
+    "ambiguous.example": {
+      "TXT": [
+        "triauth a.endpoint.example mode=public",
+        "triauth b.endpoint.example mode=public"
+      ]
+    },
+    "tainted._at.triauthdemo.org": {
+      "TXT": [
+        "key desktop[2/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+      ]
+    },
+    "differentkey._at.triauthdemo.org": {
+      "TXT": [
+        "key desktop[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE"
+      ]
+    },
+    "shared._at.triauthdemo.org": {
+      "TXT": [
+        "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+      ]
+    },
+    "mixedsec._at.triauthdemo.org": {
+      "TXT": [
+        "key laptop[1/2]:BCkB_Cr-7pvY1Y2buYRksJPb09Tqld7M3SDII36cp_C7k08NPTWvbj0p14oMBGDGbGZ1qLkfnJSARBbAj1sA0fs",
+        {
+          "value": "key laptop[2/2]:BLglw14iw47KUztRHdeKNfBBBMf5P4SsZg9O9za44mO2BceHZlcQwFmtO1crjVNnwwZszqtMhErs3divGeQrQI4",
+          "ttl": 1800,
+          "dnssec": false
+        }
+      ]
+    },
+    "mixedtainted._at.triauthdemo.org": {
+      "TXT": [
+        "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+        "key bogus[2/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE"
+      ]
+    },
+    "shortttl._at.triauthdemo.org": {
+      "TXT": [
+        {
+          "value": "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+          "ttl": 0,
+          "dnssec": true
+        }
+      ]
+    }
+  },
+  "currentTime": 1777454675000,
+  "tests": [
+    {
+      "name": "no arguments at all returns 102 — options is undefined, hasOnlyKnownProperties typeof guard (src/helpers.js:236) returns false before the typeof identifier check is reached",
+      "call": "check",
+      "args": [],
+      "expected": {
+        "error": {
+          "code": 102,
+          "message": "Unrecognized function argument"
+        }
+      }
+    },
+    {
+      "name": "null options arg returns 102 — hasOnlyKnownProperties null-guard at src/helpers.js:236 fires before any other check",
+      "call": "check",
+      "args": [
+        null
+      ],
+      "expected": {
+        "error": {
+          "code": 102,
+          "message": "Unrecognized function argument"
+        }
+      }
+    },
+    {
+      "name": "array options arg returns 102 — hasOnlyKnownProperties Array.isArray-guard at src/helpers.js:236 fires before any other check",
+      "call": "check",
+      "args": [
+        [
+          "identifier",
+          "deviceTag"
+        ]
+      ],
+      "expected": {
+        "error": {
+          "code": 102,
+          "message": "Unrecognized function argument"
+        }
+      }
+    },
+    {
+      "name": "empty options object returns 101 (typeof identifier !== 'string' guard at src/api/authentication.js:298)",
+      "call": "check",
+      "args": [
+        {}
+      ],
+      "expected": {
+        "error": {
+          "code": 101,
+          "message": "Invalid or missing function arguments"
+        }
+      }
+    },
+    {
+      "name": "missing deviceTag returns 101 (typeof deviceTag !== 'string' guard)",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 101,
+          "message": "Invalid or missing function arguments"
+        }
+      }
+    },
+    {
+      "name": "missing identifier returns 101",
+      "call": "check",
+      "args": [
+        {
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 101,
+          "message": "Invalid or missing function arguments"
+        }
+      }
+    },
+    {
+      "name": "non-string identifier (number) returns 101 — typeof guard at src/api/authentication.js:298 fires before the Identity constructor's validateIdentifier path that would have returned 210",
+      "call": "check",
+      "args": [
+        {
+          "identifier": 123,
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 101,
+          "message": "Invalid or missing function arguments"
+        }
+      }
+    },
+    {
+      "name": "non-string deviceTag (number) returns 101",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": 123
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 101,
+          "message": "Invalid or missing function arguments"
+        }
+      }
+    },
+    {
+      "name": "unrecognized option returns 102 — hasOnlyKnownProperties guard at src/api/authentication.js:289 fires before the typeof check",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+          "unknownKey": "x"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 102,
+          "message": "Unrecognized function argument"
+        }
+      }
+    },
+    {
+      "name": "identifier with whitespace returns 210 — passes the typeof/empty/byteSize guards but hits the /[\\s\\0]/ check at src/validator.js:75",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john @triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 210,
+          "message": "Identifier is invalid"
+        }
+      }
+    },
+    {
+      "name": "empty-string identifier returns 211",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 211,
+          "message": "Identifier must not be empty"
+        }
+      }
+    },
+    {
+      "name": "too-long identifier returns 212 (byteSize check fires before username-regex check)",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 212,
+          "message": "Identifier is too long"
+        }
+      }
+    },
+    {
+      "name": "uppercase identifier returns 213",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "John@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 213,
+          "message": "Identifier must be provided in lowercase"
+        }
+      }
+    },
+    {
+      "name": "identifier missing @-sign returns 214",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "johntriauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 214,
+          "message": "Identifier must include one @ sign"
+        }
+      }
+    },
+    {
+      "name": "identifier with consecutive dots in username returns 215",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john..doe@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 215,
+          "message": "Identifier contains invalid username"
+        }
+      }
+    },
+    {
+      "name": "identifier with punycode domain returns 216",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@xn--example.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 216,
+          "message": "Identifier contains invalid domain name"
+        }
+      }
+    },
+    {
+      "name": "DNS SERVFAIL on identifier domain — resolveConfig throws TriauthError(110) in AuthenticationEndpoint.resolve(), propagates through identity.resolve() and is caught by check()'s try/catch",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "user@broken-endpoint.example",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 110,
+          "message": "DNS resolution failed, try again later"
+        }
+      }
+    },
+    {
+      "name": "DNS SERVFAIL on identity domain — authentication endpoint resolves fine, but resolveConfig on the identity domain throws TriauthError(110) in IdentityDomain.resolve(), propagates through identity.resolve() and is caught by check()'s try/catch",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "user@broken-identity.example",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 110,
+          "message": "DNS resolution failed, try again later"
+        }
+      }
+    },
+    {
+      "name": "domain not configured for triauth returns valid:false — AuthenticationEndpoint.resolve() returns false (no triauth TXT record), identity.resolved becomes false, check returns {valid:false, reason:'unresolved'}",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "jane@unconfigured.example",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "unresolved"
+      }
+    },
+    {
+      "name": "resolution order: endpoint is resolved before the identity domain — the domain publishes no triauth record while its would-be identity domain would SERVFAIL; check returns {valid:false, reason:'unresolved'} (not error 110), so the identity-domain query is never issued (src/identity.js:88-94)",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "user@no-endpoint.example",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "dnsEntries": {
+        "no-endpoint.example": null,
+        "user._at.no-endpoint.example": {
+          "_error": "SERVFAIL"
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "unresolved"
+      }
+    },
+    {
+      "name": "domain with multiple triauth TXT records returns valid:false — AuthenticationEndpoint.resolve() takes the 'refuse to choose' branch at src/authentication_endpoint.js:90, resets this.url to null, identity.resolved becomes false. Distinct from the no-record path; this exercises the multi-record reset.",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "user@ambiguous.example",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "unresolved"
+      }
+    },
+    {
+      "name": "endpoint record with an unknown mode (mode=banana) returns valid:false reason:unresolved - no identity domain can be derived",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@hashed.triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "dnsEntries": {
+        "hashed.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.triauthdemo.org mode=banana"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "unresolved"
+      }
+    },
+    {
+      "name": "endpoint record without a mode option runs the domain in private mode by default - a bare deviceTag carries no lookup code, so the identity cannot resolve (valid:false reason:unresolved)",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@nomode.example",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "dnsEntries": {
+        "nomode.example": {
+          "TXT": [
+            "triauth auth.nomode.example"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "unresolved"
+      }
+    },
+    {
+      "name": "identity records contain a malformed key that taints the device group (desktop[2/1]: keyIdx 2 > keyCount 1) returns valid:false — IdentityKeys.add marks keyGroup.tainted at src/identity_keys.js:130, no tag is ever computed, findByTag's `keyGroup.valid &&` short-circuit skips the group. Distinct from the no-keys path because keyGroups[deviceName] DOES exist.",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "tainted@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      }
+    },
+    {
+      "name": "key-count disagreement across a device's records (dev[1/2] + dev[2/3]) taints the group — keyGroup.keyCount is fixed by the first record and a mismatched declaration trips the consistency check at src/identity_keys.js:139, findByTag skips the tainted group, valid:false reason:'revoked'",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "countdrift@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "dnsEntries": {
+        "countdrift._at.triauthdemo.org": {
+          "TXT": [
+            "key dev[1/2]:BCkB_Cr-7pvY1Y2buYRksJPb09Tqld7M3SDII36cp_C7k08NPTWvbj0p14oMBGDGbGZ1qLkfnJSARBbAj1sA0fs",
+            "key dev[2/3]:BLglw14iw47KUztRHdeKNfBBBMf5P4SsZg9O9za44mO2BceHZlcQwFmtO1crjVNnwwZszqtMhErs3divGeQrQI4"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      }
+    },
+    {
+      "name": "duplicate key index within a device (two dev[1/2] records) taints the group — keyGroup.keys[keyIdx-1] is already occupied when the second record arrives (src/identity_keys.js:140), valid:false reason:'revoked'",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "dupidx@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "dnsEntries": {
+        "dupidx._at.triauthdemo.org": {
+          "TXT": [
+            "key dev[1/2]:BCkB_Cr-7pvY1Y2buYRksJPb09Tqld7M3SDII36cp_C7k08NPTWvbj0p14oMBGDGbGZ1qLkfnJSARBbAj1sA0fs",
+            "key dev[1/2]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE",
+            "key dev[2/2]:BLglw14iw47KUztRHdeKNfBBBMf5P4SsZg9O9za44mO2BceHZlcQwFmtO1crjVNnwwZszqtMhErs3divGeQrQI4"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      }
+    },
+    {
+      "name": "key data longer than 1024 characters taints the group — the length cap at src/identity_keys.js:141 fires even though every character is base64url, valid:false reason:'revoked'",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "longkey@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "dnsEntries": {
+        "longkey._at.triauthdemo.org": {
+          "TXT": [
+            "key dev[1/1]:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      }
+    },
+    {
+      "name": "key data with characters outside the base64url alphabet (abc!def) taints the group — isBase64UrlString fails at src/identity_keys.js:142, valid:false reason:'revoked'",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "badb64@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "dnsEntries": {
+        "badb64._at.triauthdemo.org": {
+          "TXT": [
+            "key dev[1/1]:abc!def"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      }
+    },
+    {
+      "name": "device declaring key-count 6 (dev[1/6]) taints the group — keyCount exceeds LIMITS.maxKeysPerDevice=5 at src/identity_keys.js:137, valid:false reason:'revoked'",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "sixkeys@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "dnsEntries": {
+        "sixkeys._at.triauthdemo.org": {
+          "TXT": [
+            "key dev[1/6]:BCkB_Cr-7pvY1Y2buYRksJPb09Tqld7M3SDII36cp_C7k08NPTWvbj0p14oMBGDGbGZ1qLkfnJSARBbAj1sA0fs"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      }
+    },
+    {
+      "name": "SECURITY: split key group with only its final fragment published (dev[2/2] alone, no dev[1/2]) never becomes valid — the validity gate counts populated slots (Object.keys in src/identity_keys.js), not keys.length, which a lone write to the last index already inflates to keyCount; the supplied deviceTag is the exact digest a single populated entry would hash to, so a length-gated implementation answers valid:true here — findByTag must find no valid group, valid:false reason:'revoked'",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "lastfrag@triauthdemo.org",
+          "deviceTag": "Sc92XBe0tt09jTvHUmqlKoz9NiO0kT68opmhb6Mfsvk"
+        }
+      ],
+      "dnsEntries": {
+        "lastfrag._at.triauthdemo.org": {
+          "TXT": [
+            "key dev[2/2]:BLglw14iw47KUztRHdeKNfBBBMf5P4SsZg9O9za44mO2BceHZlcQwFmtO1crjVNnwwZszqtMhErs3divGeQrQI4"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      }
+    },
+    {
+      "name": "configured domain but unknown identifier returns valid:false — authentication endpoint resolves, identity domain returns empty record set, identity.resolved becomes false",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "jane@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "unresolved"
+      }
+    },
+    {
+      "name": "identity records exist but contain no key entries returns valid:false — identity.resolved is true (records present), but findByTag returns null because no keys were added",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "nokeys@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      }
+    },
+    {
+      "name": "wrong deviceTag for an otherwise resolvable identity returns valid:false — findByTag returns null because no keyGroup matches the tag",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "VpGPcGr5psnmgaq4mPxY5tZ4Adxa5V2Vh1GFVRfQFmk"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      }
+    },
+    {
+      "name": "empty deviceTag returns valid:false — passes the typeof guard (empty string is still a string) but findByTag returns null",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": ""
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      }
+    },
+    {
+      "name": "per-test dnsEntries patch can NXDOMAIN the identifier domain (null overrides suite-level entry), surfacing as valid:false",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "dnsEntries": {
+        "triauthdemo.org": null
+      },
+      "expected": {
+        "valid": false,
+        "reason": "unresolved"
+      }
+    },
+    {
+      "name": "valid device tag for known identifier returns valid:true with secure:true and expires = now + ttl*1000",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777456475000,
+        "groups": []
+      }
+    },
+    {
+      "name": "key record with dnssec:false yields secure:false in the result; ttl:60 yields expires = now + 60_000 — a non-DNSSEC record makes the resolution-level secure false (DNSSEC validates the answer, not individual records)",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "dimly@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "valid": true,
+        "secure": false,
+        "expires": 1777454735000,
+        "groups": []
+      }
+    },
+    {
+      "name": "security: deviceTag is scoped per-identity — john's tag does not validate under a different identifier whose identity records publish a different key. Pins that findByTag is bounded by the resolved Identity instance; a refactor that turns findByTag into a global lookup would regress this.",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "differentkey@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      }
+    },
+    {
+      "name": "security: shared device → equal tag — two identifiers that legitimately publish the same deviceName + key value + options produce identical tags, so john's tag validates against the 'shared' identity. Pins this as expected behavior (key sharing across identities is allowed by the protocol) so a future 'tags must be unique per identity' change is a deliberate decision, not an accident.",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "shared@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777456475000,
+        "groups": []
+      }
+    },
+    {
+      "name": "security: secure is resolution-level — laptop has 2 keys, one with dnssec:true and one with dnssec:false; a single non-validated record of the identity answer makes the whole resolution insecure. Pins that one insecure record downgrades secure. (Contrast with the dimly test, which has a single-key device.)",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "mixedsec@triauthdemo.org",
+          "deviceTag": "5I4NnX-4lW3gdTqGW3zKpLsLR9oRiWip8zp6mqQgkL4"
+        }
+      ],
+      "expected": {
+        "valid": true,
+        "secure": false,
+        "expires": 1777456475000,
+        "groups": []
+      }
+    },
+    {
+      "name": "expires is MIN-across-keys within a device — laptop has 2 keys with ttl:60 and ttl:300 (both dnssec:true); keyGroup.expires takes the earlier expiry at src/identity_keys.js:175, so check returns currentTime + 60_000. (Companion to the AND-across-keys secure case.)",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "ttlmin@triauthdemo.org",
+          "deviceTag": "5I4NnX-4lW3gdTqGW3zKpLsLR9oRiWip8zp6mqQgkL4"
+        }
+      ],
+      "dnsEntries": {
+        "ttlmin._at.triauthdemo.org": {
+          "TXT": [
+            {
+              "value": "key laptop[1/2]:BCkB_Cr-7pvY1Y2buYRksJPb09Tqld7M3SDII36cp_C7k08NPTWvbj0p14oMBGDGbGZ1qLkfnJSARBbAj1sA0fs",
+              "ttl": 60,
+              "dnssec": true
+            },
+            {
+              "value": "key laptop[2/2]:BLglw14iw47KUztRHdeKNfBBBMf5P4SsZg9O9za44mO2BceHZlcQwFmtO1crjVNnwwZszqtMhErs3divGeQrQI4",
+              "ttl": 300,
+              "dnssec": true
+            }
+          ]
+        }
+      },
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777454735000,
+        "groups": []
+      }
+    },
+    {
+      "name": "security: tainted device does not shadow a valid device on the same identity — identity publishes a well-formed desktop AND a malformed bogus[2/1]; bogus gets tainted at src/identity_keys.js:130 but findByTag iterates Object.values(keyGroups) and the desktop's valid keyGroup is still returned. Pins that poisoned records can't break verification of the rest.",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "mixedtainted@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777456475000,
+        "groups": []
+      }
+    },
+    {
+      "name": "security: ttl:0 yields expires === currentTime (numeric, not undefined) — pins the 'must be a Number' branch at src/identity.js:94 so a future refactor that collapses ttl:0 to undefined (F4) is caught. The keyGroup is still valid; the caller's responsibility is to act on the expires timestamp.",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "shortttl@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777454675000,
+        "groups": []
+      }
+    },
+    {
+      "name": "security: identifier at the exact identifierBytesize boundary (120 bytes) passes validation — inverse of the 212 case; the byteSize check is strict-greater (> 120). No DNS records exist for this domain → valid:false (not an error).",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "a@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "unresolved"
+      }
+    },
+    {
+      "name": "security: a `+` in the username (john+@) fails validation with 215 - `+` is not a username character",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john+@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 215,
+          "message": "Identifier contains invalid username"
+        }
+      }
+    },
+    {
+      "name": "SECURITY: endpoint triauth record with dnssec:false caps secure to false even though the key records are DNSSEC-validated",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "dnsEntries": {
+        "triauthdemo.org": {
+          "TXT": [
+            {
+              "value": "triauth auth.triauthdemo.org mode=public",
+              "ttl": 1800,
+              "dnssec": false
+            }
+          ]
+        }
+      },
+      "expected": {
+        "valid": true,
+        "secure": false,
+        "expires": 1777456475000,
+        "groups": []
+      }
+    },
+    {
+      "name": "SECURITY: uv=required on a non-webauthn (es256) key is unenforceable and taints the keyGroup -> valid:false - fail closed",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8 uv=required"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      }
+    },
+    {
+      "name": "key record with type=ed25519 forms a valid keyGroup; a matching deviceTag returns valid:true (requires the ed25519 verifier to be registered)",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "aKVhN8r0x-07Tou7lFOENdypXixuGmUA2128wQhaSEI"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:Kq4Z_SEEl9c-CCVbl3DKjPJeIN3NHGuYgrz7lhL3ue0 type=ed25519"
+          ]
+        }
+      },
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777456475000,
+        "groups": []
+      }
+    },
+    {
+      "name": "mixed-type device (es256 + ed25519 keys) forms one valid keyGroup whose deviceTag covers both keys with their type options",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "jGWvpJY5420XWPA7uJ92ZsoFWFGhlAIG4xTWo_KFobg"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/2]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "key desktop[2/2]:Kq4Z_SEEl9c-CCVbl3DKjPJeIN3NHGuYgrz7lhL3ue0 type=ed25519"
+          ]
+        }
+      },
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777456475000,
+        "groups": []
+      }
+    },
+    {
+      "name": "SECURITY: uv=required on an ed25519 (non-webauthn) key is unenforceable and taints the keyGroup -> valid:false - fail closed",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "aKVhN8r0x-07Tou7lFOENdypXixuGmUA2128wQhaSEI"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:Kq4Z_SEEl9c-CCVbl3DKjPJeIN3NHGuYgrz7lhL3ue0 type=ed25519 uv=required"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      }
+    },
+    {
+      "name": "requireSecure: check stage 3 - DNSSEC-secure result still succeeds when requireSecure:true",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        },
+        {
+          "requireSecure": true
+        }
+      ],
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777456475000,
+        "groups": []
+      }
+    },
+    {
+      "name": "SECURITY requireSecure: check stage 3 - non-DNSSEC (secure:false) result is rejected with 404",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "dimly@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        },
+        {
+          "requireSecure": true
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 404,
+          "message": "Your domain does not support DNSSEC, which is required to continue."
+        }
+      }
+    },
+    {
+      "name": "requireSecure: check stage - revoked keys still return {valid:false} (valid:false path not gated)",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "jane@unconfigured.example",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        },
+        {
+          "requireSecure": true
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "unresolved"
+      }
+    },
+    {
+      "name": "key index 0 (dev[0/1]) is out of the 1..keyCount range and taints the group - valid:false reason:'revoked'",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "zeroidx@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "dnsEntries": {
+        "zeroidx._at.triauthdemo.org": {
+          "TXT": [
+            "key dev[0/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      }
+    },
+    {
+      "name": "leading-zero key index (dev[01/1]) taints the group - the wire grammar admits no leading zeros, and a lenient parseInt port that reads 01 as 1 must be caught here; valid:false reason:'revoked'",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "leadzero@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "dnsEntries": {
+        "leadzero._at.triauthdemo.org": {
+          "TXT": [
+            "key dev[01/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      }
+    },
+    {
+      "name": "unknown critical option key (color=blue) on a Key Record taints the group - only x-* option keys are experimental; valid:false reason:'revoked'",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "unkopt@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "dnsEntries": {
+        "unkopt._at.triauthdemo.org": {
+          "TXT": [
+            "key dev[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8 color=blue"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      }
+    },
+    {
+      "name": "unregistered key type (type=banana) taints the group - the registry's unknown-value rule for key types; valid:false reason:'revoked'",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "unktype@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "dnsEntries": {
+        "unktype._at.triauthdemo.org": {
+          "TXT": [
+            "key dev[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8 type=banana"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      }
+    },
+    {
+      "name": "unknown use element (use=auth,banana) taints the group - the registry's unknown-value rule for key uses; valid:false reason:'revoked'",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "unkuse@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "dnsEntries": {
+        "unkuse._at.triauthdemo.org": {
+          "TXT": [
+            "key dev[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8 use=auth,banana"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      }
+    },
+    {
+      "name": "len option present on a public-mode endpoint (mode=public len=banana) is inert - len is not an option key, so it is retained without effect and check succeeds",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@publiclen.example",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "dnsEntries": {
+        "publiclen.example": {
+          "TXT": [
+            "triauth auth.publiclen.example len=banana mode=public"
+          ]
+        },
+        "john._at.publiclen.example": {
+          "TXT": [
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777456475000,
+        "groups": []
+      }
+    },
+    {
+      "name": "delegated deviceTag with a matching include grant returns valid:true - check is a liveness re-find: the grant is use=sign yet check (which carries no flow) accepts it",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "LJwdl7N9xsSO4LV6T3gmmxVk_eXLyS58jw7czzooByw:jane@triauthdemo.org:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk"
+        }
+      ],
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777456475000,
+        "groups": []
+      },
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane@triauthdemo.org use=sign scope=any"
+          ]
+        },
+        "jane._at.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE"
+          ]
+        }
+      }
+    },
+    {
+      "name": "SECURITY: composite check with the pinned include record served without DNSSEC -> valid:true with secure:false - the subject-side resolution degrades the two-resolution AND",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "LJwdl7N9xsSO4LV6T3gmmxVk_eXLyS58jw7czzooByw:jane@triauthdemo.org:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            {
+              "value": "include jane@triauthdemo.org use=sign scope=any",
+              "ttl": 1800,
+              "dnssec": false
+            }
+          ]
+        },
+        "jane._at.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE"
+          ]
+        }
+      },
+      "expected": {
+        "valid": true,
+        "secure": false,
+        "expires": 1777456475000,
+        "groups": []
+      }
+    },
+    {
+      "name": "SECURITY: composite check with the actor's key record served without DNSSEC -> valid:true with secure:false - the actor-side resolution degrades the two-resolution AND",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "LJwdl7N9xsSO4LV6T3gmmxVk_eXLyS58jw7czzooByw:jane@triauthdemo.org:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane@triauthdemo.org use=sign scope=any"
+          ]
+        },
+        "jane._at.triauthdemo.org": {
+          "TXT": [
+            {
+              "value": "key desktop[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE",
+              "ttl": 1800,
+              "dnssec": false
+            }
+          ]
+        }
+      },
+      "expected": {
+        "valid": true,
+        "secure": false,
+        "expires": 1777456475000,
+        "groups": []
+      }
+    },
+    {
+      "name": "GROUPS: check valid:true carries the identity's current groups, fully qualified, deduplicated, and sorted",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "groups zeta,admins",
+            "groups admins,project3"
+          ]
+        }
+      },
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777456475000,
+        "groups": [
+          "admins@triauthdemo.org",
+          "project3@triauthdemo.org",
+          "zeta@triauthdemo.org"
+        ]
+      }
+    },
+    {
+      "name": "GROUPS: membership freshness - the same deviceTag against changed groups records returns the new list (periodic check replaces session-cached groups)",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "groups project3"
+          ]
+        }
+      },
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777456475000,
+        "groups": [
+          "project3@triauthdemo.org"
+        ]
+      }
+    },
+    {
+      "name": "GROUPS: composite-tag delegated check carries the SUBJECT's groups, not the actor's",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "LJwdl7N9xsSO4LV6T3gmmxVk_eXLyS58jw7czzooByw:jane@triauthdemo.org:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane@triauthdemo.org use=sign scope=any",
+            "groups admins,project3"
+          ]
+        },
+        "jane._at.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE",
+            "groups contractors"
+          ]
+        }
+      },
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777456475000,
+        "groups": [
+          "admins@triauthdemo.org",
+          "project3@triauthdemo.org"
+        ]
+      }
+    },
+    {
+      "name": "delegated deviceTag whose include grant is no longer published returns valid:false reason:revoked",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "LJwdl7N9xsSO4LV6T3gmmxVk_eXLyS58jw7czzooByw:jane@triauthdemo.org:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      },
+      "dnsEntries": {
+        "jane._at.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE"
+          ]
+        }
+      }
+    },
+    {
+      "name": "delegated deviceTag pinned to a DIFFERENT grant tag returns valid:false reason:revoked (the tag covers the ref and its critical options)",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:jane@triauthdemo.org:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      },
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane@triauthdemo.org use=sign scope=any"
+          ]
+        },
+        "jane._at.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE"
+          ]
+        }
+      }
+    },
+    {
+      "name": "delegated deviceTag whose pinned grant is scoped to another service (use=sign scope=other.example) returns valid:true - check carries no flow and no callback URL, so liveness is scope-blind",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "E8DWO4URKwSU-AsdaU5jASItOTxl5cEb_oXihAWV_9c:jane@triauthdemo.org:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk"
+        }
+      ],
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777456475000,
+        "groups": []
+      },
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane@triauthdemo.org use=sign scope=other.example"
+          ]
+        },
+        "jane._at.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE"
+          ]
+        }
+      }
+    },
+    {
+      "name": "SECURITY: delegated deviceTag pinned to the scope=any grant tag returns valid:false reason:revoked when the published grant carries a host list - scope folds into the grant tag, so editing it ends sessions established under the grant",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "LJwdl7N9xsSO4LV6T3gmmxVk_eXLyS58jw7czzooByw:jane@triauthdemo.org:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      },
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane@triauthdemo.org use=sign scope=example.com"
+          ]
+        },
+        "jane._at.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE"
+          ]
+        }
+      }
+    },
+    {
+      "name": "SECURITY: delegated deviceTag pinned to the scope=any grant tag returns valid:false reason:revoked when the published grant lacks scope - the record is ignored as a whole, so no grant matches the pinned tag",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "LJwdl7N9xsSO4LV6T3gmmxVk_eXLyS58jw7czzooByw:jane@triauthdemo.org:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane@triauthdemo.org use=sign"
+          ]
+        },
+        "jane._at.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      }
+    },
+    {
+      "name": "delegated deviceTag whose actor identity cannot be resolved returns valid:false reason:unresolved (distinct from revocation - the grant is still published)",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "OE2z5Q9GaYPfwkEg8dprJBabMYLeoSZQ55s_2VQA14w:ghost@dead.example:CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "unresolved"
+      },
+      "dnsEntries": {
+        "triauthdemo.org": {
+          "TXT": [
+            "triauth auth.triauthdemo.org include=dead.example mode=public"
+          ]
+        },
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include ghost@dead.example scope=any"
+          ]
+        }
+      }
+    },
+    {
+      "name": "malformed composite deviceTag (two segments) returns valid:false reason:revoked",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      },
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane@triauthdemo.org use=sign scope=any"
+          ]
+        },
+        "jane._at.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE"
+          ]
+        }
+      }
+    },
+    {
+      "name": "malformed composite deviceTag (non-lowercase actor identifier) returns valid:false reason:revoked",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "LJwdl7N9xsSO4LV6T3gmmxVk_eXLyS58jw7czzooByw:Jane@Triauthdemo.org:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      },
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane@triauthdemo.org use=sign scope=any"
+          ]
+        },
+        "jane._at.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE"
+          ]
+        }
+      }
+    },
+    {
+      "name": "include grant published as the 50th include record (at LIMITS.maxIncludes) is honored - the cap admits exactly maxIncludes grants",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "LJwdl7N9xsSO4LV6T3gmmxVk_eXLyS58jw7czzooByw:jane@triauthdemo.org:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk"
+        }
+      ],
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777456475000,
+        "groups": []
+      },
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include u01@triauthdemo.org scope=any",
+            "include u02@triauthdemo.org scope=any",
+            "include u03@triauthdemo.org scope=any",
+            "include u04@triauthdemo.org scope=any",
+            "include u05@triauthdemo.org scope=any",
+            "include u06@triauthdemo.org scope=any",
+            "include u07@triauthdemo.org scope=any",
+            "include u08@triauthdemo.org scope=any",
+            "include u09@triauthdemo.org scope=any",
+            "include u10@triauthdemo.org scope=any",
+            "include u11@triauthdemo.org scope=any",
+            "include u12@triauthdemo.org scope=any",
+            "include u13@triauthdemo.org scope=any",
+            "include u14@triauthdemo.org scope=any",
+            "include u15@triauthdemo.org scope=any",
+            "include u16@triauthdemo.org scope=any",
+            "include u17@triauthdemo.org scope=any",
+            "include u18@triauthdemo.org scope=any",
+            "include u19@triauthdemo.org scope=any",
+            "include u20@triauthdemo.org scope=any",
+            "include u21@triauthdemo.org scope=any",
+            "include u22@triauthdemo.org scope=any",
+            "include u23@triauthdemo.org scope=any",
+            "include u24@triauthdemo.org scope=any",
+            "include u25@triauthdemo.org scope=any",
+            "include u26@triauthdemo.org scope=any",
+            "include u27@triauthdemo.org scope=any",
+            "include u28@triauthdemo.org scope=any",
+            "include u29@triauthdemo.org scope=any",
+            "include u30@triauthdemo.org scope=any",
+            "include u31@triauthdemo.org scope=any",
+            "include u32@triauthdemo.org scope=any",
+            "include u33@triauthdemo.org scope=any",
+            "include u34@triauthdemo.org scope=any",
+            "include u35@triauthdemo.org scope=any",
+            "include u36@triauthdemo.org scope=any",
+            "include u37@triauthdemo.org scope=any",
+            "include u38@triauthdemo.org scope=any",
+            "include u39@triauthdemo.org scope=any",
+            "include u40@triauthdemo.org scope=any",
+            "include u41@triauthdemo.org scope=any",
+            "include u42@triauthdemo.org scope=any",
+            "include u43@triauthdemo.org scope=any",
+            "include u44@triauthdemo.org scope=any",
+            "include u45@triauthdemo.org scope=any",
+            "include u46@triauthdemo.org scope=any",
+            "include u47@triauthdemo.org scope=any",
+            "include u48@triauthdemo.org scope=any",
+            "include u49@triauthdemo.org scope=any",
+            "include jane@triauthdemo.org use=sign scope=any"
+          ]
+        },
+        "jane._at.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE"
+          ]
+        }
+      }
+    },
+    {
+      "name": "include grant published as the 51st include record (past LIMITS.maxIncludes=50) is skipped - the first 50 grants stay live, only the excess is ignored - returns valid:false reason:revoked",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "LJwdl7N9xsSO4LV6T3gmmxVk_eXLyS58jw7czzooByw:jane@triauthdemo.org:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      },
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include u01@triauthdemo.org scope=any",
+            "include u02@triauthdemo.org scope=any",
+            "include u03@triauthdemo.org scope=any",
+            "include u04@triauthdemo.org scope=any",
+            "include u05@triauthdemo.org scope=any",
+            "include u06@triauthdemo.org scope=any",
+            "include u07@triauthdemo.org scope=any",
+            "include u08@triauthdemo.org scope=any",
+            "include u09@triauthdemo.org scope=any",
+            "include u10@triauthdemo.org scope=any",
+            "include u11@triauthdemo.org scope=any",
+            "include u12@triauthdemo.org scope=any",
+            "include u13@triauthdemo.org scope=any",
+            "include u14@triauthdemo.org scope=any",
+            "include u15@triauthdemo.org scope=any",
+            "include u16@triauthdemo.org scope=any",
+            "include u17@triauthdemo.org scope=any",
+            "include u18@triauthdemo.org scope=any",
+            "include u19@triauthdemo.org scope=any",
+            "include u20@triauthdemo.org scope=any",
+            "include u21@triauthdemo.org scope=any",
+            "include u22@triauthdemo.org scope=any",
+            "include u23@triauthdemo.org scope=any",
+            "include u24@triauthdemo.org scope=any",
+            "include u25@triauthdemo.org scope=any",
+            "include u26@triauthdemo.org scope=any",
+            "include u27@triauthdemo.org scope=any",
+            "include u28@triauthdemo.org scope=any",
+            "include u29@triauthdemo.org scope=any",
+            "include u30@triauthdemo.org scope=any",
+            "include u31@triauthdemo.org scope=any",
+            "include u32@triauthdemo.org scope=any",
+            "include u33@triauthdemo.org scope=any",
+            "include u34@triauthdemo.org scope=any",
+            "include u35@triauthdemo.org scope=any",
+            "include u36@triauthdemo.org scope=any",
+            "include u37@triauthdemo.org scope=any",
+            "include u38@triauthdemo.org scope=any",
+            "include u39@triauthdemo.org scope=any",
+            "include u40@triauthdemo.org scope=any",
+            "include u41@triauthdemo.org scope=any",
+            "include u42@triauthdemo.org scope=any",
+            "include u43@triauthdemo.org scope=any",
+            "include u44@triauthdemo.org scope=any",
+            "include u45@triauthdemo.org scope=any",
+            "include u46@triauthdemo.org scope=any",
+            "include u47@triauthdemo.org scope=any",
+            "include u48@triauthdemo.org scope=any",
+            "include u49@triauthdemo.org scope=any",
+            "include u50@triauthdemo.org scope=any",
+            "include jane@triauthdemo.org use=sign scope=any"
+          ]
+        },
+        "jane._at.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE"
+          ]
+        }
+      }
+    },
+    {
+      "name": "PRIVATE: direct deviceTag with a ~lookupCode suffix under a private-mode domain returns valid:true - the code re-derives the identity domain and the commitment binds the records",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ~K7QJ3FB9M2WZX0C4"
+        }
+      ],
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777456475000,
+        "groups": []
+      },
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org mode=private"
+          ]
+        },
+        "_4GIBDU53B3._at.private.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "commit 3Q7YSpb3MLMRaQ20VZBUfoySyM4vQrHMfIIuAxER3_s",
+            "include bot@private.triauthdemo.org scope=any"
+          ]
+        },
+        "_HJINC5QKI5._at.private.triauthdemo.org": {
+          "TXT": [
+            "key worker[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE",
+            "commit zhDlBSKImyxtx1GqXmEjAyOyD1IUMXtOBSqGgaPAAxk"
+          ]
+        }
+      }
+    },
+    {
+      "name": "PRIVATE: a triauth record without a mode option runs the domain in private mode by default - a ~lookupCode deviceTag returns valid:true",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ~K7QJ3FB9M2WZX0C4"
+        }
+      ],
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org"
+          ]
+        },
+        "_4GIBDU53B3._at.private.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "commit 3Q7YSpb3MLMRaQ20VZBUfoySyM4vQrHMfIIuAxER3_s",
+            "include bot@private.triauthdemo.org scope=any"
+          ]
+        },
+        "_HJINC5QKI5._at.private.triauthdemo.org": {
+          "TXT": [
+            "key worker[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE",
+            "commit zhDlBSKImyxtx1GqXmEjAyOyD1IUMXtOBSqGgaPAAxk"
+          ]
+        }
+      },
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777456475000,
+        "groups": []
+      }
+    },
+    {
+      "name": "PRIVATE: a published len option on a private-mode endpoint (mode=private len=3) is inert - len is not an option key, the label stays 10 characters, so the identity resolves at the same identity domain and check succeeds",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ~K7QJ3FB9M2WZX0C4"
+        }
+      ],
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org mode=private len=3"
+          ]
+        },
+        "_4GIBDU53B3._at.private.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "commit 3Q7YSpb3MLMRaQ20VZBUfoySyM4vQrHMfIIuAxER3_s",
+            "include bot@private.triauthdemo.org scope=any"
+          ]
+        },
+        "_HJINC5QKI5._at.private.triauthdemo.org": {
+          "TXT": [
+            "key worker[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE",
+            "commit zhDlBSKImyxtx1GqXmEjAyOyD1IUMXtOBSqGgaPAAxk"
+          ]
+        }
+      },
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777456475000,
+        "groups": []
+      }
+    },
+    {
+      "name": "PRIVATE: fully suffixed delegated walk (grantTag~code:actor:devTag~actorCode, both zones in private mode) returns valid:true - each tag component carries the lookup code of the zone it resolves in",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "deviceTag": "xWTc41dXgUffq9o3l--65pft8Krd4brzRClBmf5FgnQ~K7QJ3FB9M2WZX0C4:bot@private.triauthdemo.org:uNQy63yMb_vB6Sb5ZBP8HjMDy5YDK6BIre8Mt0Q4CJM~P2M8XCV4KQ0RZJ5T"
+        }
+      ],
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777456475000,
+        "groups": []
+      },
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org mode=private"
+          ]
+        },
+        "_4GIBDU53B3._at.private.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "commit 3Q7YSpb3MLMRaQ20VZBUfoySyM4vQrHMfIIuAxER3_s",
+            "include bot@private.triauthdemo.org scope=any"
+          ]
+        },
+        "_HJINC5QKI5._at.private.triauthdemo.org": {
+          "TXT": [
+            "key worker[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE",
+            "commit zhDlBSKImyxtx1GqXmEjAyOyD1IUMXtOBSqGgaPAAxk"
+          ]
+        }
+      }
+    },
+    {
+      "name": "PRIVATE: subject-only suffixed delegated walk (private-mode subject, public-mode actor) returns valid:true - only the grant component carries a lookup code",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "deviceTag": "7DXWKDmFtvwvhJFbWyWiOh3IpjslfStuPz5ac_PT1KU~K7QJ3FB9M2WZX0C4:jane@triauthdemo.org:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk"
+        }
+      ],
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777456475000,
+        "groups": []
+      },
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org mode=private include=triauthdemo.org"
+          ]
+        },
+        "_4GIBDU53B3._at.private.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "commit 3Q7YSpb3MLMRaQ20VZBUfoySyM4vQrHMfIIuAxER3_s",
+            "include jane@triauthdemo.org scope=any"
+          ]
+        },
+        "jane._at.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE"
+          ]
+        }
+      }
+    },
+    {
+      "name": "PRIVATE: actor-only suffixed delegated walk (public-mode subject, private-mode actor) returns valid:true - only the device component carries a lookup code, and the actor's own commitment binds its records",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "xWTc41dXgUffq9o3l--65pft8Krd4brzRClBmf5FgnQ:bot@private.triauthdemo.org:uNQy63yMb_vB6Sb5ZBP8HjMDy5YDK6BIre8Mt0Q4CJM~P2M8XCV4KQ0RZJ5T"
+        }
+      ],
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777456475000,
+        "groups": []
+      },
+      "dnsEntries": {
+        "triauthdemo.org": {
+          "TXT": [
+            "triauth auth.triauthdemo.org include=private.triauthdemo.org mode=public"
+          ]
+        },
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include bot@private.triauthdemo.org scope=any"
+          ]
+        },
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org mode=private"
+          ]
+        },
+        "_HJINC5QKI5._at.private.triauthdemo.org": {
+          "TXT": [
+            "key worker[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE",
+            "commit zhDlBSKImyxtx1GqXmEjAyOyD1IUMXtOBSqGgaPAAxk"
+          ]
+        }
+      }
+    },
+    {
+      "name": "PRIVATE: a suffix-less direct deviceTag under a private-mode domain returns valid:false reason:unresolved - the identity domain cannot derive without the lookup code",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "unresolved"
+      },
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org mode=private"
+          ]
+        },
+        "_4GIBDU53B3._at.private.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "commit 3Q7YSpb3MLMRaQ20VZBUfoySyM4vQrHMfIIuAxER3_s",
+            "include bot@private.triauthdemo.org scope=any"
+          ]
+        },
+        "_HJINC5QKI5._at.private.triauthdemo.org": {
+          "TXT": [
+            "key worker[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE",
+            "commit zhDlBSKImyxtx1GqXmEjAyOyD1IUMXtOBSqGgaPAAxk"
+          ]
+        }
+      }
+    },
+    {
+      "name": "PRIVATE: a ~lookupCode suffix on a deviceTag under a public-mode domain returns valid:true - the walk strips the suffix before comparing bare digests, so a handle minted while the domain ran mode=private keeps resolving after the domain switches away from it",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ~K7QJ3FB9M2WZX0C4"
+        }
+      ],
+      "expected": {
+        "valid": true,
+        "secure": true,
+        "expires": 1777456475000,
+        "groups": []
+      }
+    },
+    {
+      "name": "PRIVATE: a 15-character lookup-code suffix (one under the exact 16) returns valid:false reason:unresolved",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ~K7QJ3FB9M2WZX0C"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "unresolved"
+      },
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org mode=private"
+          ]
+        },
+        "_4GIBDU53B3._at.private.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "commit 3Q7YSpb3MLMRaQ20VZBUfoySyM4vQrHMfIIuAxER3_s",
+            "include bot@private.triauthdemo.org scope=any"
+          ]
+        },
+        "_HJINC5QKI5._at.private.triauthdemo.org": {
+          "TXT": [
+            "key worker[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE",
+            "commit zhDlBSKImyxtx1GqXmEjAyOyD1IUMXtOBSqGgaPAAxk"
+          ]
+        }
+      }
+    },
+    {
+      "name": "PRIVATE: a lowercase lookup-code suffix returns valid:false reason:unresolved - the [A-Z0-9]{16} grammar is strict, with no case folding",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ~k7qj3fb9m2wzx0c4"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "unresolved"
+      },
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org mode=private"
+          ]
+        },
+        "_4GIBDU53B3._at.private.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "commit 3Q7YSpb3MLMRaQ20VZBUfoySyM4vQrHMfIIuAxER3_s",
+            "include bot@private.triauthdemo.org scope=any"
+          ]
+        },
+        "_HJINC5QKI5._at.private.triauthdemo.org": {
+          "TXT": [
+            "key worker[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE",
+            "commit zhDlBSKImyxtx1GqXmEjAyOyD1IUMXtOBSqGgaPAAxk"
+          ]
+        }
+      }
+    },
+    {
+      "name": "PRIVATE: a well-formed but wrong lookup-code suffix derives an unpublished identity domain and returns valid:false reason:unresolved",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ~ZZZZZZZZZZZZZZZZ"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "unresolved"
+      },
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org mode=private"
+          ]
+        },
+        "_4GIBDU53B3._at.private.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "commit 3Q7YSpb3MLMRaQ20VZBUfoySyM4vQrHMfIIuAxER3_s",
+            "include bot@private.triauthdemo.org scope=any"
+          ]
+        },
+        "_HJINC5QKI5._at.private.triauthdemo.org": {
+          "TXT": [
+            "key worker[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE",
+            "commit zhDlBSKImyxtx1GqXmEjAyOyD1IUMXtOBSqGgaPAAxk"
+          ]
+        }
+      }
+    },
+    {
+      "name": "PRIVATE SECURITY: a ~lookupCode on the ACTOR component returns valid:false reason:revoked - codes attach to tag components only, and an actor identifier carrying '~' fails the identifier grammar",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "deviceTag": "xWTc41dXgUffq9o3l--65pft8Krd4brzRClBmf5FgnQ~K7QJ3FB9M2WZX0C4:bot@private.triauthdemo.org~P2M8XCV4KQ0RZJ5T:uNQy63yMb_vB6Sb5ZBP8HjMDy5YDK6BIre8Mt0Q4CJM"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      },
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org mode=private"
+          ]
+        },
+        "_4GIBDU53B3._at.private.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "commit 3Q7YSpb3MLMRaQ20VZBUfoySyM4vQrHMfIIuAxER3_s",
+            "include bot@private.triauthdemo.org scope=any"
+          ]
+        },
+        "_HJINC5QKI5._at.private.triauthdemo.org": {
+          "TXT": [
+            "key worker[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE",
+            "commit zhDlBSKImyxtx1GqXmEjAyOyD1IUMXtOBSqGgaPAAxk"
+          ]
+        }
+      }
+    },
+    {
+      "name": "PRIVATE: a ~lookupCode on the grant component under a PUBLIC-mode subject returns valid:false reason:revoked - the suffix is stripped before the grant tag is matched, and this public-mode subject publishes no such grant",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "deviceTag": "xWTc41dXgUffq9o3l--65pft8Krd4brzRClBmf5FgnQ~K7QJ3FB9M2WZX0C4:bot@private.triauthdemo.org:uNQy63yMb_vB6Sb5ZBP8HjMDy5YDK6BIre8Mt0Q4CJM~P2M8XCV4KQ0RZJ5T"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      },
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org mode=private"
+          ]
+        },
+        "_HJINC5QKI5._at.private.triauthdemo.org": {
+          "TXT": [
+            "key worker[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE",
+            "commit zhDlBSKImyxtx1GqXmEjAyOyD1IUMXtOBSqGgaPAAxk"
+          ]
+        }
+      }
+    },
+    {
+      "name": "PRIVATE SECURITY: a mismatched commit record returns valid:false reason:unresolved - a failed binding is treated as publishing no records",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ~K7QJ3FB9M2WZX0C4"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "unresolved"
+      },
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org mode=private"
+          ]
+        },
+        "_4GIBDU53B3._at.private.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "commit d6aULTkSobj2sWOyq-SPQq403YvOeMaZdmP9GsATkIA"
+          ]
+        }
+      }
+    },
+    {
+      "name": "PRIVATE: a revoked actor device under the fully suffixed walk returns valid:false reason:revoked - the actor's zone no longer publishes the worker device",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "deviceTag": "xWTc41dXgUffq9o3l--65pft8Krd4brzRClBmf5FgnQ~K7QJ3FB9M2WZX0C4:bot@private.triauthdemo.org:uNQy63yMb_vB6Sb5ZBP8HjMDy5YDK6BIre8Mt0Q4CJM~P2M8XCV4KQ0RZJ5T"
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "revoked"
+      },
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org mode=private"
+          ]
+        },
+        "_4GIBDU53B3._at.private.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "commit 3Q7YSpb3MLMRaQ20VZBUfoySyM4vQrHMfIIuAxER3_s",
+            "include bot@private.triauthdemo.org scope=any"
+          ]
+        },
+        "_HJINC5QKI5._at.private.triauthdemo.org": {
+          "TXT": [
+            "key other[1/1]:BH0BEkf4wfTawLanz-btFEZQuvAsZF31mZ-mlLslWODUU1g9C68mFNF6FcnX8UiYdFeEDTP_5WoFCVf6EOXaTnE",
+            "commit zhDlBSKImyxtx1GqXmEjAyOyD1IUMXtOBSqGgaPAAxk"
+          ]
+        }
+      }
+    },
+    {
+      "name": "PRIVATE: a commit record served without DNSSEC returns valid:true with secure:false - the binding verifies while the resolution-level status degrades",
+      "call": "check",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ~K7QJ3FB9M2WZX0C4"
+        }
+      ],
+      "expected": {
+        "valid": true,
+        "secure": false,
+        "expires": 1777456475000,
+        "groups": []
+      },
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org mode=private"
+          ]
+        },
+        "_4GIBDU53B3._at.private.triauthdemo.org": {
+          "TXT": [
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            {
+              "value": "commit 3Q7YSpb3MLMRaQ20VZBUfoySyM4vQrHMfIIuAxER3_s",
+              "ttl": 1800,
+              "dnssec": false
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

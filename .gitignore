@@ -1,2 +1,10 @@
+.idea/
+.vscode/
+.private/
+.agents/
+.claude/
+.codex/
 node_modules/
+dist/
 *.tgz
+.wrangler/

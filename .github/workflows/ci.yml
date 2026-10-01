@@ -1,0 +1,73 @@
+name: CI pipeline
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  schedule:
+    # Weekly run so newly-disclosed advisories surface without a commit.
+    - cron: "0 6 * * 1"
+  workflow_dispatch: {}
+
+# A newer commit on the same branch/PR supersedes in-flight runs.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: the whole pipeline only needs to read the repo.
+permissions:
+  contents: read
+
+jobs:
+  check-build:
+    name: Check & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24.x
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+      - name: Smoke-test built artifacts (ESM + CJS resolve and export the API)
+        run: |
+          node --input-type=module   -e "import('triauth').then(m=>{if(typeof m.authenticate!=='function')throw new Error('ESM entry broken')})"
+          node --input-type=commonjs -e "if(typeof require('triauth').authenticate!=='function')throw new Error('CJS entry broken')"
+
+  test:
+    name: Tests ${{ matrix.os }} node-${{ matrix.node-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node-version: [18.x, 20.x, 22.x, 24.x, 26.x]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - run: npm ci
+      - name: Run all tests
+        run: npm test
+
+  dependency-audit:
+    name: devDependency security audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 22.x
+      - name: Audit dependencies
+        run: npm audit --audit-level=moderate

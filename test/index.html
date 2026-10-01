@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Mocha Tests | triauth-js</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/mocha@10.2.0/mocha.css" />
+
+  <style>
+    #mocha-stats { top:70px; }
+  </style>
+</head>
+
+<body>
+  <header>
+    <a href="/">&laquo; Back</a>
+    <h2>triauth-js test report</h2>
+  </header>
+
+  <div id="mocha"></div>
+
+  <script src="https://unpkg.com/chai@4.3.10/chai.js"></script>
+  <script src="https://unpkg.com/mocha@10.2.0/mocha.js"></script>
+  <script src="/triauth.js"></script>
+
+  <script class="mocha-init">
+    mocha.setup('bdd');
+    mocha.checkLeaks();
+    mocha.timeout(20000);
+    assert = chai.assert;
+
+    // --- Node `assert` compatibility shim for the browser ---
+    // chai.assert has no rejects/doesNotReject, and its throws/doesNotThrow treat arg 2 as an
+    // Error constructor (an arrow-function validator triggers "errorLike is not a constructor").
+    // Re-implement these four with Node semantics so the suite's Node-assert idioms run unchanged.
+    // chai 4.3.10 already provides deepStrictEqual/deepEqual/match/instanceOf/fail, so those need no shim.
+    (function (a) {
+      function matches(err, expected) {
+        if (expected == null || typeof expected === 'string') return;      // any error accepted
+        if (expected instanceof RegExp) {
+          a.match(String(err && err.message != null ? err.message : err), expected);
+          return;
+        }
+        if (typeof expected === 'function') {
+          if (expected.prototype instanceof Error || expected === Error) { // Error constructor
+            a.instanceOf(err, expected);
+            return;
+          }
+          if (expected(err) !== true) a.fail('validation function did not return true'); // arrow validator
+          return;
+        }
+        if (typeof expected === 'object') {                                // property bag
+          for (const k of Object.keys(expected)) a.deepEqual(err[k], expected[k]);
+        }
+      }
+      a.throws = function (fn, expected, msg) {
+        let e;
+        try { fn(); } catch (x) { e = x; }
+        if (!e) a.fail(msg || 'Missing expected exception');
+        matches(e, expected);
+      };
+      a.doesNotThrow = function (fn, msg) {
+        try { fn(); } catch (x) { a.fail(msg || ('Got unwanted exception: ' + x)); }
+      };
+      a.rejects = async function (b, expected, msg) {
+        let e;
+        try { await (typeof b === 'function' ? b() : b); } catch (x) { e = x; }
+        if (!e) a.fail(msg || 'Missing expected rejection');
+        matches(e, expected);
+      };
+      a.doesNotReject = async function (b, msg) {
+        try { await (typeof b === 'function' ? b() : b); } catch (x) { a.fail(msg || ('Got unwanted rejection: ' + x)); }
+      };
+    })(assert);
+  </script>
+  <script src="test.js"></script>
+  <script class="mocha-exec">
+    mocha.run();
+  </script>
+</body>
+</html>

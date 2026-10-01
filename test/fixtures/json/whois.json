@@ -1,0 +1,4175 @@
+{
+  "title": "whois",
+  "description": "Identity lookup behavior across DNS configurations",
+  "dnsEntries": {
+    "triauthdemo.org": {
+      "TXT": [
+        "triauth auth.triauthdemo.org mode=public"
+      ]
+    },
+    "john._at.triauthdemo.org": {
+      "TXT": [
+        "initials JD",
+        "name John Doe",
+        "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+      ]
+    },
+    "example.com": null
+  },
+  "currentTime": 1777454675000,
+  "tests": [
+    {
+      "name": "domain not configured for triauth returns status -1",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "jane@example.com"
+        }
+      ],
+      "expected": {
+        "status": -1,
+        "identifier": "jane@example.com"
+      }
+    },
+    {
+      "name": "configured domain, unknown identifier returns status 0",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "jane@triauthdemo.org"
+        }
+      ],
+      "expected": {
+        "status": 0,
+        "identifier": "jane@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "jane._at.triauthdemo.org"
+      }
+    },
+    {
+      "name": "per-test dnsEntries patch can NXDOMAIN a previously known domain",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "triauthdemo.org": null
+      },
+      "expected": {
+        "status": -1,
+        "identifier": "john@triauthdemo.org"
+      }
+    },
+    {
+      "name": "triauth record whose value carries a port (auth.porthost.example:8443) does not qualify as an endpoint host — Helpers.isDomainName rejects it in AuthenticationEndpoint.resolve(), domain reports status -1",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "user@porthost.example"
+        }
+      ],
+      "dnsEntries": {
+        "porthost.example": {
+          "TXT": [
+            "triauth auth.porthost.example:8443 mode=public"
+          ]
+        }
+      },
+      "expected": {
+        "status": -1,
+        "identifier": "user@porthost.example"
+      }
+    },
+    {
+      "name": "triauth record without a mode option runs the domain in private mode by default - whois without a lookup code reports status 0 and no identity domain, and the endpoint options report the defaults (mode=private, include=any)",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "user@nomode.example"
+        }
+      ],
+      "dnsEntries": {
+        "nomode.example": {
+          "TXT": [
+            "triauth auth.nomode.example"
+          ]
+        }
+      },
+      "expected": {
+        "status": 0,
+        "identifier": "user@nomode.example",
+        "authenticationEndpoint": {
+          "url": "https://auth.nomode.example/",
+          "options": {
+            "mode": "private",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": null
+      }
+    },
+    {
+      "name": "triauth record with mode=Public (uppercase) configures the endpoint but derives no identity domain - mode values are literal and case-sensitive; whois reports status 0 with the value verbatim",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "user@casemode.example"
+        }
+      ],
+      "dnsEntries": {
+        "casemode.example": {
+          "TXT": [
+            "triauth auth.casemode.example mode=Public"
+          ]
+        }
+      },
+      "expected": {
+        "status": 0,
+        "identifier": "user@casemode.example",
+        "authenticationEndpoint": {
+          "url": "https://auth.casemode.example/",
+          "options": {
+            "mode": "Public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": null
+      }
+    },
+    {
+      "name": "triauth record with an unregistered mode (mode=unknownmode) configures the endpoint but derives no identity domain - whois reports status 0 with the value verbatim",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "user@unknownmode.example"
+        }
+      ],
+      "dnsEntries": {
+        "unknownmode.example": {
+          "TXT": [
+            "triauth auth.unknownmode.example mode=unknownmode"
+          ]
+        }
+      },
+      "expected": {
+        "status": 0,
+        "identifier": "user@unknownmode.example",
+        "authenticationEndpoint": {
+          "url": "https://auth.unknownmode.example/",
+          "options": {
+            "mode": "unknownmode",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": null
+      }
+    },
+    {
+      "name": "triauth record whose value carries a path (auth.pathhost.example/auth) does not qualify as an endpoint host — Helpers.isDomainName rejects it in AuthenticationEndpoint.resolve(), domain reports status -1",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "user@pathhost.example"
+        }
+      ],
+      "dnsEntries": {
+        "pathhost.example": {
+          "TXT": [
+            "triauth auth.pathhost.example/auth mode=public"
+          ]
+        }
+      },
+      "expected": {
+        "status": -1,
+        "identifier": "user@pathhost.example"
+      }
+    },
+    {
+      "name": "triauth record whose value is an exotic IPv4 notation (0x7f.0x1) does not qualify as an endpoint host — the numeric-final-label guard in Helpers.isDomainName rejects it in AuthenticationEndpoint.resolve(), domain reports status -1",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "user@numerichost.example"
+        }
+      ],
+      "dnsEntries": {
+        "numerichost.example": {
+          "TXT": [
+            "triauth 0x7f.0x1 mode=public"
+          ]
+        }
+      },
+      "expected": {
+        "status": -1,
+        "identifier": "user@numerichost.example"
+      }
+    },
+    {
+      "name": "triauth record whose value carries a punycode label (xn--mller-kva.de) does not qualify as an endpoint host — Helpers.isDomainName blocks xn-- labels in AuthenticationEndpoint.resolve(), domain reports status -1",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "user@punyhost.example"
+        }
+      ],
+      "dnsEntries": {
+        "punyhost.example": {
+          "TXT": [
+            "triauth xn--mller-kva.de mode=public"
+          ]
+        }
+      },
+      "expected": {
+        "status": -1,
+        "identifier": "user@punyhost.example"
+      }
+    },
+    {
+      "name": "triauth record with an uppercase endpoint host (AUTH.Uppercase.Example) is accepted case-insensitively and the endpoint URL is lowercased — src/authentication_endpoint.js compares candidate.hostname to value.toLowerCase()",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "user@uppercase.example"
+        }
+      ],
+      "dnsEntries": {
+        "uppercase.example": {
+          "TXT": [
+            "triauth AUTH.Uppercase.Example mode=public"
+          ]
+        }
+      },
+      "expected": {
+        "status": 0,
+        "identifier": "user@uppercase.example",
+        "authenticationEndpoint": {
+          "url": "https://auth.uppercase.example/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "user._at.uppercase.example"
+      }
+    },
+    {
+      "name": "unknown option on the triauth record (color=blue) is retained in authenticationEndpoint.options and selects nothing — unknown endpoint options are non-critical in protocol v1",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "user@colorful.example"
+        }
+      ],
+      "dnsEntries": {
+        "colorful.example": {
+          "TXT": [
+            "triauth auth.colorful.example color=blue mode=public"
+          ]
+        }
+      },
+      "expected": {
+        "status": 0,
+        "identifier": "user@colorful.example",
+        "authenticationEndpoint": {
+          "url": "https://auth.colorful.example/",
+          "options": {
+            "color": "blue",
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "user._at.colorful.example"
+      }
+    },
+    {
+      "name": "known identifier returns status 1 with public profile and devices",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "SECURITY: endpoint triauth record with dnssec:false caps the resolution-level secure to false even though the key records are DNSSEC-validated",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "triauthdemo.org": {
+          "TXT": [
+            {
+              "value": "triauth auth.triauthdemo.org mode=public",
+              "ttl": 1800,
+              "dnssec": false
+            }
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": false
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": false,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "SECURITY: uv=required on a non-webauthn (es256) key is unenforceable and taints the keyGroup -> device excluded from devices - fail closed",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8 uv=required"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [],
+        "includes": []
+      }
+    },
+    {
+      "name": "key record with type=ed25519 forms a valid device listing (requires the ed25519 verifier to be registered)",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:Kq4Z_SEEl9c-CCVbl3DKjPJeIN3NHGuYgrz7lhL3ue0 type=ed25519"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "aKVhN8r0x-07Tou7lFOENdypXixuGmUA2128wQhaSEI",
+            "keys": [
+              {
+                "value": "Kq4Z_SEEl9c-CCVbl3DKjPJeIN3NHGuYgrz7lhL3ue0",
+                "options": {
+                  "type": "ed25519",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "SECURITY: uv=required on an ed25519 (non-webauthn) key is unenforceable and taints the keyGroup -> device excluded from devices - fail closed",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:Kq4Z_SEEl9c-CCVbl3DKjPJeIN3NHGuYgrz7lhL3ue0 type=ed25519 uv=required"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [],
+        "includes": []
+      }
+    },
+    {
+      "name": "SECURITY: split key group with only its final fragment published (laptop[2/2] alone, no laptop[1/2]) is not a device — validity requires every declared slot populated (populated-slot count at src/identity_keys.js:153-157, not keys.length, which the lone last-index write already inflates to keyCount), so the incomplete group is excluded from devices - fail closed",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key laptop[2/2]:BLglw14iw47KUztRHdeKNfBBBMf5P4SsZg9O9za44mO2BceHZlcQwFmtO1crjVNnwwZszqtMhErs3divGeQrQI4"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [],
+        "includes": []
+      }
+    },
+    {
+      "name": "publicProfile recognizes name/initials and passes through x- extensions; unrecognized keywords (incl. former 'roles'/'title') and over-long x- keys are dropped",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "name John Doe",
+            "initials JD",
+            "tagline Builder of things",
+            "x-team Platform",
+            "roles admin",
+            "title CTO",
+            "future-feature whatever",
+            "x-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa dropped",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "name": "John Doe",
+          "initials": "JD",
+          "x-team": "Platform"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "publicProfile value keeps '=' text outside the trailing option run intact (mid-record tokens are not options)",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "name John x-a=1 Doe",
+            "initials JD",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "name": "John x-a=1 Doe",
+          "initials": "JD"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "trailing-run parsing: sub-token '=' (a+b=c) stays value text; a trailing x- option on a key record is retained verbatim (no decoding at the record layer) and leaves the deviceTag unchanged",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "name Q=P Industries",
+            "x-motto price a+b=c",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8 x-note=hello%20there"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "name": "Q=P Industries",
+          "x-motto": "price a+b=c"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "x-note": "hello%20there",
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "option values are literal - x-note=bad%0Aline is retained verbatim (%0A is two characters, not a newline; nothing percent-decodes at the record layer), and the record stays effective",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "optbad@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "optbad._at.triauthdemo.org": {
+          "TXT": [
+            "name Opt Bad",
+            "initials OB x-note=bad%0Aline",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "optbad@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "optbad._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "name": "Opt Bad",
+          "initials": "OB"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "a profile value with a malformed percent escape (name 50% off) fails its decoding and the record contributes nothing; sibling records unaffected",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "pctbad@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "pctbad._at.triauthdemo.org": {
+          "TXT": [
+            "name 50% off",
+            "initials PB",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "pctbad@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "pctbad._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "PB"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "SECURITY: a publicProfile keyword appearing more than once is dropped entirely (ambiguous; no first/last-wins) for both reserved and x- keywords",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "name First",
+            "name Second",
+            "initials JD",
+            "x-dup one",
+            "x-dup two",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "SECURITY: a publicProfile value longer than the byte cap is rejected (not truncated)",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "SECURITY: the number of distinct x- extensions is capped (only the first publicProfileMaxExtensions are kept)",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "x-f0 v0",
+            "x-f1 v1",
+            "x-f2 v2",
+            "x-f3 v3",
+            "x-f4 v4",
+            "x-f5 v5",
+            "x-f6 v6",
+            "x-f7 v7",
+            "x-f8 v8",
+            "x-f9 v9",
+            "x-f10 v10",
+            "x-f11 v11",
+            "x-f12 v12",
+            "x-f13 v13",
+            "x-f14 v14",
+            "x-f15 v15",
+            "x-f16 v16",
+            "x-f17 v17",
+            "x-f18 v18",
+            "x-f19 v19",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "x-f0": "v0",
+          "x-f1": "v1",
+          "x-f2": "v2",
+          "x-f3": "v3",
+          "x-f4": "v4",
+          "x-f5": "v5",
+          "x-f6": "v6",
+          "x-f7": "v7",
+          "x-f8": "v8",
+          "x-f9": "v9",
+          "x-f10": "v10",
+          "x-f11": "v11",
+          "x-f12": "v12",
+          "x-f13": "v13",
+          "x-f14": "v14",
+          "x-f15": "v15"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "record keys are matched case-sensitively: an uppercase 'NAME' record is not a recognized profile key (ignored for the profile) but is still a well-formed record, so the identity EXISTS with an empty profile (identity existence needs only one well-formed record, whatever its key)",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "jane@casekey.example"
+        }
+      ],
+      "dnsEntries": {
+        "casekey.example": {
+          "TXT": [
+            "triauth auth.casekey.example mode=public"
+          ]
+        },
+        "jane._at.casekey.example": {
+          "TXT": [
+            "NAME Wrong Case"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "jane@casekey.example",
+        "authenticationEndpoint": {
+          "url": "https://auth.casekey.example/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "jane._at.casekey.example",
+        "secure": true,
+        "publicProfile": {},
+        "groups": [],
+        "devices": [],
+        "includes": []
+      }
+    },
+    {
+      "name": "an uppercase 'TRIAUTH' record key does not qualify as an Endpoint Record (case-sensitive record-key match) - the domain is not configured, status -1",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "jane@endpointcase.example"
+        }
+      ],
+      "dnsEntries": {
+        "endpointcase.example": {
+          "TXT": [
+            "TRIAUTH auth.endpointcase.example"
+          ]
+        }
+      },
+      "expected": {
+        "status": -1,
+        "identifier": "jane@endpointcase.example"
+      }
+    },
+    {
+      "name": "a record consisting only of options (name x-a=1 leaves an empty value after the trailing option run) is ignored as a whole; the sibling initials record is unaffected",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "jane@optonly.example"
+        }
+      ],
+      "dnsEntries": {
+        "optonly.example": {
+          "TXT": [
+            "triauth auth.optonly.example mode=public"
+          ]
+        },
+        "jane._at.optonly.example": {
+          "TXT": [
+            "name x-a=1",
+            "initials JD"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "jane@optonly.example",
+        "authenticationEndpoint": {
+          "url": "https://auth.optonly.example/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "jane._at.optonly.example",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD"
+        },
+        "groups": [],
+        "devices": [],
+        "includes": []
+      }
+    },
+    {
+      "name": "an option key longer than 255 bytes makes the whole record ignored (the option-key Normal-String cap); the sibling initials record is unaffected",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "jane@optkeycap.example"
+        }
+      ],
+      "dnsEntries": {
+        "optkeycap.example": {
+          "TXT": [
+            "triauth auth.optkeycap.example mode=public"
+          ]
+        },
+        "jane._at.optkeycap.example": {
+          "TXT": [
+            "name John Doe x-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=v",
+            "initials JD"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "jane@optkeycap.example",
+        "authenticationEndpoint": {
+          "url": "https://auth.optkeycap.example/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "jane._at.optkeycap.example",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD"
+        },
+        "groups": [],
+        "devices": [],
+        "includes": []
+      }
+    },
+    {
+      "name": "profile values percent-decode where they are consumed: 'name John%20Doe' publishes the display string 'John Doe'",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "jane@valdecode.example"
+        }
+      ],
+      "dnsEntries": {
+        "valdecode.example": {
+          "TXT": [
+            "triauth auth.valdecode.example mode=public"
+          ]
+        },
+        "jane._at.valdecode.example": {
+          "TXT": [
+            "name John%20Doe"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "jane@valdecode.example",
+        "authenticationEndpoint": {
+          "url": "https://auth.valdecode.example/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "jane._at.valdecode.example",
+        "secure": true,
+        "publicProfile": {
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [],
+        "includes": []
+      }
+    },
+    {
+      "name": "a literal percent in a profile value is published as %25 ('x-slogan 50%25 off' -> '50% off'); machine values never decode, so they need no such escape",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "jane@pctliteral.example"
+        }
+      ],
+      "dnsEntries": {
+        "pctliteral.example": {
+          "TXT": [
+            "triauth auth.pctliteral.example mode=public"
+          ]
+        },
+        "jane._at.pctliteral.example": {
+          "TXT": [
+            "x-slogan 50%25 off"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "jane@pctliteral.example",
+        "authenticationEndpoint": {
+          "url": "https://auth.pctliteral.example/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "jane._at.pctliteral.example",
+        "secure": true,
+        "publicProfile": {
+          "x-slogan": "50% off"
+        },
+        "groups": [],
+        "devices": [],
+        "includes": []
+      }
+    },
+    {
+      "name": "a profile value with non-ASCII Unicode letters (name Zoë Müller) is a Normal String and is delivered verbatim",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "jane@unicodename.example"
+        }
+      ],
+      "dnsEntries": {
+        "unicodename.example": {
+          "TXT": [
+            "triauth auth.unicodename.example mode=public"
+          ]
+        },
+        "jane._at.unicodename.example": {
+          "TXT": [
+            "name Zoë Müller"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "jane@unicodename.example",
+        "authenticationEndpoint": {
+          "url": "https://auth.unicodename.example/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "jane._at.unicodename.example",
+        "secure": true,
+        "publicProfile": {
+          "name": "Zoë Müller"
+        },
+        "groups": [],
+        "devices": [],
+        "includes": []
+      }
+    },
+    {
+      "name": "an x- profile record key longer than 64 bytes is not accepted as an extension field (record ignored); the sibling initials record is unaffected",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "jane@xkeycap.example"
+        }
+      ],
+      "dnsEntries": {
+        "xkeycap.example": {
+          "TXT": [
+            "triauth auth.xkeycap.example mode=public"
+          ]
+        },
+        "jane._at.xkeycap.example": {
+          "TXT": [
+            "x-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa value",
+            "initials JD"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "jane@xkeycap.example",
+        "authenticationEndpoint": {
+          "url": "https://auth.xkeycap.example/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "jane._at.xkeycap.example",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD"
+        },
+        "groups": [],
+        "devices": [],
+        "includes": []
+      }
+    },
+    {
+      "name": "a profile value of exactly 255 bytes (the cap) is kept - strict-greater check, boundary companion of the over-cap rejection case",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "jane@profilecap.example"
+        }
+      ],
+      "dnsEntries": {
+        "profilecap.example": {
+          "TXT": [
+            "triauth auth.profilecap.example mode=public"
+          ]
+        },
+        "jane._at.profilecap.example": {
+          "TXT": [
+            "name ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "jane@profilecap.example",
+        "authenticationEndpoint": {
+          "url": "https://auth.profilecap.example/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "jane._at.profilecap.example",
+        "secure": true,
+        "publicProfile": {
+          "name": "ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp"
+        },
+        "groups": [],
+        "devices": [],
+        "includes": []
+      }
+    },
+    {
+      "name": "an endpoint host label of 64 characters exceeds the 63-character DNS label cap - the record does not qualify, status -1",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "jane@label64.example"
+        }
+      ],
+      "dnsEntries": {
+        "label64.example": {
+          "TXT": [
+            "triauth llllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll.endpointhost.example mode=public"
+          ]
+        }
+      },
+      "expected": {
+        "status": -1,
+        "identifier": "jane@label64.example"
+      }
+    },
+    {
+      "name": "an endpoint host whose final label is a single character (auth.x) violates the 2-character final-label minimum - the record does not qualify, status -1",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "jane@label1.example"
+        }
+      ],
+      "dnsEntries": {
+        "label1.example": {
+          "TXT": [
+            "triauth auth.x mode=public"
+          ]
+        }
+      },
+      "expected": {
+        "status": -1,
+        "identifier": "jane@label1.example"
+      }
+    },
+    {
+      "name": "an endpoint host label of exactly 63 characters (the DNS label cap) qualifies - boundary companion of the 64-character rejection",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "jane@label63.example"
+        }
+      ],
+      "dnsEntries": {
+        "label63.example": {
+          "TXT": [
+            "triauth lllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll.endpointhost.example mode=public"
+          ]
+        }
+      },
+      "expected": {
+        "status": 0,
+        "identifier": "jane@label63.example",
+        "authenticationEndpoint": {
+          "url": "https://lllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll.endpointhost.example/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "jane._at.label63.example"
+      }
+    },
+    {
+      "name": "key data of exactly 1024 base64url characters (the cap) forms a valid, listed Device - whois derives the Device Tag without importing the key; boundary companion of check's over-1024 taint case",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "jane@keycap.example"
+        }
+      ],
+      "dnsEntries": {
+        "keycap.example": {
+          "TXT": [
+            "triauth auth.keycap.example mode=public"
+          ]
+        },
+        "jane._at.keycap.example": {
+          "TXT": [
+            "key big[1/1]:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "jane@keycap.example",
+        "authenticationEndpoint": {
+          "url": "https://auth.keycap.example/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "jane._at.keycap.example",
+        "secure": true,
+        "publicProfile": {},
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "big",
+            "deviceTag": "W91X9kSlhSWj0yFCero8FKv2LxlhE_jNiB0X8gstvqc",
+            "keys": [
+              {
+                "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "identifier publishing include records lists them under includes, ordered by grant tag, refs in either spelling (identifier or identity domain) - the jane grant's tag equals the first segment of check's delegated composite deviceTag",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane@triauthdemo.org use=sign scope=any",
+            "include bob._at.triauthdemo.org scope=any"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": [
+          {
+            "ref": "jane@triauthdemo.org",
+            "options": {
+              "use": "sign",
+              "scope": "any"
+            },
+            "tag": "LJwdl7N9xsSO4LV6T3gmmxVk_eXLyS58jw7czzooByw"
+          },
+          {
+            "ref": "bob._at.triauthdemo.org",
+            "options": {
+              "scope": "any",
+              "use": "attest,auth,ping,sign,stamp"
+            },
+            "tag": "uWh5H1PyUMYCdpAVWEylXRB4I6AW-PXpn6k47oVwQcw"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a foreign-domain include ref is listed under the default (any) include policy",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include partner@other.example use=sign scope=any"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": [
+          {
+            "ref": "partner@other.example",
+            "options": {
+              "use": "sign",
+              "scope": "any"
+            },
+            "tag": "f-9M8eDW50ehKXg-IcIW9qbjyb4mpoN2dgU2jvaezUk"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SECURITY: a foreign-domain include ref is not listed under an include=local policy",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "triauthdemo.org": {
+          "TXT": [
+            "triauth auth.triauthdemo.org include=local mode=public"
+          ]
+        },
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include partner@other.example use=sign scope=any"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "include": "local",
+            "mode": "public"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "a foreign-domain include ref is listed when the endpoint record's include option allowlists its domain",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "triauthdemo.org": {
+          "TXT": [
+            "triauth auth.triauthdemo.org include=local,other.example mode=public"
+          ]
+        },
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include partner@other.example use=sign scope=any"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "include": "local,other.example",
+            "mode": "public"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": [
+          {
+            "ref": "partner@other.example",
+            "options": {
+              "use": "sign",
+              "scope": "any"
+            },
+            "tag": "f-9M8eDW50ehKXg-IcIW9qbjyb4mpoN2dgU2jvaezUk"
+          }
+        ]
+      }
+    },
+    {
+      "name": "an identity publishing only include records resolves with status 1, an empty devices list, and its grants under includes",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "jane@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "jane._at.triauthdemo.org": {
+          "TXT": [
+            "include john@triauthdemo.org use=stamp scope=any"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "jane@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "jane._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {},
+        "groups": [],
+        "devices": [],
+        "includes": [
+          {
+            "ref": "john@triauthdemo.org",
+            "options": {
+              "use": "stamp",
+              "scope": "any"
+            },
+            "tag": "24vTkKrbMwbcDOSBY7JA5mk1GlIVn3lardQJ4bueEsM"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SECURITY: endpoint triauth record with dnssec:false caps the resolution-level secure to false even though the include records are DNSSEC-validated",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "triauthdemo.org": {
+          "TXT": [
+            {
+              "value": "triauth auth.triauthdemo.org mode=public",
+              "ttl": 1800,
+              "dnssec": false
+            }
+          ]
+        },
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane@triauthdemo.org use=sign scope=any"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": false
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": false,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": [
+          {
+            "ref": "jane@triauthdemo.org",
+            "options": {
+              "use": "sign",
+              "scope": "any"
+            },
+            "tag": "LJwdl7N9xsSO4LV6T3gmmxVk_eXLyS58jw7czzooByw"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SECURITY: an include with an unrecognized critical option is not listed (fail closed); x- experimental options are retained",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane@triauthdemo.org color=blue scope=any",
+            "include bob@triauthdemo.org use=ping x-note=hi scope=any"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": [
+          {
+            "ref": "bob@triauthdemo.org",
+            "options": {
+              "use": "ping",
+              "x-note": "hi",
+              "scope": "any"
+            },
+            "tag": "TH0o0GplNAk4bWfTIALyJ1UBaNx8o6JaReNsHsN5nxg"
+          }
+        ]
+      }
+    },
+    {
+      "name": "an include ref with a `+` in its username is not an Identifier, so the record is ignored",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane+work@triauthdemo.org scope=any"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "an include grant carrying a scope option is listed with scope in options and a grant tag that folds it - scope narrows where the grant works, and the tag pins its exact terms",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane@triauthdemo.org use=sign scope=mail.google.com,github.com"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": [
+          {
+            "ref": "jane@triauthdemo.org",
+            "options": {
+              "use": "sign",
+              "scope": "mail.google.com,github.com"
+            },
+            "tag": "utxEqFB3CQrJ6DcaE5c3an7JFwdj2gE2H3OxvdTMcY4"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SECURITY: an include whose scope carries one bad entry (scope=mail.google.com,|garbage|) is not listed - the whole record is ignored, never repaired to the valid entries",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane@triauthdemo.org scope=mail.google.com,|garbage|"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "SECURITY: an include whose scope is the reserved word none is not listed - none is never a valid entry; any as the sole entry is the spelling that covers every service host",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane@triauthdemo.org scope=none"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "SECURITY: an include record publishing no scope option is not listed - scope is required, and an absent option is never defaulted",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane@triauthdemo.org use=sign"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "SECURITY: an include whose scope lists any beside a host (scope=any,mail.google.com) is not listed - any is only the sole-entry spelling, so the record is ignored as a whole",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane@triauthdemo.org scope=any,mail.google.com"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "SECURITY: an include whose scope is ANY (uppercase) is not listed - scope values are literal and case-sensitive",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane@triauthdemo.org scope=ANY"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "an include grant scoped to an IPv4 literal and a single-label host (scope=10.0.0.5,localhost) is listed - scope entries cover every host a callback URL can carry",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane@triauthdemo.org scope=10.0.0.5,localhost"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": [
+          {
+            "ref": "jane@triauthdemo.org",
+            "options": {
+              "scope": "10.0.0.5,localhost",
+              "use": "attest,auth,ping,sign,stamp"
+            },
+            "tag": "yyneVUXoe4nzl1-cVP1SNLUzEkTDhtrw_H9jeLy1m-Q"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GROUPS: whois surfaces groups as fully-qualified names, qualified from the identifier's domain and sorted ascending",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "groups zeta,admins",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [
+          "admins@triauthdemo.org",
+          "zeta@triauthdemo.org"
+        ],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "GROUPS: multiple groups records union; duplicate names dedupe silently",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "groups zeta,admins",
+            "groups admins,project3",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [
+          "admins@triauthdemo.org",
+          "project3@triauthdemo.org",
+          "zeta@triauthdemo.org"
+        ],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "GROUPS: an uppercase record value is lowercased before grammar validation - names surface normalized",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "groups Admins,PROJECT3",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [
+          "admins@triauthdemo.org",
+          "project3@triauthdemo.org"
+        ],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "GROUPS SECURITY: a trailing comma (empty element) voids the whole groups record; sibling records stay effective",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "groups admins,",
+            "groups project3",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [
+          "project3@triauthdemo.org"
+        ],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "GROUPS SECURITY: one grammar-invalid element voids the whole record - never repaired to the valid subset",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "groups good,-bad,alsogood",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "GROUPS SECURITY: an unknown critical option voids the groups record",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "groups admins use=auth",
+            "groups project3",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [
+          "project3@triauthdemo.org"
+        ],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "GROUPS: an x- option is inert - the groups record still counts",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "groups admins x-note=hello",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [
+          "admins@triauthdemo.org"
+        ],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "GROUPS: names beyond the maxGroups cap are dropped in processing order - duplicates never consume the cap",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "groups g000,g001,g002,g003,g004,g005,g006,g007,g008,g009,g010,g011,g012,g013,g014,g015,g016,g017,g018,g019,g020,g021,g022,g023,g024,g025,g026,g027,g028,g029,g030,g031,g032,g033,g034,g035,g036,g037,g038,g039,g040,g041,g042,g043,g044,g045,g046,g047,g048,g049,g050,g051,g052,g053,g054,g055,g056,g057,g058,g059,g060,g061,g062,g063,g064,g065,g066,g067,g068,g069,g070,g071,g072,g073,g074,g075,g076,g077,g078,g079,g080,g081,g082,g083,g084,g085,g086,g087,g088,g089,g090,g091,g092,g093,g094,g095,g096,g097,g098,g099,g100,g101,g102,g103,g104,g105,g106,g107,g108,g109,g110,g111,g112,g113,g114,g115,g116,g117,g118,g119,g120,g121,g122,g123,g124,g125,g126,g127,g128,g129,g130,g131,g132,g133,g134,g135,g136,g137,g138,g139,g140,g141,g142,g143,g144,g145,g146,g147,g148,g149,g150,g151,g152,g153,g154,g155,g156,g157,g158,g159,g160,g161,g162,g163,g164,g165,g166,g167,g168,g169,g170,g171,g172,g173,g174,g175,g176,g177,g178,g179,g180,g181,g182,g183,g184,g185,g186,g187,g188,g189,g190,g191,g192,g193,g194",
+            "groups g000,h00,h01,h02,h03,h04,h05,h06,h07,h08,h09",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [
+          "g000@triauthdemo.org",
+          "g001@triauthdemo.org",
+          "g002@triauthdemo.org",
+          "g003@triauthdemo.org",
+          "g004@triauthdemo.org",
+          "g005@triauthdemo.org",
+          "g006@triauthdemo.org",
+          "g007@triauthdemo.org",
+          "g008@triauthdemo.org",
+          "g009@triauthdemo.org",
+          "g010@triauthdemo.org",
+          "g011@triauthdemo.org",
+          "g012@triauthdemo.org",
+          "g013@triauthdemo.org",
+          "g014@triauthdemo.org",
+          "g015@triauthdemo.org",
+          "g016@triauthdemo.org",
+          "g017@triauthdemo.org",
+          "g018@triauthdemo.org",
+          "g019@triauthdemo.org",
+          "g020@triauthdemo.org",
+          "g021@triauthdemo.org",
+          "g022@triauthdemo.org",
+          "g023@triauthdemo.org",
+          "g024@triauthdemo.org",
+          "g025@triauthdemo.org",
+          "g026@triauthdemo.org",
+          "g027@triauthdemo.org",
+          "g028@triauthdemo.org",
+          "g029@triauthdemo.org",
+          "g030@triauthdemo.org",
+          "g031@triauthdemo.org",
+          "g032@triauthdemo.org",
+          "g033@triauthdemo.org",
+          "g034@triauthdemo.org",
+          "g035@triauthdemo.org",
+          "g036@triauthdemo.org",
+          "g037@triauthdemo.org",
+          "g038@triauthdemo.org",
+          "g039@triauthdemo.org",
+          "g040@triauthdemo.org",
+          "g041@triauthdemo.org",
+          "g042@triauthdemo.org",
+          "g043@triauthdemo.org",
+          "g044@triauthdemo.org",
+          "g045@triauthdemo.org",
+          "g046@triauthdemo.org",
+          "g047@triauthdemo.org",
+          "g048@triauthdemo.org",
+          "g049@triauthdemo.org",
+          "g050@triauthdemo.org",
+          "g051@triauthdemo.org",
+          "g052@triauthdemo.org",
+          "g053@triauthdemo.org",
+          "g054@triauthdemo.org",
+          "g055@triauthdemo.org",
+          "g056@triauthdemo.org",
+          "g057@triauthdemo.org",
+          "g058@triauthdemo.org",
+          "g059@triauthdemo.org",
+          "g060@triauthdemo.org",
+          "g061@triauthdemo.org",
+          "g062@triauthdemo.org",
+          "g063@triauthdemo.org",
+          "g064@triauthdemo.org",
+          "g065@triauthdemo.org",
+          "g066@triauthdemo.org",
+          "g067@triauthdemo.org",
+          "g068@triauthdemo.org",
+          "g069@triauthdemo.org",
+          "g070@triauthdemo.org",
+          "g071@triauthdemo.org",
+          "g072@triauthdemo.org",
+          "g073@triauthdemo.org",
+          "g074@triauthdemo.org",
+          "g075@triauthdemo.org",
+          "g076@triauthdemo.org",
+          "g077@triauthdemo.org",
+          "g078@triauthdemo.org",
+          "g079@triauthdemo.org",
+          "g080@triauthdemo.org",
+          "g081@triauthdemo.org",
+          "g082@triauthdemo.org",
+          "g083@triauthdemo.org",
+          "g084@triauthdemo.org",
+          "g085@triauthdemo.org",
+          "g086@triauthdemo.org",
+          "g087@triauthdemo.org",
+          "g088@triauthdemo.org",
+          "g089@triauthdemo.org",
+          "g090@triauthdemo.org",
+          "g091@triauthdemo.org",
+          "g092@triauthdemo.org",
+          "g093@triauthdemo.org",
+          "g094@triauthdemo.org",
+          "g095@triauthdemo.org",
+          "g096@triauthdemo.org",
+          "g097@triauthdemo.org",
+          "g098@triauthdemo.org",
+          "g099@triauthdemo.org",
+          "g100@triauthdemo.org",
+          "g101@triauthdemo.org",
+          "g102@triauthdemo.org",
+          "g103@triauthdemo.org",
+          "g104@triauthdemo.org",
+          "g105@triauthdemo.org",
+          "g106@triauthdemo.org",
+          "g107@triauthdemo.org",
+          "g108@triauthdemo.org",
+          "g109@triauthdemo.org",
+          "g110@triauthdemo.org",
+          "g111@triauthdemo.org",
+          "g112@triauthdemo.org",
+          "g113@triauthdemo.org",
+          "g114@triauthdemo.org",
+          "g115@triauthdemo.org",
+          "g116@triauthdemo.org",
+          "g117@triauthdemo.org",
+          "g118@triauthdemo.org",
+          "g119@triauthdemo.org",
+          "g120@triauthdemo.org",
+          "g121@triauthdemo.org",
+          "g122@triauthdemo.org",
+          "g123@triauthdemo.org",
+          "g124@triauthdemo.org",
+          "g125@triauthdemo.org",
+          "g126@triauthdemo.org",
+          "g127@triauthdemo.org",
+          "g128@triauthdemo.org",
+          "g129@triauthdemo.org",
+          "g130@triauthdemo.org",
+          "g131@triauthdemo.org",
+          "g132@triauthdemo.org",
+          "g133@triauthdemo.org",
+          "g134@triauthdemo.org",
+          "g135@triauthdemo.org",
+          "g136@triauthdemo.org",
+          "g137@triauthdemo.org",
+          "g138@triauthdemo.org",
+          "g139@triauthdemo.org",
+          "g140@triauthdemo.org",
+          "g141@triauthdemo.org",
+          "g142@triauthdemo.org",
+          "g143@triauthdemo.org",
+          "g144@triauthdemo.org",
+          "g145@triauthdemo.org",
+          "g146@triauthdemo.org",
+          "g147@triauthdemo.org",
+          "g148@triauthdemo.org",
+          "g149@triauthdemo.org",
+          "g150@triauthdemo.org",
+          "g151@triauthdemo.org",
+          "g152@triauthdemo.org",
+          "g153@triauthdemo.org",
+          "g154@triauthdemo.org",
+          "g155@triauthdemo.org",
+          "g156@triauthdemo.org",
+          "g157@triauthdemo.org",
+          "g158@triauthdemo.org",
+          "g159@triauthdemo.org",
+          "g160@triauthdemo.org",
+          "g161@triauthdemo.org",
+          "g162@triauthdemo.org",
+          "g163@triauthdemo.org",
+          "g164@triauthdemo.org",
+          "g165@triauthdemo.org",
+          "g166@triauthdemo.org",
+          "g167@triauthdemo.org",
+          "g168@triauthdemo.org",
+          "g169@triauthdemo.org",
+          "g170@triauthdemo.org",
+          "g171@triauthdemo.org",
+          "g172@triauthdemo.org",
+          "g173@triauthdemo.org",
+          "g174@triauthdemo.org",
+          "g175@triauthdemo.org",
+          "g176@triauthdemo.org",
+          "g177@triauthdemo.org",
+          "g178@triauthdemo.org",
+          "g179@triauthdemo.org",
+          "g180@triauthdemo.org",
+          "g181@triauthdemo.org",
+          "g182@triauthdemo.org",
+          "g183@triauthdemo.org",
+          "g184@triauthdemo.org",
+          "g185@triauthdemo.org",
+          "g186@triauthdemo.org",
+          "g187@triauthdemo.org",
+          "g188@triauthdemo.org",
+          "g189@triauthdemo.org",
+          "g190@triauthdemo.org",
+          "g191@triauthdemo.org",
+          "g192@triauthdemo.org",
+          "g193@triauthdemo.org",
+          "g194@triauthdemo.org",
+          "h00@triauthdemo.org",
+          "h01@triauthdemo.org",
+          "h02@triauthdemo.org",
+          "h03@triauthdemo.org",
+          "h04@triauthdemo.org"
+        ],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "GROUPS: a 20-byte name is kept; a 21-byte name voids its record (byte-size boundary of the device-name grammar)",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "groups aaaaaaaaaaaaaaaaaaaa",
+            "groups bbbbbbbbbbbbbbbbbbbbb",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [
+          "aaaaaaaaaaaaaaaaaaaa@triauthdemo.org"
+        ],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "GROUPS SECURITY: escapes are literal in a groups value - '%' fails the name grammar and voids the record (only profile values percent-decode)",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "groups adm%69ns,%62oard",
+            "groups bad%20name",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "GROUPS: kitchen-sink identity (keys + includes + profile + groups) - no cross-interference between record families",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "groups admins",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "include jane@triauthdemo.org use=sign scope=any"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [
+          "admins@triauthdemo.org"
+        ],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": [
+          {
+            "ref": "jane@triauthdemo.org",
+            "options": {
+              "use": "sign",
+              "scope": "any"
+            },
+            "tag": "LJwdl7N9xsSO4LV6T3gmmxVk_eXLyS58jw7czzooByw"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GROUPS SECURITY: a non-ASCII uppercase letter (U+212A KELVIN SIGN) is not ASCII-lowercased - the name fails the grammar and voids the record; siblings stay effective",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "groups Kelvin",
+            "groups project3",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [
+          "project3@triauthdemo.org"
+        ],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "SECURITY: an include ref with a non-ASCII uppercase letter (U+212A) is not ASCII-lowercased and the record is ignored - the ref grammar stays ASCII",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "include Kane@triauthdemo.org scope=any",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "GROUPS: names sort by bare name before qualification - a proper prefix (dev) precedes its extension (dev-ops)",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "groups dev-ops,dev",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [
+          "dev@triauthdemo.org",
+          "dev-ops@triauthdemo.org"
+        ],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "SECURITY: an escaped option value is literal - use=a%75th is not 'auth', so the unknown flow taints the device (machine vocabularies never decode)",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8 use=a%75th"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [],
+        "includes": []
+      }
+    },
+    {
+      "name": "SECURITY: an include ref is literal - include jane%40triauthdemo.org contains '%', fails both ref shapes, and the grant is ignored",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "include jane%40triauthdemo.org scope=any",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "a profile value whose decoding fails (stray '%') is ignored - sibling records unaffected",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "x-slogan bad%",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "a record value carrying a raw control character is ignored as a whole (not a Normal String) - escapes no longer manufacture one",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "x-slogan bad\u0007value",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "an option value carrying a raw control character voids the whole record (not a Normal String); sibling records unaffected",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "initials OB x-note=bad\u0007line",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "PRIVATE: whois of an identifier under a private-mode domain called without a lookup code returns status:0 with identityDomain:null - no identity domain derives without the code, so the zone stays unenumerable and unconfirmable through this surface",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org"
+        }
+      ],
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org mode=private"
+          ]
+        },
+        "_4GIBDU53B3._at.private.triauthdemo.org": {
+          "TXT": [
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "commit 3Q7YSpb3MLMRaQ20VZBUfoySyM4vQrHMfIIuAxER3_s"
+          ]
+        }
+      },
+      "expected": {
+        "status": 0,
+        "identifier": "john@private.triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.private.triauthdemo.org/",
+          "options": {
+            "mode": "private",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": null
+      }
+    },
+    {
+      "name": "PRIVATE: whois with the identity's lookup code resolves an identifier under a private-mode domain - status:1, identityDomain is the code-derived label, and devices list the bare device digest (the ~lookupCode suffix is what verification results and check carry); a same-domain include grant is listed like under any mode",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "lookupCode": "K7QJ3FB9M2WZX0C4"
+        }
+      ],
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org mode=private"
+          ]
+        },
+        "_4GIBDU53B3._at.private.triauthdemo.org": {
+          "TXT": [
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "commit 3Q7YSpb3MLMRaQ20VZBUfoySyM4vQrHMfIIuAxER3_s",
+            "include bot@private.triauthdemo.org scope=any"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@private.triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.private.triauthdemo.org/",
+          "options": {
+            "mode": "private",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "_4GIBDU53B3._at.private.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": [
+          {
+            "ref": "bot@private.triauthdemo.org",
+            "options": {
+              "scope": "any",
+              "use": "attest,auth,ping,sign,stamp"
+            },
+            "tag": "xWTc41dXgUffq9o3l--65pft8Krd4brzRClBmf5FgnQ"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PRIVATE: a triauth record without a mode option runs the domain in private mode by default - whois with the identity's lookup code resolves status:1 at the code-derived label, and the endpoint options report the defaults (mode=private, include=any)",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "lookupCode": "K7QJ3FB9M2WZX0C4"
+        }
+      ],
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org"
+          ]
+        },
+        "_4GIBDU53B3._at.private.triauthdemo.org": {
+          "TXT": [
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "commit 3Q7YSpb3MLMRaQ20VZBUfoySyM4vQrHMfIIuAxER3_s",
+            "include bot@private.triauthdemo.org scope=any"
+          ]
+        }
+      },
+      "expected": {
+        "status": 1,
+        "identifier": "john@private.triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.private.triauthdemo.org/",
+          "options": {
+            "mode": "private",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "_4GIBDU53B3._at.private.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": [
+          {
+            "ref": "bot@private.triauthdemo.org",
+            "options": {
+              "scope": "any",
+              "use": "attest,auth,ping,sign,stamp"
+            },
+            "tag": "xWTc41dXgUffq9o3l--65pft8Krd4brzRClBmf5FgnQ"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PRIVATE: a well-formed lookup code the identity was not published under (bot's code for john) derives a label holding no records - status:0 with the derived identityDomain, so a wrong code is indistinguishable from a missing identity",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "lookupCode": "P2M8XCV4KQ0RZJ5T"
+        }
+      ],
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org mode=private"
+          ]
+        },
+        "_4GIBDU53B3._at.private.triauthdemo.org": {
+          "TXT": [
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "commit 3Q7YSpb3MLMRaQ20VZBUfoySyM4vQrHMfIIuAxER3_s"
+          ]
+        }
+      },
+      "expected": {
+        "status": 0,
+        "identifier": "john@private.triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.private.triauthdemo.org/",
+          "options": {
+            "mode": "private",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "_2HBLEH5VI2._at.private.triauthdemo.org"
+      }
+    },
+    {
+      "name": "PRIVATE SECURITY: the identity's lookup code, but records bound to another derivation (bot's commitment published at john's label) - the commitment gate fails the resolution, status:0 with identityDomain set and no records surfaced",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "lookupCode": "K7QJ3FB9M2WZX0C4"
+        }
+      ],
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org mode=private"
+          ]
+        },
+        "_4GIBDU53B3._at.private.triauthdemo.org": {
+          "TXT": [
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "commit zhDlBSKImyxtx1GqXmEjAyOyD1IUMXtOBSqGgaPAAxk"
+          ]
+        }
+      },
+      "expected": {
+        "status": 0,
+        "identifier": "john@private.triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.private.triauthdemo.org/",
+          "options": {
+            "mode": "private",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "_4GIBDU53B3._at.private.triauthdemo.org"
+      }
+    },
+    {
+      "name": "PRIVATE SECURITY: records at the derived label with no commit record are not an identity - status:0 (the commit binding is required, never optional)",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "lookupCode": "K7QJ3FB9M2WZX0C4"
+        }
+      ],
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org mode=private"
+          ]
+        },
+        "_4GIBDU53B3._at.private.triauthdemo.org": {
+          "TXT": [
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "status": 0,
+        "identifier": "john@private.triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.private.triauthdemo.org/",
+          "options": {
+            "mode": "private",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "_4GIBDU53B3._at.private.triauthdemo.org"
+      }
+    },
+    {
+      "name": "PRIVATE SECURITY: two commit records at the derived label (the label-merge tripwire) fail closed - status:0 even though one of them is the matching commitment",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "lookupCode": "K7QJ3FB9M2WZX0C4"
+        }
+      ],
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "TXT": [
+            "triauth auth.private.triauthdemo.org mode=private"
+          ]
+        },
+        "_4GIBDU53B3._at.private.triauthdemo.org": {
+          "TXT": [
+            "name John Doe",
+            "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "commit 3Q7YSpb3MLMRaQ20VZBUfoySyM4vQrHMfIIuAxER3_s",
+            "commit zhDlBSKImyxtx1GqXmEjAyOyD1IUMXtOBSqGgaPAAxk"
+          ]
+        }
+      },
+      "expected": {
+        "status": 0,
+        "identifier": "john@private.triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.private.triauthdemo.org/",
+          "options": {
+            "mode": "private",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "_4GIBDU53B3._at.private.triauthdemo.org"
+      }
+    },
+    {
+      "name": "PRIVATE: a lookup code supplied under a public-mode domain is inert - status:1 identical to the code-less lookup (john._at.triauthdemo.org, bare deviceTag); nothing in the result names the unconsumed code",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "lookupCode": "K7QJ3FB9M2WZX0C4"
+        }
+      ],
+      "expected": {
+        "status": 1,
+        "identifier": "john@triauthdemo.org",
+        "authenticationEndpoint": {
+          "url": "https://auth.triauthdemo.org/",
+          "options": {
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "john._at.triauthdemo.org",
+        "secure": true,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "devices": [
+          {
+            "deviceName": "desktop",
+            "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+            "keys": [
+              {
+                "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+                "options": {
+                  "type": "es256",
+                  "use": "attest,auth,ping,sign,stamp"
+                }
+              }
+            ]
+          }
+        ],
+        "includes": []
+      }
+    },
+    {
+      "name": "API: a lowercase lookup code (k7qj3fb9m2wzx0c4) fails the lookup-code grammar and is rejected with error 101 before any DNS lookup (the endpoint answer is a SERVFAIL that would surface as 110) - a caller-supplied code is never repaired, no case folding",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "lookupCode": "k7qj3fb9m2wzx0c4"
+        }
+      ],
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "_error": "SERVFAIL"
+        }
+      },
+      "expected": {
+        "error": {
+          "code": 101,
+          "message": "Invalid or missing function arguments"
+        }
+      }
+    },
+    {
+      "name": "API: a 15-character lookup code (K7QJ3FB9M2WZX0C) is rejected with error 101 before any DNS lookup - the grammar is exactly 16 characters of [A-Z0-9]",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "lookupCode": "K7QJ3FB9M2WZX0C"
+        }
+      ],
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "_error": "SERVFAIL"
+        }
+      },
+      "expected": {
+        "error": {
+          "code": 101,
+          "message": "Invalid or missing function arguments"
+        }
+      }
+    },
+    {
+      "name": "API: a misspelled option key (lookupcode) is rejected with error 102 before any DNS lookup - option keys are exact, so a typo never silently degrades into a code-less lookup",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "john@private.triauthdemo.org",
+          "lookupcode": "K7QJ3FB9M2WZX0C4"
+        }
+      ],
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "_error": "SERVFAIL"
+        }
+      },
+      "expected": {
+        "error": {
+          "code": 102,
+          "message": "Unrecognized function argument"
+        }
+      }
+    },
+    {
+      "name": "API: a config override object in the options position ({logger: null}) is rejected with error 102 before any DNS lookup - option keys are refused before the identifier is even consulted, and config overrides ride as the second argument: whois({identifier, lookupCode?}, config)",
+      "call": "whois",
+      "args": [
+        {
+          "logger": null
+        }
+      ],
+      "dnsEntries": {
+        "triauthdemo.org": {
+          "_error": "SERVFAIL"
+        }
+      },
+      "expected": {
+        "error": {
+          "code": 102,
+          "message": "Unrecognized function argument"
+        }
+      }
+    },
+    {
+      "name": "API: no arguments at all returns 102 - whois takes one options object, and an absent argument is refused before any other check",
+      "call": "whois",
+      "args": [],
+      "expected": {
+        "error": {
+          "code": 102,
+          "message": "Unrecognized function argument"
+        }
+      }
+    },
+    {
+      "name": "API: a null options argument returns 102 - whois takes one options object, and null is refused before any other check",
+      "call": "whois",
+      "args": [
+        null
+      ],
+      "expected": {
+        "error": {
+          "code": 102,
+          "message": "Unrecognized function argument"
+        }
+      }
+    },
+    {
+      "name": "API: an array in the options position returns 102 - whois takes one options object, never a positional argument list",
+      "call": "whois",
+      "args": [
+        [
+          "identifier",
+          "lookupCode"
+        ]
+      ],
+      "expected": {
+        "error": {
+          "code": 102,
+          "message": "Unrecognized function argument"
+        }
+      }
+    },
+    {
+      "name": "API: a bare identifier string in the options position (john@triauthdemo.org) is rejected with error 102 before any DNS lookup - the identifier travels as options.identifier, and a string is never coerced into one",
+      "call": "whois",
+      "args": [
+        "john@triauthdemo.org"
+      ],
+      "dnsEntries": {
+        "triauthdemo.org": {
+          "_error": "SERVFAIL"
+        }
+      },
+      "expected": {
+        "error": {
+          "code": 102,
+          "message": "Unrecognized function argument"
+        }
+      }
+    },
+    {
+      "name": "API: a lookup code without an identifier ({lookupCode}) is rejected with error 101 before any DNS lookup - a Lookup Code alone names no identity; options.identifier is required",
+      "call": "whois",
+      "args": [
+        {
+          "lookupCode": "K7QJ3FB9M2WZX0C4"
+        }
+      ],
+      "dnsEntries": {
+        "private.triauthdemo.org": {
+          "_error": "SERVFAIL"
+        }
+      },
+      "expected": {
+        "error": {
+          "code": 101,
+          "message": "Invalid or missing function arguments"
+        }
+      }
+    }
+  ]
+}

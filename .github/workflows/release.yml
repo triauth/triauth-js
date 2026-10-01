@@ -4,19 +4,55 @@ on:
   push:
     tags: ["v*"]
 
+# Never cancel an in-flight release.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
-  id-token: write # OIDC + provenance
 
 jobs:
-  publish:
+  verify:
+    name: Verify
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Verify tag matches package version
+        run: |
+          PKG="v$(node -p "require('./package.json').version")"
+          [ "$PKG" = "${GITHUB_REF_NAME}" ] || { echo "::error::tag ${GITHUB_REF_NAME} does not match package.json ${PKG}"; exit 1; }
+      - run: npm run check
+      - name: Build and verify package contents
+        run: |
+          npm run prepack
+          npm pack --dry-run
+          for f in dist/triauth.mjs dist/triauth.cjs dist/triauth.js dist/triauth.min.mjs dist/triauth.min.js dist/types/index.d.ts; do
+            [ -e "$f" ] || { echo "::error::expected published file missing: $f"; exit 1; }
+          done
+
+  publish:
+    name: Publish to npm
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC trusted publishing, with provenance
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
-      - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          cache: npm
+      - run: npm ci
+      - run: npm publish --provenance --access public --tag latest

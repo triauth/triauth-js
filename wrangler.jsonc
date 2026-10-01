@@ -1,0 +1,15 @@
+{
+  "name": "triauth-playground",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "routes": [
+    { "pattern": "play.triauth.org", "custom_domain": true }
+  ],
+  "build": {
+    "command": "npm run build:playground"
+  },
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page"
+  }
+}

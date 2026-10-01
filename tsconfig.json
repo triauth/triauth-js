@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+
+    "allowJs": true,
+    "checkJs": true,
+
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "dist/types",
+
+    "strict": false,
+    "noImplicitAny": false,
+    "skipLibCheck": true,
+    "noEmitOnError": false,
+
+    "resolveJsonModule": true
+  },
+  "include": ["src/**/*.js"],
+  "exclude": ["node_modules", "dist", "test"]
+}

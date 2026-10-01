@@ -1,0 +1,41 @@
+{
+  "_comment": "Third-party attester identities for the distinct-identity attestation tests in test_attestation.js. Like identities.json, the PRIVATE keys live here (so tests can mint attester signatures); the matching PUBLIC keys are the records dns_records.json carries under attest.triauthdemo.org - a domain distinct from the user's (triauthdemo.org) - so these exercise genuine cross-domain third-party attestation. 'via' is the provider URL the attester signs under; its hostname equals the attester's domain (required by src/api/attestation.js).",
+  "robot": {
+    "identifier": "robot-attester@attest.triauthdemo.org",
+    "identityDomain": "robot-attester._at.attest.triauthdemo.org",
+    "via": "https://attest.triauthdemo.org/not-a-robot",
+    "publicProfile": { "name": "Robot Checker" },
+    "devices": [
+      {
+        "deviceName": "server",
+        "deviceTag": "NOtejuAqKHSdgvKVpw57cU_Qipj6UKcz2nNiugx0l8g",
+        "use": "attest",
+        "keys": [
+          {
+            "public": "BMR8Ug7qu9HUc9UgY_ADh8giBNmWBbSmGsR6DD6Hg5rpWeyYvu2WlQ43iR_dj0eKN99esQNMe7Gq2u2LBnRejcU",
+            "private": {"kty":"EC","crv":"P-256","d":"HUkuuY0u-Cr3u3vw2lQGDQuhh1WkeUXuYaJJuQJf5pY","x":"xHxSDuq70dRz1SBj8AOHyCIE2ZYFtKYaxHoMPoeDmuk","y":"WeyYvu2WlQ43iR_dj0eKN99esQNMe7Gq2u2LBnRejcU"}
+          }
+        ]
+      }
+    ]
+  },
+  "age": {
+    "identifier": "age-attester@attest.triauthdemo.org",
+    "identityDomain": "age-attester._at.attest.triauthdemo.org",
+    "via": "https://attest.triauthdemo.org/over-18",
+    "publicProfile": { "name": "Age Verifier" },
+    "devices": [
+      {
+        "deviceName": "server",
+        "deviceTag": "G9vrAnoocHY5YJvusTuuwC7XdjnDUqHJc6BvCCGyExM",
+        "use": "attest",
+        "keys": [
+          {
+            "public": "BGbN6k1ESVyK17JGHF_ehQB5UxBd1p16HevNYd0TV1h7KTJ6AYbP0OgGKsRvU1vE_1XPR3vZHmDDZdDlLlrr0yI",
+            "private": {"kty":"EC","crv":"P-256","d":"XD2rECawc7jQGHeb_kAVwglCkfgccGr4QPGx5q2jU88","x":"Zs3qTURJXIrXskYcX96FAHlTEF3WnXod681h3RNXWHs","y":"KTJ6AYbP0OgGKsRvU1vE_1XPR3vZHmDDZdDlLlrr0yI"}
+          }
+        ]
+      }
+    ]
+  }
+}

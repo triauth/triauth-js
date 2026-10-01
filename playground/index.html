@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>triauth playground | play.triauth.org</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="icon" type="image/svg+xml" href="/assets/icon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#3451b2" />
+  <link rel="canonical" href="https://play.triauth.org/" />
+  <meta name="description" content="Try every triauth protocol operation live." />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="play.triauth.org" />
+  <meta property="og:title" content="Triauth Playground" />
+  <meta property="og:description" content="Try every triauth protocol operation live." />
+  <meta property="og:url" content="https://play.triauth.org/" />
+  <meta property="og:image" content="https://play.triauth.org/assets/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://play.triauth.org/assets/og.png" />
+
+  <script src="/triauth.js"></script>
+  <script>try{if(localStorage.getItem('triauth-ribbon-dismissed')==='1')document.documentElement.classList.add('ribbon-dismissed');}catch(e){}</script>
+
+  <style>
+    /* ---------- design tokens + base + chrome ----------
+       Inlined from the hub's index.css so this playground is fully
+       self-contained at play.triauth.org (no external stylesheet). */
+    :root {
+      --brand:#3451b2;
+      --ink:#1b1b1b; --ink-soft:#1f2328; --muted:#5a5f68; --muted-2:#8b909b;
+      --line:#e2e5ea; --line-soft:#eef0f4; --bg-tint:#f7f9fd; --bg:#fff;
+      --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+      --radius-sm:6px;
+    }
+    * { box-sizing:border-box; }
+    body {
+      display:flex; flex-direction:column;
+      font-family:var(--font);
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+      color:var(--ink-soft); margin:0; padding:0; background:var(--bg);
+    }
+    a { text-decoration:none; color:var(--brand); }
+    a:hover { text-decoration:underline; }
+    .mark { font-style:normal; color:var(--brand); }
+
+    /* non-technical -> triauth.org ribbon */
+    .ribbon {
+      background:var(--brand); color:#fff; font-size:0.82rem; line-height:1.3;
+      display:flex; align-items:center; justify-content:center; gap:10px;
+      padding:7px 44px 7px 16px; position:relative; text-align:center;
+    }
+    .ribbon a { color:#fff; text-decoration:underline; font-weight:600; }
+    .ribbon-close {
+      position:absolute; right:10px; top:50%; transform:translateY(-50%);
+      background:transparent; border:0; color:#fff; cursor:pointer;
+      font-size:1rem; line-height:1; padding:4px 8px; border-radius:4px; opacity:0.85;
+    }
+    .ribbon-close:hover { background:rgba(255,255,255,0.18); opacity:1; }
+    html.ribbon-dismissed .ribbon { display:none; }
+
+    /* shared header */
+    .site-header {
+      position:sticky; top:0; z-index:20;
+      display:flex; align-items:center; justify-content:space-between;
+      gap:16px; height:60px; padding:0 28px;
+      background:rgba(255,255,255,0.92); backdrop-filter:saturate(180%) blur(8px);
+      border-bottom:1px solid var(--line);
+    }
+    .wordmark { display:inline-flex; align-items:baseline; gap:8px; font-size:1.15rem; font-weight:600; color:var(--ink); }
+    .wordmark:hover { text-decoration:none; }
+    .wordmark .mark { font-size:1rem; transform:translateY(1px); }
+    .site-nav { display:flex; align-items:center; gap:4px; }
+    .site-nav a { color:var(--muted); font-size:0.9rem; font-weight:500; padding:7px 11px; border-radius:var(--radius-sm); }
+    .site-nav a:hover { background:var(--line-soft); color:var(--ink); text-decoration:none; }
+    .site-nav a.active { color:var(--brand); background:var(--bg-tint); }
+    .site-nav .gh { display:inline-flex; align-items:center; padding:7px 8px; }
+    .site-nav .gh svg { width:18px; height:18px; fill:currentColor; display:block; }
+    @media (max-width:680px) {
+      .site-header { height:auto; flex-wrap:wrap; padding:10px 16px; gap:8px; }
+      .site-nav { width:100%; overflow-x:auto; gap:2px; }
+      .site-nav a { padding:6px 8px; font-size:0.85rem; white-space:nowrap; }
+    }
+
+    /* ---------- layout ---------- */
+    html { scrollbar-gutter: stable; }
+    main.playground { width: 100%; max-width: 1024px; margin: 0 auto; padding: 24px 32px 64px; }
+    @media (max-width: 600px) { main.playground { padding: 16px 16px 40px; } }
+
+    /* ---------- page header: the .site-header chrome is inlined above ---------- */
+    body.playground .pg-version {
+      display:inline-block; font-size:0.7rem; font-weight:500;
+      color:var(--muted); background:var(--line-soft);
+      border-radius:99px; padding:3px 9px; letter-spacing:0.01em; white-space:nowrap;
+    }
+    body.playground .pg-version:empty { display:none; }
+    @media (max-width:600px) { body.playground .pg-version { display:none; } }
+
+    .pg-about p { color:var(--ink-soft); font-size:0.92rem; line-height:1.6; margin:0 0 12px; max-width:64ch; }
+    .pg-about p:last-of-type { margin-bottom:0; }
+    .pg-about ul.pg-extras { margin:0; padding-left:18px; }
+    .pg-about ul.pg-extras li { color:var(--ink-soft); font-size:0.92rem; line-height:1.85; }
+
+    .pg-field { margin: 0 0 16px; }
+    .pg-field label { display:block; font-size:0.78rem; font-weight:600; color:#1b1b1b; padding:0 0 4px; }
+    .pg-field .pg-hint { display:block; font-size:0.72rem; color:#777; padding:4px 2px 0; line-height:1.35; }
+    /* Keep inline `<code>` sized to whatever text it sits in — a label
+       (0.78rem), a hint (0.72rem), the intro (0.92rem), or the method
+       description (0.88rem) — rather than the browser default. */
+    main.playground code { font-size: 1em; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#f1f3f6; padding:0 4px; border-radius:3px; }
+    .pg-field input[type=text],
+    .pg-field select,
+    .pg-field textarea {
+      width:100%; padding:10px 10px; box-sizing:border-box;
+      border:1px solid #d2d6dc; border-radius:6px; font:inherit; font-size:0.9rem;
+      background:#fff; color:#1b1b1b;
+    }
+    .pg-field textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:0.82rem; min-height:60px; line-height:1.45; }
+    .pg-field input:focus, .pg-field select:focus, .pg-field textarea:focus { outline:none; border-color:#3451b2; box-shadow:0 0 0 2px rgba(52,81,178,0.15); }
+    .pg-field-check { display:flex; align-items:flex-start; row-gap:0; column-gap:8px; flex-wrap:wrap; }
+    .pg-field-check input[type=checkbox] { margin-top:3px; }
+    .pg-field-check label { font-size:0.9rem; font-weight:500; padding:0; flex:1; min-width:200px; cursor:pointer; }
+    .pg-field-check .pg-hint { flex-basis:100%; }
+
+    .pg-tokens { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:0.8rem; padding:0.5rem 0; }
+    .pg-token-pill { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:99px; background:#eef0f4; color:#5a5f68; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:0.72rem; }
+    .pg-token-pill.has { background:#dff3e3; color:#1e6b30; }
+    .pg-token-pill.has::before { content:'✓'; font-weight:700; }
+    .pg-token-pill.empty::before { content:'·'; opacity:0.5; }
+
+    .pg-btn {
+      background:#3451b2; color:#fff; border:none; border-radius:6px;
+      padding:10px 16px; font:inherit; font-size:0.9rem; font-weight:500; cursor:pointer;
+    }
+    .pg-btn:hover { background:#2c4699; }
+    .pg-btn.ghost { background:transparent; color:#3451b2; border:1px solid #d2d6dc; }
+    .pg-btn.ghost:hover { background:#eef0f4; border-color:#b6bcc6; }
+    .pg-btn.small { padding:4px 10px; font-size:0.78rem; }
+    .pg-btn.danger { background:transparent; color:#9b3a3a; border:1px solid #e5c1c1; }
+    .pg-btn.danger:hover { background:#fbecec; }
+
+    /* ---------- shell: sidebar + panel ---------- */
+    .pg-shell { display:grid; grid-template-columns: 220px minmax(0, 1fr); gap:16px; align-items:start; }
+
+    .pg-sidebar { background:#fff; border:1px solid var(--line); border-radius:8px; position: sticky; top: 76px; }
+    .pg-sidebar-group { padding: 8px 0; }
+    .pg-sidebar-group:not(:first-child) { border-top:1px solid #eef0f4; }
+    .pg-sidebar-group-label { padding: 4px 16px; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:#8b909b; font-weight:600; }
+    .pg-sidebar a {
+      display:flex; align-items:center; justify-content:space-between; gap:6px;
+      padding: 7px 16px; color:#333; font-size:0.92rem; font-weight:500;
+      border-left: 3px solid transparent;
+    }
+    .pg-sidebar a:hover { background:#f5f6f8; color:#1b1b1b; text-decoration:none; }
+    .pg-sidebar a.active { background:#eef2fb; color:#3451b2; border-left-color:#3451b2; }
+    .pg-sidebar a .pg-sidebar-badge { font-size:0.62rem; color:#8b909b; background:#eef0f4; padding:1px 6px; border-radius:99px; cursor:help; }
+    .pg-sidebar a.active .pg-sidebar-badge { background:#dde4f5; color:#3451b2; }
+
+    .pg-method { background:#fff; border:1px solid #e2e5ea; border-radius:8px; padding: 18px 22px 22px; }
+    .pg-method-head { margin: 0 0 4px; display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .pg-method-head h3 { margin:0; font-size:1.25rem; font-weight:600; color:#1b1b1b; padding:10px 0; }
+    .pg-method-head h3 small { color:#8b909b; font-size:0.85rem; font-weight:400; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .pg-doclink {
+      display:inline-flex; align-items:center; gap:6px; flex:0 0 auto;
+      font-size:0.78rem; font-weight:500; color:var(--muted);
+      border:1px solid var(--line); border-radius:99px; padding:5px 11px; white-space:nowrap;
+      transition: color 0.15s, border-color 0.15s, background 0.15s; margin-bottom:16px;
+    }
+    .pg-doclink:hover { color:var(--brand); border-color:var(--brand); background:var(--bg-tint); text-decoration:none; }
+    .pg-doclink svg { display:block; }
+    .pg-method-desc { color:#555; font-size:0.88rem; line-height:1.5; margin: 6px 0 18px; }
+
+    .pg-form-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin: 8px 0 4px; }
+
+    .pg-result { margin-top:16px; }
+    .pg-result-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin: 0 0 6px; }
+    .pg-result-head .pg-status { font-size:0.75rem; padding:2px 10px; border-radius:99px; font-weight:600; }
+    .pg-result-head .pg-status.success { background:#dff3e3; color:#1e6b30; }
+    .pg-result-head .pg-status.error   { background:#fbe4e4; color:#9b3a3a; }
+    .pg-result-head .pg-status.warn    { background:#fbf0d6; color:#7a5a16; }
+    .pg-result-head .pg-status.neutral { background:#eef0f4; color:#5a5f68; }
+    .pg-result-head .pg-status.pending { background:#eef2fb; color:#3451b2; }
+    .pg-result pre {
+      background:#0f172a; color:#e2e8f0;
+      padding:14px 16px; border-radius:6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size:0.78rem; line-height:1.5;
+      max-height:480px; overflow:auto; white-space:pre-wrap; word-break:break-all;
+      margin:0;
+    }
+    .pg-result.empty pre { color:#94a3b8; background:#1e293b; font-style:italic; }
+
+    .pg-pending-redirect { margin-top:16px; padding:14px 16px; border:1px dashed #c4cad6; border-radius:6px; background:#fafbfd; }
+    .pg-pending-redirect-url {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size:0.78rem; color:#3451b2; word-break:break-all;
+      background:#fff; padding:8px 10px; border-radius:4px; border:1px solid #e2e5ea;
+      max-height:140px; overflow:auto;
+    }
+
+    .pg-stage3 { margin-top:16px; padding:14px 16px; border:1px solid #d6e0f0; border-left:3px solid #3451b2; border-radius:6px; background:#f7f9fd; }
+    .pg-stage3-via { color:#8b909b; font-weight:400; font-size:0.72rem; margin-left:6px; }
+    .pg-danger-zone {
+      margin-top: 28px;
+      padding-top: 18px;
+      border-top: 1px solid #e2e5ea;
+    }
+    .pg-danger-zone h4 {
+      margin: 0 0 4px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #9b3a3a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .pg-danger-zone p {
+      margin: 0 0 12px;
+      font-size: 0.82rem;
+      color: #555;
+      line-height: 1.45;
+    }
+
+    .pg-stage3-block {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size:0.78rem; color:#1b1b1b; word-break:break-all;
+      background:#fff; padding:8px 10px; border-radius:4px; border:1px solid #e2e5ea;
+      max-height:140px; overflow:auto; white-space:pre-wrap;
+    }
+
+    .pg-sidebar-mobile { display:none; }
+
+    /* ---------- responsive ---------- */
+    @media (max-width: 760px) {
+      main.playground { padding: 16px; }
+      .pg-shell { grid-template-columns: 1fr; }
+      .pg-sidebar { display:none; }
+      .pg-sidebar-mobile { display:block; }
+      .pg-sidebar-mobile select { width:100%; padding:10px; border:1px solid #d2d6dc; border-radius:6px; font:inherit; }
+    }
+  </style>
+</head>
+
+<body class="playground">
+
+<div class="ribbon" role="note">
+  <span>New to triauth? See what it is and how to sign in on <a href="https://www.triauth.org/">triauth.org&nbsp;&rarr;</a></span>
+  <button type="button" class="ribbon-close" aria-label="Dismiss this notice">&times;</button>
+</div>
+
+<header class="site-header">
+  <a class="wordmark" href="/"><span class="mark">&#10261;</span> triauth<span style="color:var(--muted-2);font-weight:500;">playground</span></a>
+  <nav class="site-nav" aria-label="Primary">
+<!--    <a href="/playground/" class="active">Playground</a>-->
+    <a href="https://www.triauth.org/">triauth.org</a>
+    <small class="pg-version" id="triauth-version"></small>
+    <a class="gh" href="https://github.com/triauth/triauth-js" target="_blank" rel="noopener noreferrer" aria-label="triauth-js on GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.65 7.65 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
+  </nav>
+</header>
+
+<main class="playground">
+  <div class="pg-sidebar-mobile" style="margin-bottom:12px;">
+    <select id="mobileMethodSelect" aria-label="Method"></select>
+  </div>
+
+  <div class="pg-shell">
+    <nav class="pg-sidebar" id="sidebar" aria-label="API methods"></nav>
+    <section class="pg-method" id="methodPanel"></section>
+  </div>
+</main>
+
+<script>
+  /* =========================================================================
+     Storage layer
+     ========================================================================= */
+
+  const STORAGE_KEY = 'triauth-playground';
+
+  const defaultState = () => ({
+    identifier: 'john@triauthdemo.org',
+    authEndpoint: '',
+    callbackMethod: 'HASH',
+    logLevel: 'debug',
+    autoRedirect: false,
+    tokens: { pingToken: '', signToken: '', stampToken: '', attestToken: '' },
+    deviceTag: '',
+    lastChallenge: '',
+    lastMethod: '',
+    pendingRedirect: null,
+    lastResponses: {},
+    activeMethod: 'about',
+    forms: {}
+  });
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return defaultState();
+      const parsed = JSON.parse(raw);
+      const merged = Object.assign(defaultState(), parsed);
+      merged.tokens = Object.assign(defaultState().tokens, parsed.tokens || {});
+      merged.forms = Object.assign({}, parsed.forms || {});
+      merged.lastResponses = Object.assign({}, parsed.lastResponses || {});
+      // One-time defaults refresh: make HASH the default callback method and
+      // clear any auth-endpoint override for existing sessions. Guarded by
+      // defaultsV2 so it runs once and later explicit choices are preserved.
+      if (!merged.defaultsV2) {
+        if (merged.callbackMethod !== 'HASH') merged.callbackMethod = 'HASH';
+        merged.authEndpoint = '';
+        merged.defaultsV2 = true;
+      }
+      return merged;
+    } catch {
+      return defaultState();
+    }
+  }
+
+  function saveState() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    catch (e) { console.warn('Failed to persist playground state', e); }
+  }
+
+  const state = loadState();
+
+  /* =========================================================================
+     Method metadata
+     ========================================================================= */
+
+  const REDIRECT_METHODS = new Set(['authenticate', 'ping', 'sign', 'stamp', 'attest']);
+
+  const GROUPS = [
+    { label: '',               methods: ['about'] },
+    { label: 'Authentication', methods: ['authenticate', 'check', 'ping'] },
+    { label: 'Identity',       methods: ['whois'] },
+    { label: 'Signing',        methods: ['sign', 'stamp', 'verify'] },
+    { label: 'Attestation',    methods: ['attest'] },
+    { label: 'Helpers',        methods: ['validate'] },
+    { label: '',               methods: ['globalConfig', 'extras'] }
+  ];
+
+  const SIDEBAR_LABELS = {
+    about: 'About',
+    globalConfig: 'Configuration',
+    extras: 'Extras'
+  };
+
+  const FIELD_HINTS = {
+    identifier:  "User-provided identifier, lowercase, must include an `@`.",
+    deviceTag:   "Base64URL SHA-256 of a device's public keys, returned by `authenticate`.",
+    lookupCode:  "Private-mode lookup code (16 characters `A–Z0–9`) issued by the identity's domain operator — the same code that rides in the `deviceTag` as its `~` suffix. Leave empty under public/hashed domains.",
+    deviceName:  "Public device name, lowercase, letters/digits/hyphens only.",
+    callbackUrl: "Where the authenticator will POST/GET/HASH the response. Defaults to this playground page; override for testing other receivers.",
+    token:       "Per-method token from a previous `authenticate` call. Auto-filled when available.",
+    message:     "ASCII-printable text to be signed/stamped. No newlines or control characters.",
+    attachments: "JSON array of `{name, sourceUrl, sha256}` objects covered by the signature.",
+    ext:         "JSON object of protocol extensions, e.g. `{\"callbackMethod\":\"GET\",\"privateProfile\":true}`.",
+    attestations:"JSON object mapping attestation IDs to `{label, providers}` entries.",
+    signature:   "Triauth signature string in the `|type;identifier;actor;via;ver;ts;...;sig|` format.",
+    constraints: "Optional JSON object of constraints (`identifier`, `type`, `ver`, `via`, `notBefore`, `notAfter`)."
+  };
+
+  function defaultAuthExt() {
+    return {
+      callbackMethod: state.callbackMethod || 'HASH',
+      pingToken: true, signToken: true, stampToken: true, attestToken: true,
+      privateProfile: true
+    };
+  }
+  function defaultExt() { return { callbackMethod: state.callbackMethod || 'HASH' }; }
+
+  const METHODS = {
+    about: {
+      label: 'Triauth Playground', group: 'Settings',
+      synopsis: '',
+      description: 'A live, browser-based sandbox for the triauth protocol.',
+      isAbout: true,
+      fields: []
+    },
+    authenticate: {
+      label: 'authenticate', group: 'Authentication',
+      synopsis: '({identifier, callbackUrl, ext})',
+      description: 'Performs a challenge-response authentication. After approval, returns the identity and any requested tokens.',
+      fields: [
+        { name: 'identifier',  type: 'text', global: 'identifier' },
+        { name: 'callbackUrl', type: 'text', getDefault: () => callbackUrl() },
+        { name: 'ext',         type: 'json', getDefault: () => defaultAuthExt() }
+      ]
+    },
+    check: {
+      label: 'check', group: 'Authentication',
+      synopsis: '({identifier, deviceTag})',
+      description: 'Verifies (synchronously, no redirect) that the device keys captured by `authenticate` are still present in the DNS.',
+      fields: [
+        { name: 'identifier', type: 'text', global: 'identifier' },
+        { name: 'deviceTag',  type: 'text', global: 'deviceTag' }
+      ]
+    },
+    ping: {
+      label: 'ping', group: 'Authentication',
+      synopsis: '({identifier, callbackUrl, token, ext})',
+      description: 'Background re-authentication: obtains a fresh signature without user interaction. Requires a `pingToken`.',
+      fields: [
+        { name: 'identifier',  type: 'text', global: 'identifier' },
+        { name: 'callbackUrl', type: 'text', getDefault: () => callbackUrl() },
+        { name: 'token',       type: 'text', tokenKey: 'pingToken' },
+        { name: 'ext',         type: 'json', getDefault: () => defaultExt() }
+      ]
+    },
+    whois: {
+      label: 'whois', group: 'Identity',
+      synopsis: '({identifier, lookupCode?})',
+      description: 'Looks up public identity records for an identifier and returns the authentication endpoint plus any registered devices. Under a `mode=private` domain the lookup takes the identity\'s `lookupCode`.',
+      fields: [
+        { name: 'identifier', type: 'text', global: 'identifier' },
+        { name: 'lookupCode', type: 'text' }
+      ]
+    },
+    sign: {
+      label: 'sign', group: 'Signing',
+      synopsis: '({identifier, callbackUrl, message, attachments, token, ext})',
+      description: 'Interactive signature: the user reviews the message (and any attachments) before signing. Requires a `signToken`.',
+      fields: [
+        { name: 'identifier',  type: 'text', global: 'identifier' },
+        { name: 'callbackUrl', type: 'text', getDefault: () => callbackUrl() },
+        { name: 'message',     type: 'text', default: 'Hello world' },
+        { name: 'attachments', type: 'json', default: [] },
+        { name: 'token',       type: 'text', tokenKey: 'signToken' },
+        { name: 'ext',         type: 'json', getDefault: () => defaultExt() }
+      ]
+    },
+    stamp: {
+      label: 'stamp', group: 'Signing',
+      synopsis: '({identifier, callbackUrl, message, token, ext})',
+      description: 'Non-interactive signature over `message`. Requires a `stampToken`. Stamps are not replay-protected on their own.',
+      fields: [
+        { name: 'identifier',  type: 'text', global: 'identifier' },
+        { name: 'callbackUrl', type: 'text', getDefault: () => callbackUrl() },
+        { name: 'message',     type: 'text', default: 'example-data-in-textual-format' },
+        { name: 'token',       type: 'text', tokenKey: 'stampToken' },
+        { name: 'ext',         type: 'json', getDefault: () => defaultExt() }
+      ]
+    },
+    verify: {
+      label: 'verify', group: 'Signing',
+      synopsis: '(message, signature, constraints?)',
+      description: 'Independently verifies a signature or stamp against the DNS-published keys. No redirect, no token needed.',
+      positional: true,
+      fields: [
+        { name: 'message',     type: 'text' },
+        { name: 'signature',   type: 'textarea' },
+        { name: 'constraints', type: 'json', default: {} }
+      ]
+    },
+    attest: {
+      label: 'attest', group: 'Attestation',
+      synopsis: '({identifier, callbackUrl, attestations, token, ext})',
+      description: 'Requests third-party verified attestations (e.g. not-a-robot, age). Requires an `attestToken`.',
+      fields: [
+        { name: 'identifier',  type: 'text', global: 'identifier' },
+        { name: 'callbackUrl', type: 'text', getDefault: () => callbackUrl() },
+        { name: 'attestations', type: 'json', default: {
+            'not-a-robot': {
+              label: 'I am not a robot',
+              providers: ['https://attest.triauthdemo.org/not-a-robot']
+            }
+          }
+        },
+        { name: 'token', type: 'text', tokenKey: 'attestToken' },
+        { name: 'ext',   type: 'json', getDefault: () => defaultExt() }
+      ]
+    },
+    validate: {
+      label: 'validate', group: 'Helpers',
+      synopsis: '({identifier?, deviceName?})',
+      description: 'Synchronous format validation for identifiers and device names. No DNS lookups.',
+      fields: [
+        { name: 'identifier', type: 'text', default: 'john@triauthdemo.org' },
+        { name: 'deviceName', type: 'text', default: 'desktop' }
+      ]
+    },
+    globalConfig: {
+      label: 'Default Configuration', group: 'Settings',
+      synopsis: '',
+      description: 'These defaults apply to every method.',
+      isConfig: true,
+      fields: [
+        { name: 'identifier',     type: 'text',   stateKey: 'identifier',
+          label: 'Default identifier',
+          hint: 'Prefilled into every method form. Lowercase, must include an `@`.' },
+        { name: 'authEndpoint',   type: 'text',   stateKey: 'authEndpoint',
+          label: 'Authentication endpoint override',
+          hint: 'Replaces the host in `redirectUrl` before navigation. Leave empty to use the endpoint discovered via DNS.' },
+        { name: 'callbackMethod', type: 'select', stateKey: 'callbackMethod',
+          label: 'Default callback method',
+          options: [
+            { value: 'GET',  label: 'GET — response in query string' },
+            { value: 'POST', label: 'POST — response in form body' },
+            { value: 'HASH', label: 'HASH — response in URL fragment' }
+          ],
+          hint: 'Merged into every method\'s `ext.callbackMethod` by default.' },
+        { name: 'logLevel',       type: 'select', stateKey: 'logLevel',
+          label: 'Logger level',
+          options: [
+            { value: 'debug', label: 'debug (verbose, includes sensitive payloads)' },
+            { value: 'info',  label: 'info' },
+            { value: 'warn',  label: 'warn' },
+            { value: 'error', label: 'error' }
+          ],
+          hint: 'Applied live to `Triauth.config.logger.logLevel`.' },
+        { name: 'autoRedirect',   type: 'checkbox', stateKey: 'autoRedirect',
+          label: 'Auto-follow redirectUrl after stage 1',
+          hint: 'When on, the playground navigates to `redirectUrl` immediately after a successful stage 1. Turn off to inspect the challenge / redirectUrl response first — a Redirect button appears below the result and you control when the round-trip starts.' }
+      ]
+    },
+    extras: {
+      label: 'Extras', group: 'Settings',
+      synopsis: '',
+      description: 'Developer resources for the triauth-js reference implementation.',
+      isExtras: true,
+      fields: []
+    }
+  };
+
+  /* =========================================================================
+     Config wiring
+     ========================================================================= */
+
+  function applyLoggerLevel() {
+    try {
+      if (window.Triauth && Triauth.config && Triauth.config.logger) {
+        Triauth.config.logger.logLevel = state.logLevel || 'warn';
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  /* =========================================================================
+     Form value resolution
+     ========================================================================= */
+
+  function getFormValue(method, fieldName) {
+    const stored = state.forms?.[method]?.[fieldName];
+    if (stored !== undefined && stored !== null && stored !== '') return stored;
+
+    const field = METHODS[method].fields.find(f => f.name === fieldName);
+    if (!field) return '';
+
+    if (field.global && state[field.global]) return state[field.global];
+    if (field.tokenKey && state.tokens?.[field.tokenKey]) return state.tokens[field.tokenKey];
+    if (field.getDefault) return field.getDefault();
+    if (field.default !== undefined) return field.default;
+    return field.type === 'json' ? {} : '';
+  }
+
+  function setFormValue(method, fieldName, value) {
+    state.forms = state.forms || {};
+    state.forms[method] = state.forms[method] || {};
+    state.forms[method][fieldName] = value;
+    saveState();
+  }
+
+  function valueToInputString(field, value) {
+    if (field.type === 'json') {
+      if (typeof value === 'string') return value; // mid-edit raw string
+      try { return JSON.stringify(value, null, 2); }
+      catch { return String(value ?? ''); }
+    }
+    return value == null ? '' : String(value);
+  }
+
+  /* =========================================================================
+     Rendering
+     ========================================================================= */
+
+  const sidebarEl = document.getElementById('sidebar');
+  const mobileSelectEl = document.getElementById('mobileMethodSelect');
+  const methodPanelEl = document.getElementById('methodPanel');
+
+  function renderSidebar() {
+    sidebarEl.innerHTML = '';
+    mobileSelectEl.innerHTML = '';
+
+    GROUPS.forEach((group) => {
+      const groupEl = document.createElement('div');
+      groupEl.className = 'pg-sidebar-group';
+
+      if (group.label) {
+        const labelEl = document.createElement('div');
+        labelEl.className = 'pg-sidebar-group-label';
+        labelEl.textContent = group.label;
+        groupEl.appendChild(labelEl);
+      }
+
+      // Groups without a label drop their options straight into the select (no optgroup header).
+      const optParent = group.label ? document.createElement('optgroup') : mobileSelectEl;
+      if (group.label) optParent.label = group.label;
+
+      group.methods.forEach((m) => {
+        const label = SIDEBAR_LABELS[m] || m;
+        const isConfig = METHODS[m]?.isConfig;
+        const isAbout = METHODS[m]?.isAbout;
+        const isExtras = METHODS[m]?.isExtras;
+
+        const link = document.createElement('a');
+        link.href = '#' + m;
+        link.dataset.method = m;
+        link.textContent = label;
+        if (m === state.activeMethod) link.classList.add('active');
+
+        if (!isConfig && !isAbout && !isExtras) {
+          const badge = document.createElement('span');
+          badge.className = 'pg-sidebar-badge';
+          badge.textContent = REDIRECT_METHODS.has(m) ? 'redirect' : 'sync';
+          badge.title = REDIRECT_METHODS.has(m) ? 'Uses the challenge-response flow' : 'Returns results directly';
+          link.appendChild(badge);
+        }
+
+        link.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          setActiveMethod(m);
+        });
+        groupEl.appendChild(link);
+
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = (isConfig || isAbout || isExtras) ? label : (m + (REDIRECT_METHODS.has(m) ? '  (redirect)' : '  (sync)'));
+        if (m === state.activeMethod) opt.selected = true;
+        optParent.appendChild(opt);
+      });
+
+      sidebarEl.appendChild(groupEl);
+      if (group.label) mobileSelectEl.appendChild(optParent);
+    });
+
+    mobileSelectEl.onchange = () => setActiveMethod(mobileSelectEl.value);
+  }
+
+  function renderField(method, field) {
+    if (field.type === 'checkbox') return renderCheckboxField(method, field);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'pg-field';
+
+    const id = `f-${method}-${field.name}`;
+
+    const label = document.createElement('label');
+    label.htmlFor = id;
+    label.textContent = field.label || field.name;
+    if (field.tokenKey) {
+      // Report what the field is actually showing, not merely what is in state.tokens:
+      // an edited value shadows the stored one (see getFormValue), and silently claiming
+      // "auto-filled" over a stale token hides the reason the authenticator refuses it.
+      const live = state.tokens?.[field.tokenKey];
+      const shown = getFormValue(method, field.name);
+      const note = document.createElement('span');
+      note.style.cssText = 'color:#8b909b; font-weight:400; margin-left:6px; font-size:0.72rem;';
+      if (!live) {
+        note.textContent = '(no stored ' + field.tokenKey + ' — run authenticate first)';
+      } else if (shown === live) {
+        note.textContent = '(auto-filled from stored ' + field.tokenKey + ')';
+      } else {
+        note.textContent = '(edited — does not match stored ' + field.tokenKey + ')';
+        note.style.color = '#a8600f';
+      }
+      label.appendChild(note);
+    }
+    wrap.appendChild(label);
+
+    const isConfigField = !!field.stateKey;
+    const raw = isConfigField ? state[field.stateKey] : getFormValue(method, field.name);
+    const valueStr = valueToInputString(field, raw);
+
+    let input;
+    if (field.type === 'select') {
+      input = document.createElement('select');
+      (field.options || []).forEach((opt) => {
+        const o = document.createElement('option');
+        o.value = opt.value;
+        o.textContent = opt.label;
+        if (opt.value === valueStr) o.selected = true;
+        input.appendChild(o);
+      });
+    } else if (field.type === 'textarea' || (field.type === 'json' && (field.name === 'attachments' || field.name === 'attestations' || field.name === 'constraints' || field.name === 'ext'))) {
+      input = document.createElement('textarea');
+      input.rows = field.name === 'ext' ? 3 : 4;
+      input.value = valueStr;
+    } else {
+      input = document.createElement('input');
+      input.type = 'text';
+      input.value = valueStr;
+    }
+    input.id = id;
+    input.name = field.name;
+    input.dataset.method = method;
+    input.dataset.field = field.name;
+    input.dataset.type = field.type;
+    if (field.type === 'json') input.dataset.json = 'true';
+    wrap.appendChild(input);
+
+    const hint = field.hint || FIELD_HINTS[field.name];
+    if (hint) {
+      const hintEl = document.createElement('span');
+      hintEl.className = 'pg-hint';
+      hintEl.innerHTML = hint.replace(/`([^`]+)`/g, '<code>$1</code>');
+      wrap.appendChild(hintEl);
+    }
+
+    const onChange = () => {
+      let v = input.value;
+      if (field.type === 'json') {
+        try { v = JSON.parse(input.value); }
+        catch { v = input.value; /* keep raw string until valid */ }
+      }
+      if (isConfigField) {
+        state[field.stateKey] = (typeof v === 'string') ? v.trim() : v;
+        saveState();
+        if (field.stateKey === 'logLevel') applyLoggerLevel();
+        if (field.stateKey === 'identifier') refreshIdentifierAcrossForms();
+      } else {
+        setFormValue(method, field.name, v);
+      }
+    };
+    input.addEventListener('input', onChange);
+    if (field.type === 'select') input.addEventListener('change', onChange);
+
+    return wrap;
+  }
+
+  function renderCheckboxField(method, field) {
+    const wrap = document.createElement('div');
+    wrap.className = 'pg-field pg-field-check';
+
+    const id = `f-${method}-${field.name}`;
+    const isConfigField = !!field.stateKey;
+    const value = isConfigField ? !!state[field.stateKey] : !!getFormValue(method, field.name);
+
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.id = id;
+    input.checked = value;
+    input.dataset.method = method;
+    input.dataset.field = field.name;
+    input.dataset.type = 'checkbox';
+    input.addEventListener('change', () => {
+      if (isConfigField) {
+        state[field.stateKey] = input.checked;
+        saveState();
+      } else {
+        setFormValue(method, field.name, input.checked);
+      }
+    });
+    wrap.appendChild(input);
+
+    const label = document.createElement('label');
+    label.htmlFor = id;
+    label.textContent = field.label || field.name;
+    wrap.appendChild(label);
+
+    const hint = field.hint || FIELD_HINTS[field.name];
+    if (hint) {
+      const hintEl = document.createElement('span');
+      hintEl.className = 'pg-hint';
+      hintEl.innerHTML = hint.replace(/`([^`]+)`/g, '<code>$1</code>');
+      wrap.appendChild(hintEl);
+    }
+
+    return wrap;
+  }
+
+  // When the global identifier changes, mirror it into any per-form identifier field
+  // the user hasn't overridden yet (i.e., no stored per-form value).
+  function refreshIdentifierAcrossForms() {
+    for (const m of Object.keys(METHODS)) {
+      if (m === state.activeMethod && !METHODS[m].isConfig) {
+        const el = methodPanelEl.querySelector(`[data-method="${m}"][data-field="identifier"]`);
+        if (el && !state.forms?.[m]?.identifier) el.value = state.identifier || '';
+      }
+    }
+  }
+
+  function renderMethodPanel(method) {
+    const meta = METHODS[method];
+    methodPanelEl.innerHTML = '';
+
+    const head = document.createElement('div');
+    head.className = 'pg-method-head';
+    const h3 = document.createElement('h3');
+    const code = document.createElement('span');
+    code.textContent = (meta.isConfig || meta.isAbout || meta.isExtras) ? meta.label : ('Triauth.' + method);
+    h3.appendChild(code);
+    if (meta.synopsis) {
+      const small = document.createElement('small');
+      small.textContent = meta.synopsis;
+      h3.appendChild(document.createElement('br'));
+      h3.appendChild(small);
+    }
+    head.appendChild(h3);
+
+    // Per-method "Reference" deep link into the method's README section on GitHub
+    // (only for real API methods — not the About/Configuration/Extras panes).
+    if (!meta.isConfig && !meta.isAbout && !meta.isExtras) {
+      const ref = document.createElement('a');
+      ref.className = 'pg-doclink';
+      ref.href = 'https://github.com/triauth/triauth-js#user-content-triauth-' + method;
+      ref.target = '_blank';
+      ref.rel = 'noopener noreferrer';
+      ref.title = 'Read the Triauth.' + method + ' reference on GitHub';
+      ref.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">' +
+        '<path fill="currentColor" d="M0 1.75A.75.75 0 0 1 .75 1h4.253c1.227 0 2.317.59 3 1.501A3.743 3.743 0 0 1 11.006 1h4.245a.75.75 0 0 1 .75.75v10.5a.75.75 0 0 1-.75.75h-4.507a2.25 2.25 0 0 0-1.591.659l-.622.621a.75.75 0 0 1-1.06 0l-.622-.621A2.25 2.25 0 0 0 5.258 13H.75a.75.75 0 0 1-.75-.75Zm7.251 10.324.004-5.073-.002-2.253A2.25 2.25 0 0 0 5.003 2.5H1.5v9h3.757a3.75 3.75 0 0 1 1.994.574ZM8.755 4.75l-.004 7.322a3.752 3.752 0 0 1 1.992-.572H14.5v-9h-3.495a2.25 2.25 0 0 0-2.25 2.25Z"/></svg>' +
+        '<span>Reference</span>';
+      head.appendChild(ref);
+    }
+
+    methodPanelEl.appendChild(head);
+
+    const desc = document.createElement('div');
+    desc.className = 'pg-method-desc';
+    desc.textContent = meta.description;
+    methodPanelEl.appendChild(desc);
+
+    if (meta.isAbout) {
+      renderAboutBody();
+      return;
+    }
+
+    if (meta.isExtras) {
+      renderExtrasBody();
+      return;
+    }
+
+    if (meta.isConfig) {
+      renderGlobalConfigBody();
+      return;
+    }
+
+    const form = document.createElement('form');
+    form.id = 'methodForm';
+    form.addEventListener('submit', (ev) => { ev.preventDefault(); submitMethod(method); });
+
+    meta.fields.forEach((field) => form.appendChild(renderField(method, field)));
+
+    const actions = document.createElement('div');
+    actions.className = 'pg-form-actions';
+
+    const submitBtn = document.createElement('button');
+    submitBtn.type = 'submit';
+    submitBtn.className = 'pg-btn';
+    submitBtn.textContent = 'Run Triauth.' + method;
+    actions.appendChild(submitBtn);
+
+    const resetBtn = document.createElement('button');
+    resetBtn.type = 'button';
+    resetBtn.className = 'pg-btn ghost';
+    resetBtn.textContent = 'Reset form';
+    resetBtn.addEventListener('click', () => {
+      delete state.forms[method];
+      if (state.lastResponses) delete state.lastResponses[method];
+      saveState();
+      renderMethodPanel(method);
+    });
+    actions.appendChild(resetBtn);
+
+    form.appendChild(actions);
+    methodPanelEl.appendChild(form);
+
+    // Stage 3 "what arrived" panel comes between the form and the result so the
+    // flow reads top-to-bottom: form (stage 1 input) → received response (stage 3 input) → result (stage 3 output).
+    renderLastResponse();
+
+    const result = document.createElement('div');
+    result.className = 'pg-result';
+    result.id = 'methodResult';
+    result.innerHTML = `
+      <div class="pg-result-head">
+        <strong style="font-size:0.85rem;">Last result</strong>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="pg-status neutral" id="resultStatus">no result yet</span>
+          <button type="button" class="pg-btn ghost small" id="copyResult">Copy</button>
+        </div>
+      </div>
+      <pre id="resultPre">(run the method to see a result here)</pre>
+    `;
+    result.classList.add('empty');
+    methodPanelEl.appendChild(result);
+
+    document.getElementById('copyResult').addEventListener('click', copyResult);
+
+    const cached = state.forms?.[method]?.__result;
+    if (cached) renderResult(cached.value, cached.status, cached.label);
+
+    renderPendingRedirect();
+  }
+
+  function renderAboutBody() {
+    const wrap = document.createElement('div');
+    wrap.className = 'pg-about';
+    wrap.innerHTML = `
+      <p>Pick a method from the left to build a request and run it live.</p>
+      <p>New to triauth? See <a href="https://www.triauth.org/" target="_blank" rel="noopener noreferrer">triauth.org</a>.</p>
+    `;
+    const actions = document.createElement('div');
+    actions.className = 'pg-form-actions';
+    actions.style.marginTop = '18px';
+    const go = document.createElement('button');
+    go.type = 'button';
+    go.className = 'pg-btn';
+    go.textContent = 'Start with authenticate »';
+    go.addEventListener('click', () => setActiveMethod('authenticate'));
+    actions.appendChild(go);
+    wrap.appendChild(actions);
+    methodPanelEl.appendChild(wrap);
+  }
+
+  function renderExtrasBody() {
+    const wrap = document.createElement('div');
+    wrap.className = 'pg-about';
+    wrap.innerHTML = `
+      <ul class="pg-extras">
+        <li><a href="/test/" target="_blank" rel="noopener noreferrer">Run triauth.js tests in your web browser &rarr;</a></li>
+        <li><a href="/coverage/" target="_blank" rel="noopener noreferrer">See triauth.js test coverage report &rarr;</a></li>
+        <li><a href="/jsdoc/" target="_blank" rel="noopener noreferrer">Read auto-generated triauth.js code documentation &rarr;</a></li>
+      </ul>
+    `;
+    methodPanelEl.appendChild(wrap);
+  }
+
+  function renderLastResponse() {
+    methodPanelEl.querySelectorAll('.pg-stage3').forEach(el => el.remove());
+
+    const method = state.activeMethod;
+    const captured = state.lastResponses?.[method];
+    if (!captured || !captured.response) return;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'pg-stage3';
+    wrap.innerHTML = `
+      <div class="pg-field" style="margin:0;">
+        <label>Stage 3 — response received <span class="pg-stage3-via">via ${captured.via || '?'}</span></label>
+        <span class="pg-hint">In a server-side flow your callback handler would receive this and pass <code>{challenge, response}</code> to <code>Triauth.${method}</code>. The playground does that for you below.</span>
+      </div>
+      <div class="pg-field" style="margin: 10px 0 0;">
+        <label>remembered <code>challenge</code></label>
+        <div class="pg-stage3-block" data-slot="challenge"></div>
+      </div>
+      <div class="pg-field" style="margin: 10px 0 0;">
+        <label>callback URL the authenticator hit</label>
+        <div class="pg-stage3-block" data-slot="url"></div>
+      </div>
+      <div class="pg-field" style="margin: 10px 0 0;">
+        <label>extracted <code>response</code> string</label>
+        <div class="pg-stage3-block" data-slot="response"></div>
+      </div>
+    `;
+    methodPanelEl.appendChild(wrap);
+
+    wrap.querySelector('[data-slot="challenge"]').textContent = captured.challenge || '(none — challenge had already been cleared before the response arrived)';
+    wrap.querySelector('[data-slot="url"]').textContent = captured.url || '';
+    wrap.querySelector('[data-slot="response"]').textContent = captured.response || '';
+  }
+
+  function renderPendingRedirect() {
+    // Drop any stale button first
+    methodPanelEl.querySelectorAll('.pg-pending-redirect').forEach(el => el.remove());
+
+    const pending = state.pendingRedirect;
+    if (!pending || pending.method !== state.activeMethod || !pending.url) return;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'pg-pending-redirect';
+    wrap.innerHTML = `
+      <div class="pg-field" style="margin:0;">
+        <label>Stage 2 — manual redirect</label>
+        <div class="pg-pending-redirect-url" title="${pending.url.replace(/"/g, '&quot;')}">${pending.url}</div>
+        <span class="pg-hint">Auto-follow is off in Global config. Inspect the result above, then continue.</span>
+      </div>
+      <div class="pg-form-actions" style="margin-top:12px;">
+        <button type="button" class="pg-btn" data-action="go">Redirect to authenticator</button>
+        <button type="button" class="pg-btn ghost" data-action="cancel">Cancel</button>
+      </div>
+    `;
+    methodPanelEl.appendChild(wrap);
+
+    wrap.querySelector('[data-action="go"]').addEventListener('click', () => {
+      window.location = pending.url;
+    });
+    wrap.querySelector('[data-action="cancel"]').addEventListener('click', () => {
+      state.pendingRedirect = null;
+      state.lastChallenge = '';
+      state.lastMethod = '';
+      saveState();
+      renderPendingRedirect();
+    });
+  }
+
+  function renderGlobalConfigBody() {
+    const meta = METHODS.globalConfig;
+
+    meta.fields.forEach((field) => methodPanelEl.appendChild(renderField('globalConfig', field)));
+
+    // Captured tokens / deviceTag from last authenticate
+    const capWrap = document.createElement('div');
+    capWrap.className = 'pg-field';
+    capWrap.innerHTML = `
+      <label>Captured from <code>authenticate</code></label>
+      <div class="pg-tokens" id="globalTokenDetail">
+        <span class="pg-token-pill empty" data-token="pingToken">pingToken</span>
+        <span class="pg-token-pill empty" data-token="signToken">signToken</span>
+        <span class="pg-token-pill empty" data-token="stampToken">stampToken</span>
+        <span class="pg-token-pill empty" data-token="attestToken">attestToken</span>
+        <span class="pg-token-pill empty" data-token="deviceTag">deviceTag</span>
+      </div>
+      <span class="pg-hint" id="globalDeviceTag" style="font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; word-break:break-all;"></span>
+    `;
+    methodPanelEl.appendChild(capWrap);
+
+    const danger = document.createElement('div');
+    danger.className = 'pg-danger-zone';
+    danger.innerHTML = `
+      <h4>Danger zone</h4>
+      <p>Wipes config, tokens, per-method form values, and cached results from <code>localStorage</code>.</p>
+    `;
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.className = 'pg-btn danger';
+    clearBtn.textContent = 'Clear all playground state';
+    clearBtn.addEventListener('click', () => {
+      if (!confirm('Clear all playground state (identifier, tokens, captured forms)?')) return;
+      localStorage.removeItem(STORAGE_KEY);
+      Object.assign(state, defaultState());
+      saveState();
+      renderSidebar();
+      setActiveMethod('globalConfig');
+    });
+    danger.appendChild(clearBtn);
+    methodPanelEl.appendChild(danger);
+
+    refreshTokenIndicators();
+  }
+
+  function refreshTokenIndicators() {
+    const detail = document.getElementById('globalTokenDetail');
+    if (!detail) return;
+    const tokens = state.tokens || {};
+    detail.querySelectorAll('.pg-token-pill').forEach((pill) => {
+      const k = pill.dataset.token;
+      const hasIt = k === 'deviceTag' ? !!state.deviceTag : !!tokens[k];
+      pill.classList.toggle('has', hasIt);
+      pill.classList.toggle('empty', !hasIt);
+    });
+    const dtEl = document.getElementById('globalDeviceTag');
+    if (dtEl) dtEl.textContent = state.deviceTag ? 'deviceTag: ' + state.deviceTag : '';
+  }
+
+  function setActiveMethod(method) {
+    if (!METHODS[method]) method = 'authenticate';
+    state.activeMethod = method;
+    saveState();
+
+    sidebarEl.querySelectorAll('a').forEach(a => a.classList.toggle('active', a.dataset.method === method));
+    if (mobileSelectEl.value !== method) mobileSelectEl.value = method;
+
+    renderMethodPanel(method);
+  }
+
+  /* =========================================================================
+     Submission
+     ========================================================================= */
+
+  function callbackUrl() {
+    return window.location.origin + window.location.pathname;
+  }
+
+  function readField(method, field) {
+    const el = methodPanelEl.querySelector(`[data-method="${method}"][data-field="${field.name}"]`);
+    if (!el) return undefined;
+    const raw = el.value;
+    if (field.type === 'json') {
+      const trimmed = raw.trim();
+      if (!trimmed) return field.name === 'attachments' ? [] : {};
+      try { return JSON.parse(trimmed); }
+      catch (e) { throw new Error('Invalid JSON in field "' + field.name + '": ' + e.message); }
+    }
+    return raw;
+  }
+
+  function collectArgs(method) {
+    const meta = METHODS[method];
+    const obj = {};
+    for (const field of meta.fields) {
+      const v = readField(method, field);
+      if (v === '' || v === undefined) continue;
+      if (field.type === 'json' && Array.isArray(v) && v.length === 0 && field.name === 'attachments') continue;
+      if (field.type === 'json' && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0 && field.name !== 'constraints') {
+        if (field.name === 'attestations') continue;
+        // empty ext is fine to pass through
+      }
+      obj[field.name] = v;
+    }
+    return obj;
+  }
+
+  async function submitMethod(method) {
+    if (!window.Triauth || typeof Triauth[method] !== 'function') {
+      renderResult({error: {code: 0, message: 'Triauth.' + method + ' is not available'}}, 'error');
+      return;
+    }
+    applyLoggerLevel();
+
+    // A fresh Run invalidates any prior Stage 3 capture for this method — the
+    // user is starting a new flow and the previous URL/response/challenge from
+    // last time would otherwise sit confusingly alongside the new result.
+    if (state.lastResponses && state.lastResponses[method]) {
+      delete state.lastResponses[method];
+      saveState();
+    }
+    methodPanelEl.querySelectorAll('.pg-stage3').forEach(el => el.remove());
+
+    let args;
+    try { args = collectArgs(method); }
+    catch (err) {
+      renderResult({error: {code: 0, message: err.message}}, 'error');
+      return;
+    }
+
+    const meta = METHODS[method];
+
+    if (REDIRECT_METHODS.has(method) && !args.callbackUrl) {
+      args.callbackUrl = callbackUrl();
+    }
+
+    renderResultPending();
+
+    try {
+      let result;
+      if (meta.positional) {
+        if (method === 'verify') {
+          result = await Triauth.verify(args.message ?? '', args.signature ?? '', args.constraints || {});
+        } else {
+          result = await Triauth[method](args);
+        }
+      } else {
+        result = await Triauth[method](args);
+      }
+
+      // Stage 1 of a redirect flow: navigate to the authenticator (or wait for the user to click Redirect)
+      if (REDIRECT_METHODS.has(method) && result && result.redirectUrl && result.challenge) {
+        state.lastChallenge = result.challenge;
+        state.lastMethod = method;
+
+        let redirectUrl = result.redirectUrl;
+        if (state.authEndpoint && state.authEndpoint.trim()) {
+          redirectUrl = redirectUrl.replace(/https?:\/\/[^/]+\//, state.authEndpoint);
+        }
+
+        if (state.autoRedirect === false) {
+          state.pendingRedirect = { method, url: redirectUrl };
+          saveState();
+          renderResult(result, 'pending', 'stage 1 ready — click Redirect');
+          cacheResult(method, result, 'pending');
+          renderPendingRedirect();
+          return;
+        }
+
+        state.pendingRedirect = null;
+        saveState();
+        renderResult(Object.assign({}, result, {_note: 'Stage 1 complete — redirecting to authenticator'}), 'pending', 'redirecting…');
+
+        // Small delay so the user can see the result panel briefly
+        setTimeout(() => { window.location = redirectUrl; }, 150);
+        return;
+      }
+
+      renderResult(result, statusFor(result, method));
+      cacheResult(method, result, statusFor(result, method));
+
+      // Token capture from authenticate stage-3 result
+      if (method === 'authenticate' && result && result.authenticated) {
+        captureAuthenticateResult(result);
+      }
+      if ((method === 'sign' && result?.signed) || (method === 'stamp' && result?.stamped)) {
+        captureSignatureForVerify(method, result);
+      }
+    } catch (err) {
+      const wrap = { error: { code: 0, message: String(err && err.message || err) } };
+      renderResult(wrap, 'error');
+      cacheResult(method, wrap, 'error');
+    }
+  }
+
+  function captureSignatureForVerify(method, result) {
+    if (!result || typeof result.result !== 'string') return;
+    state.forms = state.forms || {};
+    state.forms.verify = state.forms.verify || {};
+    state.forms.verify.message = state.forms?.[method]?.message ?? '';
+    state.forms.verify.signature = result.result;
+    // Drop any stale cached verify result so the prefilled inputs aren't paired
+    // with a result from a different signature.
+    if (state.forms.verify.__result) delete state.forms.verify.__result;
+    saveState();
+  }
+
+  function captureAuthenticateResult(result) {
+    state.identifier = result.identifier || state.identifier;
+    state.deviceTag = result.deviceTag || state.deviceTag;
+    const ext = result.ext || {};
+    ['pingToken', 'signToken', 'stampToken', 'attestToken'].forEach(k => {
+      if (typeof ext[k] === 'string' && ext[k]) state.tokens[k] = ext[k];
+    });
+    refreshTokensAcrossForms(ext);
+    saveState();
+    refreshTokenIndicators();
+  }
+
+  // Every `auth` approval re-mints the tokens for that (identity, base URL) pair, so any
+  // copy a token field pinned into state.forms on an earlier run is now dead: the
+  // authenticator will refuse the HMAC it keys. Drop the pinned copies so getFormValue
+  // falls back through to the freshly captured state.tokens value, and update the input
+  // in place when the affected method is the one currently on screen.
+  function refreshTokensAcrossForms(ext) {
+    for (const [m, meta] of Object.entries(METHODS)) {
+      for (const field of meta.fields || []) {
+        const minted = field.tokenKey && ext[field.tokenKey];
+        if (!minted) continue;
+
+        if (state.forms?.[m]) delete state.forms[m][field.name];
+
+        const el = methodPanelEl.querySelector(`[data-method="${m}"][data-field="${field.name}"]`);
+        if (el) el.value = minted;
+      }
+    }
+  }
+
+  /* =========================================================================
+     Result rendering
+     ========================================================================= */
+
+  function statusFor(result, method) {
+    if (!result || typeof result !== 'object') return 'neutral';
+    if (result.error) return 'error';
+    if (method === 'authenticate' && result.authenticated) return 'success';
+    if (method === 'ping'        && result.pinged)        return 'success';
+    if (method === 'sign'        && result.signed)        return 'success';
+    if (method === 'stamp'       && result.stamped)       return 'success';
+    if (method === 'attest'      && result.attested)      return 'success';
+    if (method === 'check') {
+      if (result.checked && result.valid)  return 'success';
+      if (result.checked && !result.valid) return 'warn';
+    }
+    if (method === 'verify') {
+      if (result.verified && result.valid)  return 'success';
+      if (result.verified && !result.valid) return 'warn';
+    }
+    if (method === 'validate') return result.valid ? 'success' : 'warn';
+    if (method === 'whois') {
+      if (result.status === 1)  return 'success';
+      if (result.status === 0)  return 'warn';
+      if (result.status === -1) return 'warn';
+    }
+    if (result.challenge && result.redirectUrl) return 'pending';
+    return 'neutral';
+  }
+
+  function statusLabel(status, method) {
+    switch (status) {
+      case 'success': return method + ' ✓';
+      case 'error':   return 'error';
+      case 'warn':    return method === 'check' || method === 'verify' || method === 'validate' ? 'invalid' : 'not found';
+      case 'pending': return 'pending';
+      default:        return 'completed';
+    }
+  }
+
+  function renderResult(result, status, customLabel) {
+    const pre = document.getElementById('resultPre');
+    const pill = document.getElementById('resultStatus');
+    const wrap = document.getElementById('methodResult');
+    if (!pre) return;
+    pre.textContent = JSON.stringify(result, null, 2);
+    pill.className = 'pg-status ' + (status || 'neutral');
+    pill.textContent = customLabel || statusLabel(status || 'neutral', state.activeMethod);
+    wrap.classList.remove('empty');
+  }
+
+  function renderResultPending() {
+    const pre = document.getElementById('resultPre');
+    const pill = document.getElementById('resultStatus');
+    const wrap = document.getElementById('methodResult');
+    if (!pre) return;
+    pre.textContent = 'running…';
+    pill.className = 'pg-status pending';
+    pill.textContent = 'pending';
+    wrap.classList.remove('empty');
+  }
+
+  function cacheResult(method, value, status) {
+    state.forms = state.forms || {};
+    state.forms[method] = state.forms[method] || {};
+    state.forms[method].__result = { value, status, label: statusLabel(status, method) };
+    saveState();
+  }
+
+  function copyResult() {
+    const pre = document.getElementById('resultPre');
+    if (!pre) return;
+    navigator.clipboard?.writeText(pre.textContent || '').then(() => {
+      const btn = document.getElementById('copyResult');
+      const orig = btn.textContent;
+      btn.textContent = 'Copied';
+      setTimeout(() => { btn.textContent = orig; }, 1200);
+    });
+  }
+
+  /* =========================================================================
+     Redirect response handling (stage 3 of the challenge-response flow)
+     ========================================================================= */
+
+  function extractResponse() {
+    const originalUrl = window.location.href;
+    const search = new URLSearchParams(window.location.search);
+    if (search.get('response')) return { response: search.get('response'), via: 'GET', originalUrl };
+
+    let hash = window.location.hash || '';
+    if (hash.startsWith('#')) hash = hash.slice(1);
+    if (hash.startsWith('?')) hash = hash.slice(1);
+    if (hash) {
+      const hashParams = new URLSearchParams(hash);
+      if (hashParams.get('response')) return { response: hashParams.get('response'), via: 'HASH', originalUrl };
+    }
+    return null;
+  }
+
+  async function handleRedirectResponse() {
+    const got = extractResponse();
+    if (!got) return;
+
+    const response = got.response;
+    let method;
+    if (response === 'false') {
+      // Rejection response carries no `|type;...|` envelope, so the method
+      // can't be inferred from the response itself — fall back to whatever
+      // flow stage 1 recorded as in-flight.
+      method = state.lastMethod;
+    } else {
+      const match = response.match(/\|(attest|auth|ping|sign|stamp);/);
+      method = match ? match[1] : null;
+      if (method === 'auth') method = 'authenticate';
+    }
+
+    if (!method || !METHODS[method]) return;
+
+    // Stage 3 is starting — the manual-redirect pane is no longer relevant.
+    // Capture the original URL, raw response, and the stored challenge that
+    // we're about to verify it against, so the developer can see all three
+    // inputs of stage 3 side-by-side. Clear pendingRedirect before rendering
+    // the panel so the stale Stage 2 block doesn't flash on screen.
+    const challenge = state.lastChallenge;
+    state.pendingRedirect = null;
+    state.lastResponses = state.lastResponses || {};
+    state.lastResponses[method] = {
+      challenge: challenge || '',
+      url: got.originalUrl,
+      response: response,
+      via: got.via,
+      ts: Date.now()
+    };
+    saveState();
+
+    setActiveMethod(method);
+
+    if (!challenge) {
+      renderResult({error:{code:0, message:'A response was returned but no stored challenge was found — cannot complete stage 3.'}}, 'error');
+      return;
+    }
+
+    // strip response from URL before doing the verify
+    try { history.replaceState({}, document.title, window.location.origin + window.location.pathname); } catch {}
+
+    renderResultPending();
+
+    try {
+      const result = await Triauth[method]({ challenge, response });
+
+      // Clear the stored challenge and any lingering pending redirect
+      state.lastChallenge = '';
+      state.lastMethod = '';
+      state.pendingRedirect = null;
+      saveState();
+
+      const status = statusFor(result, method);
+      renderResult(result, status);
+      cacheResult(method, result, status);
+
+      if (method === 'authenticate' && result && result.authenticated) {
+        captureAuthenticateResult(result);
+      }
+    } catch (err) {
+      const wrap = { error: { code: 0, message: String(err && err.message || err) } };
+      renderResult(wrap, 'error');
+      cacheResult(method, wrap, 'error');
+    }
+  }
+
+  /* =========================================================================
+     Boot
+     ========================================================================= */
+
+  function boot() {
+    if (window.__pgBooted) return;
+    window.__pgBooted = true;
+    applyLoggerLevel();
+    renderSidebar();
+    setActiveMethod(state.activeMethod || 'about');
+    handleRedirectResponse();
+    wireRibbon();
+  }
+
+  // Dismissible "New to triauth?" ribbon — same behaviour as the hub pages.
+  function wireRibbon() {
+    const close = document.querySelector('.ribbon-close');
+    if (close) close.addEventListener('click', () => {
+      try { localStorage.setItem('triauth-ribbon-dismissed', '1'); } catch (e) { /* ignore */ }
+      document.documentElement.classList.add('ribbon-dismissed');
+    });
+  }
+
+  if (window.Triauth) {
+    boot();
+  } else {
+    window.addEventListener('triauth:ready', boot, { once: true });
+    // Fallback in case the event was dispatched before this script ran
+    setTimeout(() => { if (window.Triauth) boot(); }, 50);
+  }
+
+  // Surface the library version next to the heading, matching the docs home.
+  fetch('/package.json').then((r) => r.json()).then((json) => {
+    const el = document.getElementById('triauth-version');
+    if (el && json && json.version) el.innerText = 'v' + json.version;
+  }).catch(() => { /* offline or missing — leave the pill empty/hidden */ });
+</script>
+
+</body>
+</html>

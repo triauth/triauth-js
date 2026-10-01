@@ -1,0 +1,42 @@
+{
+  "triauthdemo.org": {
+    "TXT": [
+      "triauth auth.triauthdemo.org mode=public",
+      "v=spf1 -all"
+    ]
+  },
+  "john._at.triauthdemo.org": {
+    "TXT": [
+      "initials JD",
+      "name John Doe",
+      "key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+      "key laptop[1/2]:BCkB_Cr-7pvY1Y2buYRksJPb09Tqld7M3SDII36cp_C7k08NPTWvbj0p14oMBGDGbGZ1qLkfnJSARBbAj1sA0fs",
+      "key laptop[2/2]:BLglw14iw47KUztRHdeKNfBBBMf5P4SsZg9O9za44mO2BceHZlcQwFmtO1crjVNnwwZszqtMhErs3divGeQrQI4"
+    ]
+  },
+  "frederic._at.triauthdemo.org": {
+    "TXT": [
+      "name Frédéric Łukasiewicz"
+    ]
+  },
+  "attest.triauthdemo.org": {
+    "TXT": [
+      "triauth auth.attest.triauthdemo.org mode=public"
+    ]
+  },
+  "robot-attester._at.attest.triauthdemo.org": {
+    "TXT": [
+      "name Robot Checker",
+      "key server[1/1]:BMR8Ug7qu9HUc9UgY_ADh8giBNmWBbSmGsR6DD6Hg5rpWeyYvu2WlQ43iR_dj0eKN99esQNMe7Gq2u2LBnRejcU use=attest"
+    ]
+  },
+  "age-attester._at.attest.triauthdemo.org": {
+    "TXT": [
+      "name Age Verifier",
+      "key server[1/1]:BGbN6k1ESVyK17JGHF_ehQB5UxBd1p16HevNYd0TV1h7KTJ6AYbP0OgGKsRvU1vE_1XPR3vZHmDDZdDlLlrr0yI use=attest"
+    ]
+  },
+  "dnssec-failed.org": {
+    "_error": "SERVFAIL: DNSSEC validation failed"
+  }
+}

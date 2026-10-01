@@ -1,0 +1,15 @@
+{
+  "id": "triauth-playground",
+  "name": "Triauth Playground",
+  "short_name": "Triauth Playground",
+  "description": "Try every triauth protocol operation live.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#3451b2",
+  "background_color": "#ffffff",
+  "icons": [
+    { "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

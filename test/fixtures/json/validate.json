@@ -1,0 +1,506 @@
+{
+  "title": "validate",
+  "description": "Format validation behavior of Triauth.validate({identifier?, deviceName?}). validate is synchronous and pure - it touches no DNS, clock, or randomness - so dnsEntries/currentTime are present only for schema parity and are ignored. These cases alone exercise every reachable branch of validate() (validation.js. NOTE: the null/non-object/array early-return inside hasOnlyKnownProperties is unreachable from validate (the code 101 guard rejects those inputs first), and the 'whitelisted-key-with-undefined-value' rejection inside it is not expressible in JSON (JSON has no undefined); both are therefore intentionally uncovered by this JSON suite.",
+  "dnsEntries": {},
+  "currentTime": 1777454675000,
+  "tests": [
+    {
+      "name": "ARG GUARD 101: no argument at all (objects === undefined) -> falsy operand",
+      "call": "validate",
+      "args": [],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 101, "message": "Invalid or missing function arguments" }]
+      }
+    },
+    {
+      "name": "ARG GUARD 101: explicit null argument -> falsy operand",
+      "call": "validate",
+      "args": [null],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 101, "message": "Invalid or missing function arguments" }]
+      }
+    },
+    {
+      "name": "ARG GUARD 101: string argument -> typeof !== 'object' operand",
+      "call": "validate",
+      "args": ["john@example.com"],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 101, "message": "Invalid or missing function arguments" }]
+      }
+    },
+    {
+      "name": "ARG GUARD 101: number argument -> typeof !== 'object' operand",
+      "call": "validate",
+      "args": [5],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 101, "message": "Invalid or missing function arguments" }]
+      }
+    },
+    {
+      "name": "ARG GUARD 101: array argument -> Array.isArray operand",
+      "call": "validate",
+      "args": [["identifier"]],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 101, "message": "Invalid or missing function arguments" }]
+      }
+    },
+    {
+      "name": "ARG GUARD 101: empty object -> Object.keys(objects).length === 0 operand",
+      "call": "validate",
+      "args": [{}],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 101, "message": "Invalid or missing function arguments" }]
+      }
+    },
+    {
+      "name": "ARG GUARD 102: unrecognized key -> hasOnlyKnownProperties .every returns false",
+      "call": "validate",
+      "args": [{ "foo": "bar" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 102, "message": "Unrecognized function argument" }]
+      }
+    },
+    {
+      "name": "ARG GUARD 102: an otherwise valid identifier plus a stray key is still rejected",
+      "call": "validate",
+      "args": [{ "identifier": "john@example.com", "extra": 1 }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 102, "message": "Unrecognized function argument" }]
+      }
+    },
+
+    {
+      "name": "CONFIG GUARD 103: a misspelled config override key is rejected in validate's {valid,errors} shape (merged-config validation, mirrors the rest of the API)",
+      "call": "validate",
+      "args": [{ "identifier": "john@example.com" }, { "requireSecur": true }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 103, "message": "Unrecognized configuration override" }]
+      }
+    },
+
+    {
+      "name": "CONFIG GUARD 103: a valid config override is accepted and object validation proceeds (valid identifier -> valid:true)",
+      "call": "validate",
+      "args": [{ "identifier": "john@example.com" }, { "requireSecure": true }],
+      "expected": {
+        "valid": true,
+        "errors": []
+      }
+    },
+
+    {
+      "name": "CONFIG GUARD 103: the objects guard takes precedence - a bad objects key returns 102 even when config is also misspelled",
+      "call": "validate",
+      "args": [{ "bogus": 1 }, { "requireSecur": true }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 102, "message": "Unrecognized function argument" }]
+      }
+    },
+
+    {
+      "name": "IDENTIFIER 210: not a string (number) -> validateIdentifier typeof guard",
+      "call": "validate",
+      "args": [{ "identifier": 123 }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 210, "message": "Identifier is invalid" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER 210: null value reaches the validator (null !== undefined passes the 102 guard) and fails the typeof check",
+      "call": "validate",
+      "args": [{ "identifier": null }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 210, "message": "Identifier is invalid" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER 211: empty string",
+      "call": "validate",
+      "args": [{ "identifier": "" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 211, "message": "Identifier must not be empty" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER 212: too long (252 bytes > 120) short-circuits before the @/format checks",
+      "call": "validate",
+      "args": [{ "identifier": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@example.com" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 212, "message": "Identifier is too long" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER 210: contains whitespace",
+      "call": "validate",
+      "args": [{ "identifier": "jo hn@a.com" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 210, "message": "Identifier is invalid" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER 213: not lowercase",
+      "call": "validate",
+      "args": [{ "identifier": "John@a.com" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 213, "message": "Identifier must be provided in lowercase" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER 214: zero @ signs",
+      "call": "validate",
+      "args": [{ "identifier": "johndoe" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 214, "message": "Identifier must include one @ sign" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER 214: two @ signs (other side of the !== 1 test)",
+      "call": "validate",
+      "args": [{ "identifier": "john@@a.com" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 214, "message": "Identifier must include one @ sign" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER 215: username fails the main regexp (leading underscore) -> first || operand",
+      "call": "validate",
+      "args": [{ "identifier": "_john@a.com" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 215, "message": "Identifier contains invalid username" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER 215: username has consecutive dots -> second || operand",
+      "call": "validate",
+      "args": [{ "identifier": "john..doe@a.com" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 215, "message": "Identifier contains invalid username" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER 215: username ends with a dot -> third || operand",
+      "call": "validate",
+      "args": [{ "identifier": "john.@a.com" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 215, "message": "Identifier contains invalid username" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER 216: domain fails the main regexp (no dot) -> first || operand",
+      "call": "validate",
+      "args": [{ "identifier": "john@invalid" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 216, "message": "Identifier contains invalid domain name" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER 216: domain is punycode at the start (^xn--) -> second || operand, first alternative",
+      "call": "validate",
+      "args": [{ "identifier": "john@xn--abc.com" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 216, "message": "Identifier contains invalid domain name" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER 216: domain has a punycode label (.xn--) -> second || operand, second alternative",
+      "call": "validate",
+      "args": [{ "identifier": "john@sub.xn--abc.com" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 216, "message": "Identifier contains invalid domain name" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER 215+216: both username and domain invalid push independently",
+      "call": "validate",
+      "args": [{ "identifier": "_john@invalid" }],
+      "expected": {
+        "valid": false,
+        "errors": [
+          { "code": 215, "message": "Identifier contains invalid username" },
+          { "code": 216, "message": "Identifier contains invalid domain name" }
+        ]
+      }
+    },
+    {
+      "name": "IDENTIFIER valid: simple identifier (errors stay empty -> #expandResult valid:true)",
+      "call": "validate",
+      "args": [{ "identifier": "john@example.com" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "IDENTIFIER valid: hyphens, digits and multi-label domain exercise the [a-z0-9-] classes positively",
+      "call": "validate",
+      "args": [{ "identifier": "a1-b@sub.my-domain.co" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+
+    {
+      "name": "DEVICENAME 260: not a string (number) -> validateDeviceName typeof guard (early return)",
+      "call": "validate",
+      "args": [{ "deviceName": 123 }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 260, "message": "Device name is invalid" }]
+      }
+    },
+    {
+      "name": "DEVICENAME 261(+264): empty string is empty AND fails the [a-z0-9-]+ class",
+      "call": "validate",
+      "args": [{ "deviceName": "" }],
+      "expected": {
+        "valid": false,
+        "errors": [
+          { "code": 261, "message": "Device name must not be empty" },
+          { "code": 264, "message": "Device name must include only letters, numbers, and hyphens" }
+        ]
+      }
+    },
+    {
+      "name": "DEVICENAME 262: too long (21 bytes > 20), isolated from the other checks",
+      "call": "validate",
+      "args": [{ "deviceName": "abcdefghijklmnopqrstu" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 262, "message": "Device name is too long" }]
+      }
+    },
+    {
+      "name": "DEVICENAME 260(+264): contains whitespace (also breaks the [a-z0-9-]+ class)",
+      "call": "validate",
+      "args": [{ "deviceName": "my device" }],
+      "expected": {
+        "valid": false,
+        "errors": [
+          { "code": 260, "message": "Device name is invalid" },
+          { "code": 264, "message": "Device name must include only letters, numbers, and hyphens" }
+        ]
+      }
+    },
+    {
+      "name": "DEVICENAME 263(+264): not lowercase (uppercase also breaks the [a-z0-9-]+ class)",
+      "call": "validate",
+      "args": [{ "deviceName": "Laptop" }],
+      "expected": {
+        "valid": false,
+        "errors": [
+          { "code": 263, "message": "Device name must be provided in lowercase" },
+          { "code": 264, "message": "Device name must include only letters, numbers, and hyphens" }
+        ]
+      }
+    },
+    {
+      "name": "DEVICENAME 264: invalid character only (a dot is lowercase, non-space, in-length) isolates 264",
+      "call": "validate",
+      "args": [{ "deviceName": "dev.ice" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 264, "message": "Device name must include only letters, numbers, and hyphens" }]
+      }
+    },
+    {
+      "name": "DEVICENAME valid: simple lowercase name",
+      "call": "validate",
+      "args": [{ "deviceName": "laptop" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "DEVICENAME valid: hyphens and digits within the length limit",
+      "call": "validate",
+      "args": [{ "deviceName": "my-device-1" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "DEVICENAME 264: leading hyphen (must start on an alphanumeric)",
+      "call": "validate",
+      "args": [{ "deviceName": "-pc" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 264, "message": "Device name must include only letters, numbers, and hyphens" }]
+      }
+    },
+    {
+      "name": "DEVICENAME 264: trailing hyphen (must end on an alphanumeric)",
+      "call": "validate",
+      "args": [{ "deviceName": "pc-" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 264, "message": "Device name must include only letters, numbers, and hyphens" }]
+      }
+    },
+    {
+      "name": "DEVICENAME 264: consecutive hyphens (also rejects the 'xn--' Punycode marker)",
+      "call": "validate",
+      "args": [{ "deviceName": "my--pc" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 264, "message": "Device name must include only letters, numbers, and hyphens" }]
+      }
+    },
+
+    {
+      "name": "COMBINED: both keys present and valid -> both if-blocks taken, neither concatenates",
+      "call": "validate",
+      "args": [{ "identifier": "john@example.com", "deviceName": "laptop" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "COMBINED: identifier invalid + deviceName valid -> identifier concatenates, deviceName skips",
+      "call": "validate",
+      "args": [{ "identifier": "john", "deviceName": "laptop" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 214, "message": "Identifier must include one @ sign" }]
+      }
+    },
+    {
+      "name": "COMBINED: identifier valid + deviceName invalid -> identifier skips, deviceName concatenates",
+      "call": "validate",
+      "args": [{ "identifier": "john@example.com", "deviceName": "dev.ice" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 264, "message": "Device name must include only letters, numbers, and hyphens" }]
+      }
+    },
+    {
+      "name": "COMBINED: both invalid -> identifier errors precede deviceName errors in the accumulated array",
+      "call": "validate",
+      "args": [{ "identifier": "john", "deviceName": "dev.ice" }],
+      "expected": {
+        "valid": false,
+        "errors": [
+          { "code": 214, "message": "Identifier must include one @ sign" },
+          { "code": 264, "message": "Device name must include only letters, numbers, and hyphens" }
+        ]
+      }
+    },
+    {
+      "name": "IDENTIFIER valid: exactly 120 bytes (identifierBytesize) passes - the byteSize check is strict-greater, pinning the boundary against off-by-one ports",
+      "call": "validate",
+      "args": [{ "identifier": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@ddddddddddddddddddddddddddddddddddd.eeeeeeeeeeeeeeeee.co" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "IDENTIFIER 212: one byte over identifierBytesize (121 > 120) is rejected - the boundary-negative twin of the 120-byte positive",
+      "call": "validate",
+      "args": [{ "identifier": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@ddddddddddddddddddddddddddddddddddd.eeeeeeeeeeeeeeeeee.co" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 212, "message": "Identifier is too long" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER valid: name-part at exactly 63 characters (the grammar cap: alnum *62) passes",
+      "call": "validate",
+      "args": [{ "identifier": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@example.com" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "IDENTIFIER 215: name-part of 64 characters exceeds the 63-character grammar cap (alnum *62) while staying under the identifierBytesize total",
+      "call": "validate",
+      "args": [{ "identifier": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@example.com" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 215, "message": "Identifier contains invalid username" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER 215: a plus sign in the username (john+work) is rejected - '+' is not a username character",
+      "call": "validate",
+      "args": [{ "identifier": "john+work@example.com" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 215, "message": "Identifier contains invalid username" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER 210: embedded NUL (U+0000) is rejected by the same whitespace-and-NUL check, not the grammar",
+      "call": "validate",
+      "args": [{ "identifier": "jo\u0000hn@example.com" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 210, "message": "Identifier is invalid" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER 216: IPv4-literal domain (john@1.2.3.4) - a numeric final label is never a domain part",
+      "call": "validate",
+      "args": [{ "identifier": "john@1.2.3.4" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 216, "message": "Identifier contains invalid domain name" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER 216: all-digits final label (john@example.99) - real TLDs are never numeric",
+      "call": "validate",
+      "args": [{ "identifier": "john@example.99" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 216, "message": "Identifier contains invalid domain name" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER 216: 0x-hex final label (john@example.0xff) - exotic IPv4 spellings fall to the same numeric-final-label rule",
+      "call": "validate",
+      "args": [{ "identifier": "john@example.0xff" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 216, "message": "Identifier contains invalid domain name" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER valid: domain label at exactly 63 characters (the DNS label cap) passes",
+      "call": "validate",
+      "args": [{ "identifier": "john@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "IDENTIFIER 216: domain label of 64 characters exceeds the 63-character DNS label cap while staying under the identifierBytesize total",
+      "call": "validate",
+      "args": [{ "identifier": "john@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 216, "message": "Identifier contains invalid domain name" }]
+      }
+    },
+    {
+      "name": "IDENTIFIER 216: single-character final label (john@a.b) - a final label is at least two characters",
+      "call": "validate",
+      "args": [{ "identifier": "john@a.b" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": 216, "message": "Identifier contains invalid domain name" }]
+      }
+    },
+    {
+      "name": "DEVICENAME valid: exactly 20 bytes (the cap) passes - strict-greater check, boundary companion of the 262 case",
+      "call": "validate",
+      "args": [{ "deviceName": "a2345678901234567890" }],
+      "expected": { "valid": true, "errors": [] }
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "invalidIdentifiers": {
+    "joeexample.com": "identifier must include exactly one @ char",
+    "joe@@example.com": "identifier must include exactly one @ char",
+
+    "john@doeloremipsumdolordoeloremipsumdolordoeloremipsumdolordoeloremipsumdolordoeloremipsumdolordoeloremipsumdolordoeloremipsumdolordoeloremipsumdolordoeloremipsumdolordoeloremipsumdolordoeloremipsumdolordoeloremipsumdolordoeloremipsumdolordoeloremipsumdolordoeloremipsumdolor.com": "identifier must not be longer than 249 bytes",
+
+    "@example.com": "username must be present",
+    "john@": "domain name must be present",
+
+    "usr_213@example.com": "no underscores in username",
+    "dżon@example.com": "no utf-8",
+    "john@doż.com": "no utf-8",
+
+    ".john@example.com": "username must not start with a dot sign",
+    "john.@example.com": "username must not end with a dot sign",
+    "john..doe@example.com": "username must not have two successive dot signs",
+
+    "-john@example.com": "username must not start with minus sign",
+    "john-@example.com": "username must not end with minus sign",
+    "john--doe@example.com": "username must not have two successive minus signs",
+
+    "john+@example.com": "username must not contain a plus sign",
+    "john+work@example.com": "username must not contain a plus sign",
+    "john+wo rk@example.com": "username must not contain a plus sign or whitespace",
+
+    "xn--john@example.com": "no punycode",
+    "john.xn--doe@example.com": "no punycode",
+    "john@xn--example.com": "no punycode",
+
+    "jany@localhost": "no TLDs",
+    "jane @ example.com": "no whitespaces",
+    "": "no empty strings"
+  },
+
+  "emptyIdentifiers": [
+    "john@example.com",
+    "non-existing@triauthdemo.org"
+  ],
+
+  "validIdentifiers": [
+    "john@example.com",
+    "j.doe@triauthdemo.org"
+  ]
+
+}

@@ -1,0 +1,36 @@
+{
+  "john": {
+    "identifier": "john@triauthdemo.org",
+    "identityDomain": "john._at.triauthdemo.org",
+    "publicProfile": {
+      "name": "John Doe",
+      "initials": "JD"
+    },
+    "devices": [
+      {
+        "deviceName": "desktop",
+        "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+        "keys": [
+          {
+            "public": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "private": {"kty":"EC","crv":"P-256","d":"Ksit6NoUInzUE1hbvs66VkHtHJud49-qZ_LSUbXA9Ec","x":"cAgsvXjamufytCweblmUw9QV4xzqeJVdcgzxuJVjcc8","y":"jmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"}
+          }
+        ]
+      },
+      {
+        "deviceName": "laptop",
+        "deviceTag": "5I4NnX-4lW3gdTqGW3zKpLsLR9oRiWip8zp6mqQgkL4",
+        "keys": [
+          {
+            "public": "BCkB_Cr-7pvY1Y2buYRksJPb09Tqld7M3SDII36cp_C7k08NPTWvbj0p14oMBGDGbGZ1qLkfnJSARBbAj1sA0fs",
+            "private": {"kty":"EC","crv":"P-256","d":"veRmUxvRdLFAt_zEMVk7kNeSjZlf0k6QaT-1bV4tuhI","x":"KQH8Kv7um9jVjZu5hGSwk9vT1OqV3szdIMgjfpyn8Ls","y":"k08NPTWvbj0p14oMBGDGbGZ1qLkfnJSARBbAj1sA0fs"}
+          },
+          {
+            "public": "BLglw14iw47KUztRHdeKNfBBBMf5P4SsZg9O9za44mO2BceHZlcQwFmtO1crjVNnwwZszqtMhErs3divGeQrQI4",
+            "private": {"kty":"EC","crv":"P-256","d":"qSNY03CvFWfuUKU-ZMUzGgYPccQTrDp6RTWdcvK4mEo","x":"uCXDXiLDjspTO1Ed14o18EEEx_k_hKxmD073NrjiY7Y","y":"BceHZlcQwFmtO1crjVNnwwZszqtMhErs3divGeQrQI4"}
+          }
+        ]
+      }
+    ]
+  }
+}

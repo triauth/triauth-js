@@ -1,0 +1,277 @@
+{
+  "_comment": "Records published once under dns-test.triauthdemo.org (Cloudflare-hosted, DNSSEC-signed through the DS of triauthdemo.org) for test/internals/test_resolvers_zone.js. TXT strings are LOGICAL record contents - exactly what Triauth.Resolvers.Base#resolve() must return; the published (BIND) form escapes quotes and backslashes and renders non-ASCII as \\DDD. Expectations default to: values = records.TXT (as a set), 0 < ttl <= ttl (300 unless given), dnssec true on DoH resolvers and undefined on node:dns; 'large' marks an RRset a truncating system resolver cannot deliver in full (node:dns and default-composition cells go pending, with a warning, when that is the case); 'expect' overrides per resolver kind (doh | node | multi) with values / valuesOf / minRecords / reject / reject-or-resolve. Zone preconditions: every record DNS-only (grey cloud), CNAME flattening 'root only'. Any change bumps 'version' and the apex 'zone-version' record; negative answers for a not-yet-published name stay cached at public resolvers for up to 1800 s (SOA minimum).",
+  "version": 1,
+  "zone": "dns-test.triauthdemo.org",
+  "defaults": {
+    "ttl": 300,
+    "dnssec": true
+  },
+  "names": {
+    "dns-test.triauthdemo.org": {
+      "records": {
+        "TXT": [
+          "triauth auth.dns-test.triauthdemo.org",
+          "v=spf1 -all",
+          "zone-version 1"
+        ]
+      },
+      "config": [
+        {
+          "key": "triauth",
+          "value": "auth.dns-test.triauthdemo.org",
+          "options": {}
+        },
+        {
+          "key": "zone-version",
+          "value": "1",
+          "options": {}
+        }
+      ],
+      "exercises": "subtree apex; config-style record; non-protocol record ignored by resolveConfig; version marker for the preflight"
+    },
+    "plain.dns-test.triauthdemo.org": {
+      "records": {
+        "TXT": [
+          "name Plain Baseline"
+        ]
+      },
+      "config": [
+        {
+          "key": "name",
+          "value": "Plain Baseline",
+          "options": {}
+        }
+      ],
+      "exercises": "ASCII baseline; CNAME target; CachingResolver subject"
+    },
+    "set.dns-test.triauthdemo.org": {
+      "records": {
+        "TXT": [
+          "item alpha",
+          "item beta",
+          "item gamma",
+          "item delta"
+        ]
+      },
+      "exercises": "RRset of four: set equality, order independence, MultiResolver intersection"
+    },
+    "utf8.dns-test.triauthdemo.org": {
+      "records": {
+        "TXT": [
+          "name Frédéric Łukasiewicz",
+          "city 東京 Zürich",
+          "emoji 😀 4-byte"
+        ]
+      },
+      "config": [
+        {
+          "key": "name",
+          "value": "Frédéric Łukasiewicz",
+          "options": {}
+        },
+        {
+          "key": "city",
+          "value": "東京 Zürich",
+          "options": {}
+        }
+      ],
+      "exercises": "2/3/4-byte UTF-8: \\DDD decoding (Cloudflare, DnsSb), logical pass-through (Google), octet re-decode (NodeDns); resolveConfig drops the emoji record (not a Normal String)"
+    },
+    "escapes.dns-test.triauthdemo.org": {
+      "records": {
+        "TXT": [
+          "quote say \"hi\" back\\slash"
+        ]
+      },
+      "config": [
+        {
+          "key": "quote",
+          "value": "say \"hi\" back\\slash",
+          "options": {}
+        }
+      ],
+      "exercises": "presentation escapes \\\" and \\\\ decoded in one pass"
+    },
+    "punct.dns-test.triauthdemo.org": {
+      "records": {
+        "TXT": [
+          "punct a;b#c=d:e f=g"
+        ]
+      },
+      "config": [
+        {
+          "key": "punct",
+          "value": "a;b#c=d:e",
+          "options": {
+            "f": "g"
+          }
+        }
+      ],
+      "exercises": "; # = : inside the value; trailing option run f=g peeled, c=d inside a value token kept"
+    },
+    "long.dns-test.triauthdemo.org": {
+      "records": {
+        "TXT": [
+          "long abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij"
+        ]
+      },
+      "exercises": "405 octets: two character-strings on the wire, concatenated with no separator"
+    },
+    "big.dns-test.triauthdemo.org": {
+      "records": {
+        "TXT": [
+          "big 01 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 02 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 03 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 04 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 05 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 06 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 07 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 08 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 09 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 10 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 11 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 12 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 13 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 14 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 15 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 16 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 17 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 18 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 19 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 20 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 21 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 22 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 23 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 24 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 25 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 26 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 27 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 28 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 29 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 30 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 31 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 32 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 33 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 34 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 35 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 36 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 37 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 38 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 39 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+          "big 40 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"
+        ]
+      },
+      "exercises": "40 records, ~4.7 KB: UDP truncation and TCP fallback for node:dns, a sizeable DoH answer, 40-way intersection",
+      "large": true
+    },
+    "low-ttl.dns-test.triauthdemo.org": {
+      "ttl": 60,
+      "records": {
+        "TXT": [
+          "name Low TTL"
+        ]
+      },
+      "exercises": "TTL 60: ttl bound, CachingResolver remaining TTL"
+    },
+    "nodata.dns-test.triauthdemo.org": {
+      "records": {
+        "A": [
+          "255.255.255.255"
+        ]
+      },
+      "queries": {
+        "A": {
+          "doh": {
+            "values": [
+              "255.255.255.255"
+            ]
+          },
+          "node": "reject",
+          "multi": {
+            "values": [
+              "255.255.255.255"
+            ]
+          }
+        }
+      },
+      "exercises": "name with no TXT: NODATA -> []; A query positive on DoH, rejected by node:dns (TXT only)"
+    },
+    "nxdomain.dns-test.triauthdemo.org": {
+      "records": {},
+      "exercises": "absent name under a Cloudflare zone: NOERROR with no answer -> []"
+    },
+    "alias.dns-test.triauthdemo.org": {
+      "records": {
+        "CNAME": "plain.dns-test.triauthdemo.org"
+      },
+      "expect": {
+        "doh": {
+          "values": []
+        },
+        "node": {
+          "valuesOf": "plain.dns-test.triauthdemo.org"
+        },
+        "multi": {
+          "values": []
+        }
+      },
+      "queries": {
+        "CNAME": {
+          "doh": {
+            "values": [
+              "plain.dns-test.triauthdemo.org"
+            ]
+          },
+          "node": "reject",
+          "multi": {
+            "values": [
+              "plain.dns-test.triauthdemo.org"
+            ]
+          }
+        }
+      },
+      "exercises": "CNAME alias: DoH answers carry the target name and are filtered out; node:dns follows the CNAME"
+    },
+    "*.wild.dns-test.triauthdemo.org": {
+      "query": "anything.wild.dns-test.triauthdemo.org",
+      "records": {
+        "TXT": [
+          "name Wildcard"
+        ]
+      },
+      "exercises": "wildcard synthesis: the answer carries the queried name; DNSSEC wildcard proof"
+    }
+  },
+  "external": {
+    "nxdomain.dns-test.invalid": {
+      "records": {},
+      "exercises": "true NXDOMAIN (Status 3)"
+    },
+    "dnssec-failed.org": {
+      "expect": {
+        "doh": "reject",
+        "node": "reject-or-resolve",
+        "multi": "reject",
+        "resolveConfig": 110
+      },
+      "exercises": "broken DNSSEC chain: SERVFAIL from validating resolvers"
+    },
+    "github.com": {
+      "optional": true,
+      "dnssec": false,
+      "expect": {
+        "doh": {
+          "minRecords": 1
+        },
+        "node": {
+          "minRecords": 1
+        },
+        "multi": {
+          "minRecords": 1
+        }
+      },
+      "exercises": "unsigned zone: dnssec false on real answers"
+    }
+  }
+}
