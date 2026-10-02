@@ -1,7 +1,7 @@
 {
   "id": "triauth-playground",
-  "name": "Triauth Playground",
-  "short_name": "Triauth Playground",
+  "name": "triauth playground",
+  "short_name": "triauth playground",
   "description": "Try every triauth protocol operation live.",
   "start_url": "/",
   "scope": "/",

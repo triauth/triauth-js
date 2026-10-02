@@ -1,4 +1,4 @@
-import { readFileSync, cpSync, watch } from 'node:fs';
+import { readFileSync, writeFileSync, cpSync, watch } from 'node:fs';
 import { resolve } from 'node:path';
 import MagicString from 'magic-string';
 import terser from '@rollup/plugin-terser';
@@ -47,6 +47,17 @@ const stripSourceLicense = {
 // the guarded code path never executes there.
 const external = (id) => id === 'node:dns' || id === 'dns';
 
+// Playground: Set the custom data from build env variables
+const escapeAttr = (value) => value
+  .replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const injectPlaygroundData = () => {
+  const file = 'dist/index.html';
+  const html = readFileSync(file, 'utf8')
+    .replace('__TERMS_OF_SERVICE_URL__', () => escapeAttr(process.env['TERMS_OF_SERVICE_URL'] ||''))
+    .replace('__PRIVACY_POLICY_URL__',   () => escapeAttr(process.env['PRIVACY_POLICY_URL'] || ''));
+  writeFileSync(file, html);
+};
+
 // Copies playground/, test/, and package.json into dist/ on every successful build.
 // Uses Node stdlib's `fs.cpSync` and `fs.watch` (no third-party dep).
 //
@@ -63,6 +74,7 @@ const external = (id) => id === 'node:dns' || id === 'dns';
 // so the copy is debounced through a short timer.
 const doCopyAll = () => {
   cpSync('playground', 'dist', { recursive: true });
+  injectPlaygroundData();
   // dist/test/test.js is testConfig's bundle output - keep the unbundled entry out of the copy.
   // test/ai-reviews/ holds review documents for the repository, not playground content.
   const skip = [resolve('test/test.js'), resolve('test/ai-reviews')];

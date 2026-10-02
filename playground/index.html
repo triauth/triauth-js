@@ -23,6 +23,9 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:image" content="https://play.triauth.org/assets/og.png" />
 
+  <meta name="triauth:terms-of-service-url" content="__TERMS_OF_SERVICE_URL__" />
+  <meta name="triauth:privacy-policy-url" content="__PRIVACY_POLICY_URL__" />
+
   <script src="/triauth.js"></script>
   <script>try{if(localStorage.getItem('triauth-ribbon-dismissed')==='1')document.documentElement.classList.add('ribbon-dismissed');}catch(e){}</script>
 
@@ -33,13 +36,13 @@
     :root {
       --brand:#3451b2;
       --ink:#1b1b1b; --ink-soft:#1f2328; --muted:#5a5f68; --muted-2:#8b909b;
-      --line:#e2e5ea; --line-soft:#eef0f4; --bg-tint:#f7f9fd; --bg:#fff;
+      --line:#e2e5ea; --line-soft:#eef0f4; --bg-tint:#f7f9fd; --bg:rgb(252,252,252);
       --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
       --radius-sm:6px;
     }
     * { box-sizing:border-box; }
     body {
-      display:flex; flex-direction:column;
+      display:flex; flex-direction:column; min-height:100vh; min-height:100dvh;
       font-family:var(--font);
       -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
       color:var(--ink-soft); margin:0; padding:0; background:var(--bg);
@@ -81,10 +84,22 @@
     .site-nav .gh { display:inline-flex; align-items:center; padding:7px 8px; }
     .site-nav .gh svg { width:18px; height:18px; fill:currentColor; display:block; }
     @media (max-width:680px) {
-      .site-header { height:auto; flex-wrap:wrap; padding:10px 16px; gap:8px; }
-      .site-nav { width:100%; overflow-x:auto; gap:2px; }
+      .site-header { padding:0 16px; gap:8px; }
+      .wordmark { white-space:nowrap; }
+      .site-nav { flex:0 0 auto; gap:2px; }
       .site-nav a { padding:6px 8px; font-size:0.85rem; white-space:nowrap; }
     }
+    @media (max-width:380px) {
+      .wordmark { font-size:1rem; }
+    }
+
+    .site-footer {
+      margin-top:auto; padding:16px; text-align:right;
+      font-size:0.78rem; color:var(--muted-2);
+    }
+    .site-footer a { color:var(--muted); }
+    .site-footer a:hover { color:var(--ink); }
+    .site-footer .sep { margin:0 8px; color:var(--line); }
 
     /* ---------- layout ---------- */
     html { scrollbar-gutter: stable; }
@@ -104,6 +119,12 @@
     .pg-about p:last-of-type { margin-bottom:0; }
     .pg-about ul.pg-extras { margin:0; padding-left:18px; }
     .pg-about ul.pg-extras li { color:var(--ink-soft); font-size:0.92rem; line-height:1.85; }
+    .pg-method.pg-method-about .pg-method-head { justify-content:center; text-align:center; }
+    .pg-method.pg-method-about .pg-method-head h3 { font-size:1.8em; }
+    .pg-method.pg-method-about .pg-method-desc { text-align:center; }
+    .pg-method.pg-method-about .pg-about { text-align:center; }
+    .pg-method.pg-method-about .pg-about p { margin-left:auto; margin-right:auto; }
+    .pg-method.pg-method-about .pg-form-actions { justify-content:center; }
 
     .pg-field { margin: 0 0 16px; }
     .pg-field label { display:block; font-size:0.78rem; font-weight:600; color:#1b1b1b; padding:0 0 4px; }
@@ -247,15 +268,15 @@
 <body class="playground">
 
 <div class="ribbon" role="note">
-  <span>New to triauth? See what it is and how to sign in on <a href="https://www.triauth.org/">triauth.org&nbsp;&rarr;</a></span>
+  <span>New to triauth? Get started on <a href="https://www.triauth.org/">triauth.org&nbsp;&rarr;</a></span>
   <button type="button" class="ribbon-close" aria-label="Dismiss this notice">&times;</button>
 </div>
 
 <header class="site-header">
-  <a class="wordmark" href="/"><span class="mark">&#10261;</span> triauth<span style="color:var(--muted-2);font-weight:500;">playground</span></a>
+  <a class="wordmark" href="#about"><span class="mark">&#10261;</span> triauth<span style="color:var(--muted-2);font-weight:500;">playground</span></a>
   <nav class="site-nav" aria-label="Primary">
 <!--    <a href="/playground/" class="active">Playground</a>-->
-    <a href="https://www.triauth.org/">triauth.org</a>
+    <a href="https://www.triauth.org/">www.triauth.org</a>
     <small class="pg-version" id="triauth-version"></small>
     <a class="gh" href="https://github.com/triauth/triauth-js" target="_blank" rel="noopener noreferrer" aria-label="triauth-js on GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.65 7.65 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
   </nav>
@@ -271,6 +292,8 @@
     <section class="pg-method" id="methodPanel"></section>
   </div>
 </main>
+
+<footer class="site-footer"></footer>
 
 <script>
   /* =========================================================================
@@ -373,7 +396,7 @@
 
   const METHODS = {
     about: {
-      label: 'Triauth Playground', group: 'Settings',
+      label: 'triauth playground', group: 'Settings',
       synopsis: '',
       description: 'A live, browser-based sandbox for the triauth protocol.',
       isAbout: true,
@@ -625,7 +648,7 @@
 
         const opt = document.createElement('option');
         opt.value = m;
-        opt.textContent = (isConfig || isAbout || isExtras) ? label : (m + (REDIRECT_METHODS.has(m) ? '  (redirect)' : '  (sync)'));
+        opt.textContent = label;
         if (m === state.activeMethod) opt.selected = true;
         optParent.appendChild(opt);
       });
@@ -783,6 +806,7 @@
   function renderMethodPanel(method) {
     const meta = METHODS[method];
     methodPanelEl.innerHTML = '';
+    methodPanelEl.classList.toggle('pg-method-about', !!meta.isAbout);
 
     const head = document.createElement('div');
     head.className = 'pg-method-head';
@@ -897,7 +921,7 @@
     const wrap = document.createElement('div');
     wrap.className = 'pg-about';
     wrap.innerHTML = `
-      <p>Pick a method from the left to build a request and run it live.</p>
+      <p>Pick a method from the menu to build a request and run it live.</p>
       <p>New to triauth? See <a href="https://www.triauth.org/" target="_blank" rel="noopener noreferrer">triauth.org</a>.</p>
     `;
     const actions = document.createElement('div');
@@ -905,7 +929,7 @@
     actions.style.marginTop = '18px';
     const go = document.createElement('button');
     go.type = 'button';
-    go.className = 'pg-btn';
+    go.className = 'pg-btn ghost';
     go.textContent = 'Start with authenticate »';
     go.addEventListener('click', () => setActiveMethod('authenticate'));
     actions.appendChild(go);
@@ -1414,6 +1438,16 @@
     setActiveMethod(state.activeMethod || 'about');
     handleRedirectResponse();
     wireRibbon();
+    wireWordmark();
+  }
+
+  // The wordmark is the way home: it always lands on the About panel.
+  function wireWordmark() {
+    const mark = document.querySelector('.site-header .wordmark');
+    if (mark) mark.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      setActiveMethod('about');
+    });
   }
 
   // Dismissible "New to triauth?" ribbon — same behaviour as the hub pages.
@@ -1433,11 +1467,38 @@
     setTimeout(() => { if (window.Triauth) boot(); }, 50);
   }
 
-  // Surface the library version next to the heading, matching the docs home.
+  // Surface the library version next to the heading, matching the docs home, and in the footer.
   fetch('/package.json').then((r) => r.json()).then((json) => {
-    const el = document.getElementById('triauth-version');
-    if (el && json && json.version) el.innerText = 'v' + json.version;
+    if (!json || !json.version) return;
+    const pill = document.getElementById('triauth-version');
+    if (pill) pill.innerText = 'v' + json.version;
   }).catch(() => { /* offline or missing — leave the pill empty/hidden */ });
+
+  // Footer links to the operator's Terms of Service and Privacy Policy.
+  // The build writes their URLs into the meta tags in <head>.
+  (function renderLegalLinks() {
+    const footer = document.querySelector('.site-footer');
+    if (!footer) return;
+    let showSep = false;
+    const documents = [
+      ['triauth:terms-of-service-url', 'Terms'],
+      ['triauth:privacy-policy-url',   'Privacy']
+    ];
+    for (const [name, text] of documents) {
+      const url = (document.querySelector('meta[name="' + name + '"]')?.content || '').trim();
+      if (!url.startsWith('https://')) continue;
+      const sep = document.createElement('span');
+      sep.className = 'sep';
+      sep.textContent = '|';
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = text;
+      if(showSep){ footer.appendChild(sep); } else { showSep = true; }
+      footer.appendChild(link);
+    }
+  })();
 </script>
 
 </body>
