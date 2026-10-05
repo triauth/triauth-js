@@ -713,6 +713,15 @@
       input.type = 'text';
       input.value = valueStr;
     }
+    if (field.type !== 'select') {
+      // Every text field carries a machine-readable value (identifier, URL, token, JSON,
+      // signature), so mobile keyboards must not capitalise or "correct" it. Identifier
+      // fields get the email keyboard: `@` and `.` sit on the primary layer.
+      input.setAttribute('autocapitalize', 'off');
+      input.setAttribute('autocorrect', 'off');
+      input.setAttribute('spellcheck', 'false');
+      if (field.name === 'identifier') input.setAttribute('inputmode', 'email');
+    }
     input.id = id;
     input.name = field.name;
     input.dataset.method = method;
