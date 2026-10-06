@@ -983,23 +983,24 @@ describe('Signing API', () => {
       // The verify implementation returns the verifyResult itself (with `type:'multisig'`
       // and a `signatures` array) only when signatures.length > 1; for a single signature
       // it returns that signature's shape directly. Build a 2-signature envelope so the
-      // multi-signature branch in src/api/signing.js:verify is exercised. Verifying a
+      // multi-signature branch in src/api/signing.js:verify is exercised. Two devices sign, so the
+      // segments differ in bytes on every runtime, deterministic (RFC 6979) ECDSA included. Verifying a
       // multi-signature requires opting in with maxSignatures (>= the segment count); by
       // default verify rejects multi-signature envelopes (covered by the test below).
       const identity = identities['john'];
-      const device = identity.devices[0];
+      const [deviceA, deviceB] = identity.devices;
       const via = 'https://example.com/';
       const message = 'multi-sig-verify-test';
 
       const sigA = await Triauth.Signature.generate(
-        SignerStub.signUsingDeviceKeys(device.keys),
+        SignerStub.signUsingDeviceKeys(deviceA.keys),
         'stamp',
         identity.identifier, '',
         via,
         message
       );
       const sigB = await Triauth.Signature.generate(
-        SignerStub.signUsingDeviceKeys(device.keys),
+        SignerStub.signUsingDeviceKeys(deviceB.keys),
         'stamp',
         identity.identifier, '',
         via,
@@ -1020,12 +1021,12 @@ describe('Signing API', () => {
     it('declines an out-of-policy signature count with {valid:false, reason:\'declined\'}', async () => {
       // A signature-count policy mismatch is reported as {valid:false, reason:'declined'} - no cryptographic verification
       const identity = identities['john'];
-      const device = identity.devices[0];
+      const [deviceA, deviceB] = identity.devices;
       const via = 'https://example.com/';
       const message = 'multi-sig-default-reject-test';
 
-      const sigA = await Triauth.Signature.generate(SignerStub.signUsingDeviceKeys(device.keys), 'stamp', identity.identifier, '', via, message);
-      const sigB = await Triauth.Signature.generate(SignerStub.signUsingDeviceKeys(device.keys), 'stamp', identity.identifier, '', via, message);
+      const sigA = await Triauth.Signature.generate(SignerStub.signUsingDeviceKeys(deviceA.keys), 'stamp', identity.identifier, '', via, message);
+      const sigB = await Triauth.Signature.generate(SignerStub.signUsingDeviceKeys(deviceB.keys), 'stamp', identity.identifier, '', via, message);
       const multiSig = Triauth.MultiSignature.generate(sigA, sigB);
 
       // Default maxSignatures:1, 2-segment envelope -> declined under the count policy.

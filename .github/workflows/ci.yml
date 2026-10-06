@@ -59,6 +59,46 @@ jobs:
       - name: Run all tests
         run: npm test
 
+  # Bun and Deno run the unit tests and the nine JSON conformance suites. The live zone tests
+  # stay off on these two runtimes, because their node:dns builds differ from Node. Bun delivers
+  # TXT chunks UTF-8-decoded and as separate records. Deno reports SERVFAIL as ENODATA. The
+  # mocha entry file is called directly, so the Node shebang in node_modules/.bin is not followed.
+  test-bun:
+    name: Tests ubuntu-latest bun-latest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24.x
+          cache: npm
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: latest
+      - run: npm ci
+      - name: Run unit tests and JSON suites on Bun
+        run: TRIAUTH_SKIP_ZONE_TESTS=1 bun node_modules/mocha/bin/mocha.js --timeout 25000 --require ./test/setup.js test/test.js
+
+  test-deno:
+    name: Tests ubuntu-latest deno-2.x
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24.x
+          cache: npm
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.x
+      - run: npm ci
+      - name: Run unit tests and JSON suites on Deno
+        run: TRIAUTH_SKIP_ZONE_TESTS=1 deno run -A --node-modules-dir=manual node_modules/mocha/bin/mocha.js --timeout 25000 --require ./test/setup.js test/test.js
+
   dependency-audit:
     name: devDependency security audit
     runs-on: ubuntu-latest

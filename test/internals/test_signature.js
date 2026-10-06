@@ -208,8 +208,8 @@ export default function() { describe('Triauth.Signature', () => {
 
   describe('Triauth.MultiSignature.verify constraint enforcement', () => {
 
-    const buildSig = async () => {
-      const signerStub = await SignerStub.fromJWK(identityFixture.devices[0].keys[0].private);
+    const buildSig = async (device = 0) => {
+      const signerStub = await SignerStub.fromJWK(identityFixture.devices[device].keys[0].private);
       return Triauth.Signature.generate(
         async (p) => signerStub.sign(p), 'auth', identityFixture.identifier, '', via, message
       );
@@ -223,7 +223,7 @@ export default function() { describe('Triauth.Signature', () => {
 
     it('returns false when signature count exceeds maxSignatures', async () => {
       const sig1 = await buildSig();
-      const sig2 = await buildSig();
+      const sig2 = await buildSig(1);
       const ms = new Triauth.MultiSignature(Triauth.MultiSignature.generate(sig1, sig2), {resolver: dnsResolver});
       assert.strictEqual(await ms.verify(message, {maxSignatures: 1}), false);
     });
@@ -236,7 +236,7 @@ export default function() { describe('Triauth.Signature', () => {
       assert.strictEqual(await ms.verify(message, {maxSignatures: '1'}), false);
     });
 
-    it('rejects byte-identical duplicate segments at parse time (225), while same-signer fresh signatures parse fine', async () => {
+    it('rejects byte-identical duplicate segments at parse time (225), while distinct segments of the same identity parse fine', async () => {
       const sig = await buildSig();
 
       // A single signature replayed to pad the segment count is never legitimate
@@ -245,8 +245,8 @@ export default function() { describe('Triauth.Signature', () => {
         (err) => err instanceof Triauth.Error && err.code === 225
       );
 
-      // Two FRESH signatures by the same signer differ in bytes (randomized signing) and parse fine
-      const sig2 = await buildSig();
+      // Two signatures by two devices of the same identity differ in bytes on every runtime and parse fine
+      const sig2 = await buildSig(1);
       const ms = new Triauth.MultiSignature(Triauth.MultiSignature.generate(sig, sig2), {resolver: dnsResolver});
       assert.strictEqual(ms.signatures.length, 2);
     });
