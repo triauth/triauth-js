@@ -163,6 +163,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(session({secret: crypto.randomBytes(64).toString('hex')})); // replace with your own secret
 
 app.get('/', (req, res) => {
+  if (req.session.identifier) {
+    return res.send(`Logged in as ${req.session.identifier}`);
+  }
+
   const errorMessage = req.session.error?.message || '';
   req.session.error = null;
 
@@ -184,7 +188,8 @@ app.post('/login', async (req, res) => {
   
   const authResult = await Triauth.authenticate({
     identifier,
-    callbackUrl
+    callbackUrl,
+    ext: { callbackMethod: 'GET' } // a GET callback brings the session cookie back with it
   });
   
   if (authResult.challenge && authResult.redirectUrl) {
@@ -196,9 +201,9 @@ app.post('/login', async (req, res) => {
   }
 });
 
-app.post('/callback', async (req, res) => {
+app.get('/callback', async (req, res) => {
   const challenge = req.session.challenge;
-  const response = req.body.response;
+  const response = req.query.response;
 
   delete req.session.challenge;
  
@@ -208,11 +213,12 @@ app.post('/callback', async (req, res) => {
   });
   
   if (authResult.authenticated) {
-    res.send(`Logged in as ${authResult.identifier}`);
+    req.session.identifier = authResult.identifier;
   } else {
     req.session.error = authResult.error;
-    res.redirect(302, '/');
   }
+
+  res.redirect(302, '/'); // always redirect, so that the response does not stay in the address bar
 });
 
 app.listen(3000, () => {
@@ -237,18 +243,19 @@ app.listen(3000, () => {
 
 ```html
 <script type="module">
-  const params = new URLSearchParams(window.location.search);
+  const params = new URLSearchParams(window.location.hash.split('?')[1]);
+  window.history.replaceState(null, '', window.location.pathname + window.location.search); // drop the response from the address bar
   
   const challenge = window.sessionStorage.getItem('challenge'); 
   const response = params.get('response');
 
-  const authResult = await window.Triauth.authenticate({
-    identifier: (challenge && response) ? undefined : window.prompt('Enter your identifier'),
-    callbackUrl: (challenge && response) ? undefined : window.location.href,
-    ext: { callbackMethod: 'GET', stampToken: true },
-    challenge,
-    response
-  });
+  const authResult = await window.Triauth.authenticate((challenge && response)
+    ? { challenge, response }
+    : {
+        identifier: window.prompt('Enter your identifier'),
+        callbackUrl: window.location.href,
+        ext: { callbackMethod: 'HASH', stampToken: true }
+      });
 
   if (challenge && response) {
     window.sessionStorage.removeItem('challenge');
@@ -324,7 +331,7 @@ Following methods are available:
 > 2. **Redirect:** <br/>
 >    Securely store the `challenge` and redirect the user's browser to `redirectUrl`.
 > 3. **Verify:** <br/>
->    The user's browser will POST a `response` to your `callbackUrl`. Pass both `challenge` and `response` back to the original method to complete the flow. 
+>    The user's browser brings a `response` back to your `callbackUrl`, by default as a POST form field (see [callbackMethod](#protocol-extensions)). Pass both `challenge` and `response` back to the original method to complete the flow. 
 
 <a name="preserve-referrer"></a>
 
@@ -388,7 +395,7 @@ await Triauth.authenticate(
 Once the user's web browser is redirected to the `redirectUrl`, they will be taken to the Triauth Authenticator web application, where they can approve or reject the authentication request. 
 
 If the user approves the authentication request, Triauth Authenticator signs the challenge using one or more private keys that are available to it, and for which matching public keys may be obtained from the identity records stored in the DNS, associated with the user's `identifier`. 
-It then redirects the web browser to the `callbackUrl` using a `HTTP POST` method and passes the signature, together with optional additional data, inside the `response` form parameter.
+It then redirects the web browser to the `callbackUrl`, by default using a `HTTP POST` method, and passes the signature, together with optional additional data, inside the `response` form parameter.
 The callback method that is used to pass the response to the client application can be configured with the [callbackMethod extension](#protocol-extensions).
 
 If the user declines the authentication request, the Triauth Authenticator sends `false` as the `response`, which `Triauth.authenticate` reports as error 403.
@@ -1774,9 +1781,9 @@ Currently, the following extensions are available:
 | Extension                 | Details                                                                                                                                                                                                                                                                   | 
 |---------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **callbackMethod**        | **Modifies how response is sent to your application:**                                                                                                                                                                                                                    |
-| `{callbackMethod:'POST'}` | - through a HTTP POST request to the `callbackUrl`, passed inside the request body as a `response` form parameter. Default.                                                                                                                                               |
-| `{callbackMethod:'GET'}`  | - through a HTTP GET request to the `callbackUrl`, passed inside the `response` URL parameter. Useful for client-side applications.                                                                                                                                       |
-| `{callbackMethod:'HASH'}` | - through a HTTP GET request to the `callbackUrl`, passed inside the `response` parameter embedded inside the URL fragment identifier (location.hash). Useful for privacy conscious client-side applications.                                                             |
+| `{callbackMethod:'POST'}` | - through a HTTP POST request to the `callbackUrl`, passed inside the request body as a `response` form parameter. Default. Session cookies marked `SameSite=Lax` or `Strict` do not arrive with it.                                                                      |
+| `{callbackMethod:'GET'}`  | - through a HTTP GET request to the `callbackUrl`, passed inside the `response` URL parameter. Useful for server-side applications that keep the challenge in a session cookie. The response appears in the URL and in access logs.                                       |
+| `{callbackMethod:'HASH'}` | - through a HTTP GET request to the `callbackUrl`, passed inside the `response` parameter of the URL fragment (location.hash), which browsers do not send to servers. Useful for client-side applications, and for a receiver page that posts it to your server.          |
 | **privateProfile**        | **Private Profile** <br/> Asks the user for a permission to read their private profile information that is stored on the device. If allowed, the profile is returned inside the `ext.privateProfile` property of authentication result.                                   |
 | `{privateProfile:true}`   | Requests all attributes from the user's private profile.                                                                                                                                                                                                                  |
 | **tokens**                | **Requests a token, as required by some of the API methods**                                                                                                                                                                                                              |
@@ -2041,9 +2048,9 @@ DNS queries for identity records and authentication endpoints.
 * **Rate-limit the endpoints** (stage 1 and 3 of `authenticate`/`ping`/`sign`/`stamp`/`attest`), as you would with any endpoint that performs outbound network I/O.
   Stage 1 and stage 3 resolve the caller-supplied identifier through your configured DNS resolver, so an unthrottled endpoint lets an attacker drive sustained DNS lookups and server CPU for arbitrary identifiers.
 
-* **Do not disclose `deviceTag`, `lookupCode`, and `actorLookupCode` to third-parties.** 
-  Under `mode=private` the deviceTag carries a lookup code (a semi-secret), and for delegated authentication it carries the identifier of the actor. Keep it non-displayed, or show only to the user it belongs to. 
-  The `lookupCode` and `actorLookupCode` result fields need the same care.
+* **Treat `deviceTag`, `lookupCode`, and `actorLookupCode` like the identifier.** 
+  Under `mode=private` the `deviceTag` carries a lookup code, which lets anyone who also knows the identifier read the identity's records, but not authenticate as it. For delegated authentication it also carries the actor's identifier. 
+  Do not display it, except to the user it belongs to.
 
 * It is good practice to store the `deviceTag` and the tokens from `ext` with the server-side, or encrypted cookie based user session, and to periodically call the `Triauth.check` or `Triauth.ping` to re-authenticate the user.
 
