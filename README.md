@@ -331,7 +331,7 @@ Following methods are available:
 > 2. **Redirect:** <br/>
 >    Securely store the `challenge` and redirect the user's browser to `redirectUrl`.
 > 3. **Verify:** <br/>
->    The user's browser brings a `response` back to your `callbackUrl`, by default as a POST form field (see [callbackMethod](#protocol-extensions)). Pass both `challenge` and `response` back to the original method to complete the flow. 
+>    The user's browser brings a `response` back to your `callbackUrl`, by default as a URL query parameter (see [callbackMethod](#protocol-extensions)). Pass both `challenge` and `response` back to the original method to complete the flow. 
 
 <a name="preserve-referrer"></a>
 
@@ -395,7 +395,7 @@ await Triauth.authenticate(
 Once the user's web browser is redirected to the `redirectUrl`, they will be taken to the Triauth Authenticator web application, where they can approve or reject the authentication request. 
 
 If the user approves the authentication request, Triauth Authenticator signs the challenge using one or more private keys that are available to it, and for which matching public keys may be obtained from the identity records stored in the DNS, associated with the user's `identifier`. 
-It then redirects the web browser to the `callbackUrl`, by default using a `HTTP POST` method, and passes the signature, together with optional additional data, inside the `response` form parameter.
+It then redirects the web browser to the `callbackUrl`, by default using a `HTTP GET` method, and passes the signature, together with optional additional data, inside the `response` URL parameter.
 The callback method that is used to pass the response to the client application can be configured with the [callbackMethod extension](#protocol-extensions).
 
 If the user declines the authentication request, the Triauth Authenticator sends `false` as the `response`, which `Triauth.authenticate` reports as error 403.
@@ -642,7 +642,7 @@ await Triauth.ping(
 
 Once the user's web browser is redirected to the `redirectUrl`, and assuming that the `token` is valid, the Triauth Authenticator web application will immediately respond to the `callbackUrl`.
 
-The Triauth Authenticator application redirects the user's web browser to the previously provided `callbackUrl`, by default through the [HTTP POST method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/POST), and passes a fresh signature in the `response` form parameter.
+The Triauth Authenticator application redirects the user's web browser to the previously provided `callbackUrl`, by default through the [HTTP GET method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/GET), and passes a fresh signature in the `response` URL parameter.
 The method that is used to pass the response to your application can be configured with the [callbackMethod extension](#protocol-extensions).
 
 **3. Verify**
@@ -962,7 +962,7 @@ If the user declines the request, the Triauth Authenticator sends `false` as the
 
 **3. Verify**
 
-The Triauth Authenticator application redirects the user's web browser to the previously provided `callbackUrl`, by default through the [HTTP POST method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/POST), and passes the attestation in the `response` form parameter.
+The Triauth Authenticator application redirects the user's web browser to the previously provided `callbackUrl`, by default through the [HTTP GET method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/GET), and passes the attestation in the `response` URL parameter.
 The method that is used to pass the response to your application can be configured with the [callbackMethod extension](#protocol-extensions).
 
 Once you extract the `response` (string), you should pass it to the `Triauth.attest` function together with the previously stored `challenge` (string) to obtain attestation result.
@@ -1206,7 +1206,7 @@ If the user declines the signing request, the Triauth Authenticator sends `false
 
 **3. Verify**
 
-After the user approves the signing request, the Triauth Authenticator application redirects the user's web browser to the previously provided `callbackUrl`, by default through the [HTTP POST method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/POST), and passes a signature in the `response` form parameter.
+After the user approves the signing request, the Triauth Authenticator application redirects the user's web browser to the previously provided `callbackUrl`, by default through the [HTTP GET method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/GET), and passes a signature in the `response` URL parameter.
 The method that is used to pass the response to your application can be configured with the [callbackMethod extension](#protocol-extensions).
 
 Once you extract the `response` (string), you should pass it to the `Triauth.sign` function together with the previously stored `challenge` (string) to obtain signing result.
@@ -1398,7 +1398,7 @@ Once the user's web browser is redirected to the `redirectUrl`, and assuming tha
 
 **3. Verify**
 
-The Triauth Authenticator application redirects the user's web browser to the previously provided `callbackUrl`, by default through the [HTTP POST method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/POST), and passes a stamp in the `response` form parameter.
+The Triauth Authenticator application redirects the user's web browser to the previously provided `callbackUrl`, by default through the [HTTP GET method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/GET), and passes a stamp in the `response` URL parameter.
 The method that is used to pass the response to your application can be configured with the [callbackMethod extension](#protocol-extensions).
 
 Once you extract the `response` (string), you should pass it to the `Triauth.stamp` function together with the previously stored `challenge` (string) to obtain stamping result.
@@ -1780,12 +1780,10 @@ Currently, the following extensions are available:
 
 | Extension                 | Details                                                                                                                                                                                                                                                                   | 
 |---------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **callbackMethod**        | **Modifies how response is sent to your application:**                                                                                                                                                                                                                    |
-| `{callbackMethod:'POST'}` | - through a HTTP POST request to the `callbackUrl`, passed inside the request body as a `response` form parameter. Default. Session cookies marked `SameSite=Lax` or `Strict` do not arrive with it.                                                                      |
-| `{callbackMethod:'GET'}`  | - through a HTTP GET request to the `callbackUrl`, passed inside the `response` URL parameter. Useful for server-side applications that keep the challenge in a session cookie. The response appears in the URL and in access logs.                                       |
+| **callbackMethod**        | **Modifies how response is sent to your application** (the Triauth Authenticator refuses a request with any other value):                                                                                                                                                 |
+| `{callbackMethod:'GET'}`  | - through a HTTP GET request to the `callbackUrl`, passed inside the `response` URL parameter. Default. Useful for server-side applications that keep the challenge in a session cookie. The response appears in the URL and in access logs.                              |
+| `{callbackMethod:'POST'}` | - through a HTTP POST request to the `callbackUrl`, passed inside the request body as a `response` form parameter. Session cookies marked `SameSite=Lax` or `Strict` do not arrive with it.                                                                               |
 | `{callbackMethod:'HASH'}` | - through a HTTP GET request to the `callbackUrl`, passed inside the `response` parameter of the URL fragment (location.hash), which browsers do not send to servers. Useful for client-side applications, and for a receiver page that posts it to your server.          |
-| **privateProfile**        | **Private Profile** <br/> Asks the user for a permission to read their private profile information that is stored on the device. If allowed, the profile is returned inside the `ext.privateProfile` property of authentication result.                                   |
-| `{privateProfile:true}`   | Requests all attributes from the user's private profile.                                                                                                                                                                                                                  |
 | **tokens**                | **Requests a token, as required by some of the API methods**                                                                                                                                                                                                              |
 | `{attestToken:true}`      | Requests a token that may be used with the `Triauth.attest` function. The token is returned inside the `ext.attestToken` property of authentication result.                                                                                                               |
 | `{signToken:true}`        | Requests a token that may be used with the `Triauth.sign` function. The token is returned inside the `ext.signToken` property of authentication result.                                                                                                                   |

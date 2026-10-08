@@ -76,13 +76,13 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  * Once the user's web browser is redirected to the `redirectUrl`, they will be taken to the Triauth Authenticator web application, where they can approve or reject the authentication request.
  *
  * If the user approves the authentication request, Triauth Authenticator signs the challenge using one or more private keys that are available to it, and for which matching public keys may be obtained from the identity records, associated with the user's `identifier`, stored in the DNS.
- * It then redirects the web browser to the `callbackUrl` using a `HTTP POST` method and passes the signature, together with optional additional data, inside the `response` form parameter.
+ * It then redirects the web browser to the `callbackUrl`, by default using a `HTTP GET` method, and passes the signature, together with optional additional data, inside the `response` URL parameter.
  *
  * If the user declines the authentication request, the Triauth Authenticator sends `false` as the `response`, which `Triauth.authenticate` reports as error 403.
  *
  * **3. Verify**
  *
- * After the user approves the authentication request, Triauth Authenticator sends a [HTTP POST request](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/POST) to the previously provided `callbackUrl`, and passes a response in the `response` form parameter.
+ * After the user approves the authentication request, Triauth Authenticator redirects the web browser to the previously provided `callbackUrl`, by default through the [HTTP GET method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/GET), and passes a response in the `response` URL parameter.
  * The callback method that is used to pass the response to the client application can be configured with [callbackMethod extension](#protocol-extensions).
  *
  * Once you extract the `response` (string), you should pass it to the `Triauth.authenticate` function together with the previously stored `challenge` (string) to obtain authentication result.
@@ -163,7 +163,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  * @param [options.ext] {object} - (stage 1) an optional object of protocol extensions to use (e.g., `{signToken:true}`)
  *
  * @param [options.challenge] {string} - (stage 3) a challenge as it was returned by the method after stage 1 call
- * @param [options.response] {string} - (stage 3) a received response, by default delivered as a `response` form parameter of a POST to the `callbackUrl` (overridable via the `callbackMethod` extension)
+ * @param [options.response] {string} - (stage 3) a received response, by default delivered as a `response` URL parameter of a GET to the `callbackUrl` (overridable via the `callbackMethod` extension)
  *
  * @param [config={}] {object} - Optional overrides for the global Triauth.config settings
  *
@@ -500,7 +500,7 @@ export const check = async (options, config = {}) => {
  *
  * **3. Verify**
  *
- * The Triauth Authenticator application redirects the user's web browser to the previously provided `callbackUrl`, by default through the [HTTP POST method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/POST), and passes a fresh signature in the `response` form parameter.
+ * The Triauth Authenticator application redirects the user's web browser to the previously provided `callbackUrl`, by default through the [HTTP GET method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/GET), and passes a fresh signature in the `response` URL parameter.
  * The method that is used to pass the response to your application can be configured with [callbackMethod extension](#protocol-extensions).
  *
  * Once you extract the `response` (string), you should pass it to the `Triauth.ping` function together with the previously stored `challenge` (string) to obtain ping result.
@@ -582,7 +582,7 @@ export const check = async (options, config = {}) => {
  * @param [options.ext] {object} - (stage 1) an optional object of protocol extensions to use (e.g., `{callbackMethod:'GET'}`)
  *
  * @param [options.challenge] {string} - (stage 3) a challenge as it was returned by the method after stage 1 call
- * @param [options.response] {string} - (stage 3) a received response, by default delivered as a `response` form parameter of a POST to the `callbackUrl` (overridable via the `callbackMethod` extension)
+ * @param [options.response] {string} - (stage 3) a received response, by default delivered as a `response` URL parameter of a GET to the `callbackUrl` (overridable via the `callbackMethod` extension)
  *
  * @param [config={}] {object} - Optional overrides for the global Triauth.config settings
  *

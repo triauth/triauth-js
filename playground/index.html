@@ -378,7 +378,7 @@
     token:       "Per-method token from a previous `authenticate` call. Auto-filled when available.",
     message:     "ASCII-printable text to be signed/stamped. No newlines or control characters.",
     attachments: "JSON array of `{name, sourceUrl, sha256}` objects covered by the signature.",
-    ext:         "JSON object of protocol extensions, e.g. `{\"callbackMethod\":\"GET\",\"privateProfile\":true}`.",
+    ext:         "JSON object of protocol extensions, e.g. `{\"callbackMethod\":\"GET\",\"pingToken\":true}`.",
     attestations:"JSON object mapping attestation IDs to `{label, providers}` entries.",
     signature:   "Triauth signature string in the `|type;identifier;actor;via;ver;ts;...;sig|` format.",
     constraints: "Optional JSON object of constraints (`identifier`, `type`, `ver`, `via`, `notBefore`, `notAfter`)."
@@ -387,8 +387,7 @@
   function defaultAuthExt() {
     return {
       callbackMethod: state.callbackMethod || 'HASH',
-      pingToken: true, signToken: true, stampToken: true, attestToken: true,
-      privateProfile: true
+      pingToken: true, signToken: true, stampToken: true, attestToken: true
     };
   }
   function defaultExt() { return { callbackMethod: state.callbackMethod || 'HASH' }; }

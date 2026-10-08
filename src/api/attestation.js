@@ -126,7 +126,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  *
  * **3. Verify**
  *
- * The Triauth Authenticator application redirects the user's web browser to the previously provided `callbackUrl`, by default through the [HTTP POST method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/POST), and passes the attestation in the `response` form parameter.
+ * The Triauth Authenticator application redirects the user's web browser to the previously provided `callbackUrl`, by default through the [HTTP GET method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/GET), and passes the attestation in the `response` URL parameter.
  * The method that is used to pass the response to your application can be configured with [callbackMethod extension](#protocol-extensions).
  *
  * Once you extract the `response` (string), you should pass it to the `Triauth.attest` function together with the previously stored `challenge` (string) to obtain attestation result.
@@ -240,7 +240,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  * @param [options.ext] {object} - (stage 1) an optional object of protocol extensions to use (e.g., `{callbackMethod:'GET'}`)
  *
  * @param [options.challenge] {string} - (stage 3) a challenge as it was returned by the method after stage 1 call
- * @param [options.response] {string} - (stage 3) a received response, by default delivered as a `response` form parameter of a POST to the `callbackUrl` (overridable via the `callbackMethod` extension)
+ * @param [options.response] {string} - (stage 3) a received response, by default delivered as a `response` URL parameter of a GET to the `callbackUrl` (overridable via the `callbackMethod` extension)
  *
  * @param [config={}] {object} - Optional overrides for the global Triauth.config settings
  *
