@@ -111,7 +111,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  *     token: ':tgX6ZXfNi3xwzSwuennigDoA'
  *   }
  * );
- * // {challenge: 'eyJjYn…JdfX19', redirectUrl: 'https://auth.triauthdemo.org/attest.html#?challenge=eyJjYn…JdfX19&token=:WE4zaN5WA_NuHX1BW4wBidu_Sef2aqkzA-gOxlyLmeE'}
+ * // {challenge: 'eyJjYn…l19fX0.PEq5CslSnTExe9xko1O5B-K9T4wBse5XtyClYb8WxJM', redirectUrl: 'https://auth.triauthdemo.org/attest.html#?challenge=eyJjYn…l19fX0&token=:8LvHcbpz8mDJgDSl-CJtL3T28uAZCKTY8FbAduvVkYU'}
  * ```
  *
  * **2. Redirect**
@@ -147,8 +147,8 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  * ```javascript
  * await Triauth.attest(
  *   {
- *    challenge:'eyJjYn…JdfX19',
- *    response:'|attest;john@triauthdemo.org;;https://example.com/;v1;1787224773556;;;MsVdr13VwgivjiTRnp78ncX2skDvZf5MdWLqXTXrMmo0VUtmn6R7gx1qJVhLJGYojMh9C4Lj2b_wxtbFlaZltg|attest;robot-attester@attest.triauthdemo.org;;https://attest.triauthdemo.org/not-a-robot;v1;1787224768930;;;AvbmMJwAcE0B_EaBv0EdMAcBAwJVY0BpN1MOmARhc_LdS6QsQzgwSNUaahjL_UyA8qXoiEqqtDXrlkG_1fWBpg|'
+ *    challenge:'eyJjYn…l19fX0.PEq5CslSnTExe9xko1O5B-K9T4wBse5XtyClYb8WxJM',
+ *    response:'BPPDsY…OGSBac'
  *   }
  * );
  *

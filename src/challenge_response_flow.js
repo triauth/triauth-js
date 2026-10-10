@@ -22,6 +22,7 @@ import { Validator } from './validator.js';
 import { Identity } from './identity.js';
 import { Challenge } from './challenge.js';
 import { Response } from './response.js';
+import { ResponseCipher } from './response_cipher.js';
 import { KNOWN_CONFIG_KEYS } from './config.js';
 
 /**
@@ -38,10 +39,12 @@ export class ChallengeResponseFlow {
 
   /**
    * Executes one stage of the challenge-response flow:
-   *  - **Stage 1** (when `identifier`+`callbackUrl` are given, `challenge`/`response` are not): builds a challenge,
-   *    invokes `onChallenge` to let the caller mutate `challenge.data`, then returns `{challenge, redirectUrl}`.
-   *  - **Stage 3** (when `challenge`+`response` are given): parses both, sanity-checks them against optional
-   *    `identifier`/`callbackUrl` constraints, then invokes `onResponse` for per-flow verification.
+   *  - **Stage 1** (when `identifier`+`callbackUrl` are given, `challenge`/`response` are not): builds a challenge
+   *    that carries a fresh encryption key (`ek`), invokes `onChallenge` to let the caller mutate `challenge.data`,
+   *    then returns `{challenge, redirectUrl}`. The returned `challenge` is `<challenge>.<decryptionKey>`.
+   *  - **Stage 3** (when `challenge`+`response` are given): parses both, opens the sealed response when the stored
+   *    challenge carries a decryption key, sanity-checks them against optional `identifier`/`callbackUrl`
+   *    constraints, then invokes `onResponse` for per-flow verification.
    *
    * @param type {string} - Flow type: `'auth'`, `'ping'`, `'attest'`, `'sign'`, or `'stamp'`.
    * @param [options={}] {object} - User-facing options. Stage 1 expects `{identifier, callbackUrl, ext?, token?}`
@@ -130,6 +133,11 @@ export class ChallengeResponseFlow {
 
         // Build the authentication request for the given identity with the given options - `callbackUrl` and `ext`.
         const challengeObj = Challenge.build(type, identity, challengeOptions, config);
+
+        // The authenticator seals the response to `ek`. The decryption key stays with the stored challenge.
+        const {encryptionKey, decryptionKey} = await ResponseCipher.generateKeyPair();
+        challengeObj.data.ek = encryptionKey;
+
         await callbacks.onChallenge({challenge: challengeObj});
         const challengeString = challengeObj.toString();
 
@@ -165,9 +173,10 @@ export class ChallengeResponseFlow {
         const redirectUrl = authenticationEndpoint.urlFor(type, redirectUrlParams);
         const redirectUrlString = redirectUrl.toString();
 
-        // Return the challenge that the client should remember, and a redirectUrl to which the user's web browser should be redirected.
+        // Return the challenge that the client should remember (with the key that opens the response), and a redirectUrl
+        // to which the user's web browser should be redirected.
         return Helpers.clone({
-          challenge: challengeString,
+          challenge: challengeString + '.' + decryptionKey,
           redirectUrl: redirectUrlString
         });
 
@@ -181,9 +190,14 @@ export class ChallengeResponseFlow {
           throw new TriauthError(403, 'Request has been denied');
         }
 
+        // A challenge stored as `<challenge>.<decryptionKey>` expects a sealed response, a bare one the plain envelope
+        const [challengeString, decryptionKey, rest] = typeof challenge === 'string' ? challenge.split('.') : [];
+        const sealed = decryptionKey !== undefined;
+
         const validationError = (
-          Validator.validateChallenge(challenge).errors[0] ||
-          Validator.validateResponse(response).errors[0] ||
+          Validator.validateChallenge(challengeString).errors[0] ||
+          ((rest !== undefined || (sealed && !(Helpers.isBase64UrlString(decryptionKey) && decryptionKey.length === 43))) && {code: 223, message: 'Invalid challenge'}) ||
+          (sealed ? Validator.validateSealedResponse(response) : Validator.validateResponse(response)).errors[0] ||
           (identifier != null && Validator.validateIdentifier(identifier).errors[0]) ||
           (callbackUrl != null && Validator.validateCallbackUrl(callbackUrl).errors[0])
         );
@@ -198,12 +212,32 @@ export class ChallengeResponseFlow {
         let challengeObj, responseObj;
 
         try {
-          challengeObj = Challenge.fromString(options.challenge, config);
+          challengeObj = Challenge.fromString(challengeString, config);
         } catch (err) {
           throw new TriauthError(223, 'Invalid challenge', {cause:err});
         }
 
-        responseObj = new Response(response, config);
+        // A challenge with `ek` comes with its key, and a challenge without one comes bare
+        if (sealed !== (challengeObj.data.ek !== undefined)) {
+          throw new TriauthError(223, 'Invalid challenge');
+        }
+
+        let envelope = response;
+
+        if (sealed) {
+          try {
+            envelope = await ResponseCipher.open(challengeObj.data.ek, decryptionKey, response);
+          } catch (err) {
+            throw new TriauthError(224, 'Invalid response', {cause:err});
+          }
+
+          const responseError = Validator.validateResponse(envelope).errors[0];
+          if (responseError) {
+            throw new TriauthError(responseError.code, responseError.message);
+          }
+        }
+
+        responseObj = new Response(envelope, config);
 
         // Make sure the challenge's type matches the flow type, and (if again passed in options)
         // that the identifier and/or callbackUrl matches the one embedded in the challenge.

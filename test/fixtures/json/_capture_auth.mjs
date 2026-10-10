@@ -26,7 +26,7 @@ import identities from '../identities.json' with { type: 'json' };
 // Shared generator plumbing: frozen clock, logger, and the local fixture keypairs (one
 // definition keeps every suite's copies in lock-step); this capture works with them
 // device-shaped, mirroring identities.json's nesting.
-import { T, LOGGER, asDevices, signonly as signonlyKeys, jane as janeKeys, ed25519 as ed25519Keys, PRIVATE } from './_capture_common.mjs';
+import { T, LOGGER, asDevices, signonly as signonlyKeys, jane as janeKeys, ed25519 as ed25519Keys, PRIVATE, sealedCases } from './_capture_common.mjs';
 const DnsResolverStub = (await import('../../stubs/dns_resolver.js')).default;
 const SignerStub      = (await import('../../stubs/signer.js')).default;
 
@@ -544,3 +544,14 @@ console.log(`CH_PRIVATE (identifier=${PRIVATE.john.identifier}):\n` + CH_PRIVATE
 console.log('RESP_PRIVATE:\n' + await mintSig(john.devices[0].keys, 'auth', PRIVATE.john.identifier, via, CH_PRIVATE, { lookupCode: PRIVATE.john.lookupCode }) + '\n');
 console.log('RESP_PRIVATE_NOCODE:\n' + await mintSig(john.devices[0].keys, 'auth', PRIVATE.john.identifier, via, CH_PRIVATE) + '\n');
 console.log('RESP_PUBLIC_CODE:\n' + await sign(john.devices[0].keys, { lookupCode: PRIVATE.john.lookupCode }) + '\n');
+
+// --- [sealed] responses sealed to the challenge's `ek` --------------------------------
+//     Prints the seven Stage-3 SEALED cases as JSON, ready to append to auth.json's tests; then
+//     `JSON_SUITE=auth.json RECORD=1 npm run test:json` fills their expecteds. Key pairs, ephemeral
+//     keys and ciphertexts are random, so every run prints new bytes for the same cases.
+const authCase = (name, args) => ({name, call: 'authenticate', args: [args]});
+const sealedChallenge = (ek) => encodeChallenge(ek === undefined
+  ? challengeObj({cburl: callbackUrl})
+  : {...challengeObj({cburl: callbackUrl}), ek});
+console.log('SEALED_CASES:\n' + JSON.stringify(await sealedCases(authCase, sealedChallenge,
+  (sealed) => mintSig(john.devices[0].keys, 'auth', identifier, via, sealed)), null, 2) + '\n');

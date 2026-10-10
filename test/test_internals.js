@@ -12,6 +12,7 @@ import identityDomain from './internals/test_identity_domain.js';
 import authenticationEndpoint from './internals/test_authentication_endpoint.js';
 import config from './internals/test_config.js';
 import protocol from './internals/test_protocol.js';
+import responseCipher from './internals/test_response_cipher.js';
 
 // Wrapping the calls under a single 'Internals' label
 describe('Internals', () => {
@@ -29,4 +30,5 @@ describe('Internals', () => {
   authenticationEndpoint();
   config();
   protocol();
+  responseCipher();
 });

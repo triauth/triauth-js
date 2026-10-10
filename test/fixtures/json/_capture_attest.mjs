@@ -69,7 +69,7 @@ import identities from '../identities.json' with { type: 'json' };
 import attesters from '../attesters.json' with { type: 'json' };
 // Shared generator plumbing: frozen clock, logger, the local jane/ed25519 fixture identities
 // (one definition keeps every suite's keypairs in lock-step), and the guarded suite writer.
-import { T, LOGGER, jane, ed25519, PRIVATE, writeSuite } from './_capture_common.mjs';
+import { T, LOGGER, jane, ed25519, PRIVATE, writeSuite, sealedCases } from './_capture_common.mjs';
 // Minting only needs the private-key signer; no DNS is consulted here (the runner resolves DNS
 // from the suite's dnsEntries at verify time).
 const SignerStub = (await import('../../stubs/signer.js')).default;
@@ -127,7 +127,7 @@ const ATT_EDCHECK = { 'ed25519-check': { label: 'Verified by an Ed25519 attester
 // _perform's onChallenge appends for attest. Stage 3 never re-checks the nonce, so a fixed nonce is
 // fine. (Because the signed payload is sha256(thisString), every response is minted against the exact
 // string this returns — see mintResponse below.)
-const mkChallenge = ({ cburl = CB, ext, type = 'attest', identifier = ID, nonce = NONCE, iat = T, ver = 1,
+const mkChallenge = ({ cburl = CB, ext, type = 'attest', identifier = ID, nonce = NONCE, iat = T, ver = 1, ek,
                        attest = ATT_ROBOT, includeAttest = true } = {}) => {
   const data = {};
   data.cburl = cburl;
@@ -137,6 +137,7 @@ const mkChallenge = ({ cburl = CB, ext, type = 'attest', identifier = ID, nonce 
   data.nonce = nonce;
   data.iat = iat;
   data.ver = ver;
+  if (ek !== undefined) data.ek = ek;
   if (includeAttest) data.attest = attest;
   return b64u(JSON.stringify(data));
 };
@@ -1070,6 +1071,9 @@ const tests = [
       'key server[1/1]:BMR8Ug7qu9HUc9UgY_ADh8giBNmWBbSmGsR6DD6Hg5rpWeyYvu2WlQ43iR_dj0eKN99esQNMe7Gq2u2LBnRejcU use=attest',
     ] },
   } }),
+
+  // Sealed responses: the challenge carries `ek`, the stored challenge its decryption key
+  ...await sealedCases(s3, (ek) => mkChallenge({ ek }), (challenge) => mintResponse(challenge, { attesters: [{ keys: robot.devices[0].keys, identifier: robot.identifier, via: ROBOT_VIA }] })),
 ];
 
 // Normalize: a couple of dispatch/config tests need an args shape the s3() helper can't express

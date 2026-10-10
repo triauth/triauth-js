@@ -1368,15 +1368,14 @@
 
     const response = got.response;
     let method;
-    if (response === 'false') {
-      // Rejection response carries no `|type;...|` envelope, so the method
-      // can't be inferred from the response itself — fall back to whatever
-      // flow stage 1 recorded as in-flight.
-      method = state.lastMethod;
+    const match = response.match(/\|(attest|auth|ping|sign|stamp);/);
+    if (match) {
+      method = match[1] === 'auth' ? 'authenticate' : match[1];
     } else {
-      const match = response.match(/\|(attest|auth|ping|sign|stamp);/);
-      method = match ? match[1] : null;
-      if (method === 'auth') method = 'authenticate';
+      // A rejection (`false`) or a sealed response shows no `|type;...|`
+      // envelope, so the method can't be inferred from the response itself —
+      // fall back to whatever flow stage 1 recorded as in-flight.
+      method = state.lastMethod;
     }
 
     if (!method || !METHODS[method]) return;

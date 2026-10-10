@@ -1,4 +1,5 @@
 import SignerStub from './stubs/signer.js';
+import AuthenticatorStub from './stubs/authenticator.js';
 import DnsResolverStub from './stubs/dns_resolver.js';
 import identities from './fixtures/identities.json' with { type: 'json' };
 import identifiersFixture from './fixtures/identifiers.json' with { type: 'json' };
@@ -34,7 +35,7 @@ describe('Signing API', () => {
 
       it('encodes type, identifier, callbackUrl, and message in the challenge', async () => {
         const signRes = (await Triauth.sign({identifier, callbackUrl, message, token}));
-        const challengeRequest = Triauth.Challenge.fromString(signRes.challenge);
+        const challengeRequest = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(signRes.challenge));
 
         assert.equal(challengeRequest.data.type, 'sign');
         assert.equal(challengeRequest.data.identifier, identifier);
@@ -49,7 +50,7 @@ describe('Signing API', () => {
         const signRes = (await Triauth.sign({identifier, callbackUrl, message, token}));
 
         assert(!signRes.error, JSON.stringify(signRes.error));
-        const challengeRequest = Triauth.Challenge.fromString(signRes.challenge);
+        const challengeRequest = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(signRes.challenge));
         assert.equal(challengeRequest.data.msg, message);
       });
 
@@ -66,7 +67,7 @@ describe('Signing API', () => {
 
       it('accepts optional attachments and encodes them in the challenge', async () => {
         const signRes = (await Triauth.sign({identifier, callbackUrl, message, token, attachments}));
-        const challengeRequest = Triauth.Challenge.fromString(signRes.challenge);
+        const challengeRequest = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(signRes.challenge));
 
         assert.deepEqual(challengeRequest.data.attachments, attachments);
       });
@@ -202,7 +203,7 @@ describe('Signing API', () => {
               message
             );
 
-            const signRes = (await Triauth.sign({challenge, response}));
+            const signRes = (await Triauth.sign({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
 
             assert.equal(signRes.signed, true);
             assert(typeof signRes.result === 'string' && signRes.result.startsWith('|') && signRes.result.endsWith('|'));
@@ -238,7 +239,7 @@ describe('Signing API', () => {
           {attachments}
         );
 
-        const signRes = (await Triauth.sign({challenge, response}));
+        const signRes = (await Triauth.sign({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert.equal(signRes.signed, true);
         assert.deepEqual(signRes.verificationResult.signedMetadata.attachments, attachments);
 
@@ -263,7 +264,7 @@ describe('Signing API', () => {
           message
         );
 
-        const signRes = await Triauth.sign({challenge, response});
+        const signRes = await Triauth.sign({challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert.equal(signRes.signed, true);
 
         const verifyRes = await Triauth.verify(message, signRes.result);
@@ -342,7 +343,7 @@ describe('Signing API', () => {
           {attachments: sneakyAttachments}
         );
 
-        const signRes = (await Triauth.sign({challenge, response}));
+        const signRes = (await Triauth.sign({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!signRes.signed);
         assert.equal(signRes.error.code, 401);
       });
@@ -369,7 +370,7 @@ describe('Signing API', () => {
           message
         );
 
-        const signRes = (await Triauth.sign({challenge, response}));
+        const signRes = (await Triauth.sign({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!signRes.signed);
         assert.equal(signRes.error.code, 401);
       });
@@ -397,7 +398,7 @@ describe('Signing API', () => {
           {attachments: [{name: 'License.txt', sourceUrl: attachments[0].sourceUrl, sha256: '0'.repeat(64)}]}
         );
 
-        const signRes = (await Triauth.sign({challenge, response}));
+        const signRes = (await Triauth.sign({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!signRes.signed);
         assert.equal(signRes.error.code, 401);
       });
@@ -425,7 +426,7 @@ describe('Signing API', () => {
           {attachments: [{name: 'Other.txt', sourceUrl: attachments[0].sourceUrl, sha256: attachments[0].sha256}]}
         );
 
-        const signRes = (await Triauth.sign({challenge, response}));
+        const signRes = (await Triauth.sign({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!signRes.signed);
         assert.equal(signRes.error.code, 401);
       });
@@ -438,9 +439,9 @@ describe('Signing API', () => {
         const device = identity.devices[0];
 
         const buildRes = await Triauth.sign({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl, message});
-        const challengeObj = Triauth.Challenge.fromString(buildRes.challenge);
+        const challengeObj = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(buildRes.challenge));
         challengeObj.data.type = 'stamp';
-        const modifiedChallenge = Triauth.Helpers.stringToBase64Url(JSON.stringify(challengeObj.data));
+        const modifiedChallenge = AuthenticatorStub.reencode(buildRes.challenge, challengeObj.data);
 
         const response = await Triauth.Signature.generate(
           SignerStub.signUsingDeviceKeys(device.keys),
@@ -450,7 +451,7 @@ describe('Signing API', () => {
           message
         );
 
-        const signRes = (await Triauth.sign({challenge: modifiedChallenge, response}));
+        const signRes = (await Triauth.sign({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)}));
         assert(!signRes.signed);
         assert.equal(signRes.error.code, 401);
       });
@@ -471,7 +472,7 @@ describe('Signing API', () => {
           message
         );
 
-        const signRes = (await Triauth.sign({challenge, response}));
+        const signRes = (await Triauth.sign({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!signRes.signed);
         assert.equal(signRes.error.code, 401);
       });
@@ -492,10 +493,10 @@ describe('Signing API', () => {
           message
         );
 
-        let signRes = await Triauth.sign({identifier: identity.identifier, challenge, response});
+        let signRes = await Triauth.sign({identifier: identity.identifier, challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert.equal(signRes.signed, true);
 
-        signRes = await Triauth.sign({identifier: 'other-user@example.com', challenge, response});
+        signRes = await Triauth.sign({identifier: 'other-user@example.com', challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert(!signRes.signed);
         assert.equal(signRes.error.code, 401);
       });
@@ -516,10 +517,10 @@ describe('Signing API', () => {
           message
         );
 
-        let signRes = await Triauth.sign({challenge, response, callbackUrl});
+        let signRes = await Triauth.sign({challenge, response: await AuthenticatorStub.seal(challenge, response), callbackUrl});
         assert.equal(signRes.signed, true);
 
-        signRes = await Triauth.sign({challenge, response, callbackUrl: 'https://other-domain.com/'});
+        signRes = await Triauth.sign({challenge, response: await AuthenticatorStub.seal(challenge, response), callbackUrl: 'https://other-domain.com/'});
         assert(!signRes.signed);
         assert.equal(signRes.error.code, 401);
       });
@@ -533,9 +534,9 @@ describe('Signing API', () => {
         const device = identity.devices[0];
 
         const buildRes = await Triauth.sign({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl, message});
-        const challengeObj = Triauth.Challenge.fromString(buildRes.challenge);
+        const challengeObj = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(buildRes.challenge));
         challengeObj.data.iat = Date.now() - (defaultTimeout + 10e3);
-        const modifiedChallenge = Triauth.Helpers.stringToBase64Url(JSON.stringify(challengeObj.data));
+        const modifiedChallenge = AuthenticatorStub.reencode(buildRes.challenge, challengeObj.data);
 
         const response = await Triauth.Signature.generate(
           SignerStub.signUsingDeviceKeys(device.keys),
@@ -545,12 +546,12 @@ describe('Signing API', () => {
           message
         );
 
-        let signRes = await Triauth.sign({challenge: modifiedChallenge, response});
+        let signRes = await Triauth.sign({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)});
         assert(!signRes.signed);
         assert.equal(signRes.error.code, 402);
 
         signRes = await Triauth.sign(
-          {challenge: modifiedChallenge, response},
+          {challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)},
           {signTimeout: defaultTimeout * 2 + 60e3}
         );
         assert.equal(signRes.signed, true);
@@ -595,7 +596,7 @@ describe('Signing API', () => {
 
       it('encodes type, identifier, callbackUrl, and message in the challenge', async () => {
         const stampRes = (await Triauth.stamp({identifier, callbackUrl, message, token}));
-        const challengeRequest = Triauth.Challenge.fromString(stampRes.challenge);
+        const challengeRequest = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(stampRes.challenge));
 
         assert.equal(challengeRequest.data.type, 'stamp');
         assert.equal(challengeRequest.data.identifier, identifier);
@@ -668,7 +669,7 @@ describe('Signing API', () => {
               message
             );
 
-            const stampRes = (await Triauth.stamp({challenge, response}));
+            const stampRes = (await Triauth.stamp({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
 
             assert.equal(stampRes.stamped, true);
             assert(typeof stampRes.result === 'string' && stampRes.result.startsWith('|') && stampRes.result.endsWith('|'));
@@ -701,7 +702,7 @@ describe('Signing API', () => {
           message
         );
 
-        const stampRes = await Triauth.stamp({challenge, response});
+        const stampRes = await Triauth.stamp({challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert.equal(stampRes.stamped, true);
 
         const verifyRes = await Triauth.verify(message, stampRes.result);
@@ -728,7 +729,7 @@ describe('Signing API', () => {
           {attachments: [{name: 'sneaky.txt', sha256: 'd8a6cc31abc16b6748c7a21f21611f5a1ec33f67d22ca23d7da1c19b95496bee'}]}
         );
 
-        const stampRes = (await Triauth.stamp({challenge, response}));
+        const stampRes = (await Triauth.stamp({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!stampRes.stamped);
         assert.equal(stampRes.error.code, 401);
       });
@@ -749,7 +750,7 @@ describe('Signing API', () => {
           message
         );
 
-        const stampRes = (await Triauth.stamp({challenge, response}));
+        const stampRes = (await Triauth.stamp({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!stampRes.stamped);
         assert.equal(stampRes.error.code, 401);
       });
@@ -762,9 +763,9 @@ describe('Signing API', () => {
         const device = identity.devices[0];
 
         const buildRes = await Triauth.stamp({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl, message});
-        const challengeObj = Triauth.Challenge.fromString(buildRes.challenge);
+        const challengeObj = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(buildRes.challenge));
         challengeObj.data.type = 'sign';
-        const modifiedChallenge = Triauth.Helpers.stringToBase64Url(JSON.stringify(challengeObj.data));
+        const modifiedChallenge = AuthenticatorStub.reencode(buildRes.challenge, challengeObj.data);
 
         const response = await Triauth.Signature.generate(
           SignerStub.signUsingDeviceKeys(device.keys),
@@ -774,7 +775,7 @@ describe('Signing API', () => {
           message
         );
 
-        const stampRes = (await Triauth.stamp({challenge: modifiedChallenge, response}));
+        const stampRes = (await Triauth.stamp({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)}));
         assert(!stampRes.stamped);
         assert.equal(stampRes.error.code, 401);
       });
@@ -787,9 +788,9 @@ describe('Signing API', () => {
         const device = identity.devices[0];
 
         const buildRes = await Triauth.stamp({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl, message});
-        const challengeObj = Triauth.Challenge.fromString(buildRes.challenge);
+        const challengeObj = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(buildRes.challenge));
         challengeObj.data.iat = Date.now() - (Triauth.config.stampTimeout + 10e3);
-        const modifiedChallenge = Triauth.Helpers.stringToBase64Url(JSON.stringify(challengeObj.data));
+        const modifiedChallenge = AuthenticatorStub.reencode(buildRes.challenge, challengeObj.data);
 
         const response = await Triauth.Signature.generate(
           SignerStub.signUsingDeviceKeys(device.keys),
@@ -799,7 +800,7 @@ describe('Signing API', () => {
           message
         );
 
-        const stampRes = await Triauth.stamp({challenge: modifiedChallenge, response});
+        const stampRes = await Triauth.stamp({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)});
         assert(!stampRes.stamped);
         assert.equal(stampRes.error.code, 402);
       });
@@ -820,10 +821,10 @@ describe('Signing API', () => {
           message
         );
 
-        let stampRes = await Triauth.stamp({identifier: identity.identifier, challenge, response});
+        let stampRes = await Triauth.stamp({identifier: identity.identifier, challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert.equal(stampRes.stamped, true);
 
-        stampRes = await Triauth.stamp({identifier: 'other-user@example.com', challenge, response});
+        stampRes = await Triauth.stamp({identifier: 'other-user@example.com', challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert(!stampRes.stamped);
         assert.equal(stampRes.error.code, 401);
       });
@@ -844,10 +845,10 @@ describe('Signing API', () => {
           message
         );
 
-        let stampRes = await Triauth.stamp({challenge, response, callbackUrl});
+        let stampRes = await Triauth.stamp({challenge, response: await AuthenticatorStub.seal(challenge, response), callbackUrl});
         assert.equal(stampRes.stamped, true);
 
-        stampRes = await Triauth.stamp({challenge, response, callbackUrl: 'https://other-domain.com/'});
+        stampRes = await Triauth.stamp({challenge, response: await AuthenticatorStub.seal(challenge, response), callbackUrl: 'https://other-domain.com/'});
         assert(!stampRes.stamped);
         assert.equal(stampRes.error.code, 401);
       });
@@ -860,13 +861,13 @@ describe('Signing API', () => {
         const device = identity.devices[0];
 
         const buildRes = await Triauth.stamp({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl, message});
-        const challengeObj = Triauth.Challenge.fromString(buildRes.challenge);
+        const challengeObj = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(buildRes.challenge));
         challengeObj.data.attachments = [{
           name: 'sneaky.txt',
           sourceUrl: 'https://example.com/sneaky.txt',
           sha256: 'd8a6cc31abc16b6748c7a21f21611f5a1ec33f67d22ca23d7da1c19b95496bee'
         }];
-        const modifiedChallenge = Triauth.Helpers.stringToBase64Url(JSON.stringify(challengeObj.data));
+        const modifiedChallenge = AuthenticatorStub.reencode(buildRes.challenge, challengeObj.data);
 
         const response = await Triauth.Signature.generate(
           SignerStub.signUsingDeviceKeys(device.keys),
@@ -876,7 +877,7 @@ describe('Signing API', () => {
           message
         );
 
-        const stampRes = await Triauth.stamp({challenge: modifiedChallenge, response});
+        const stampRes = await Triauth.stamp({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)});
         assert(!stampRes.stamped);
         assert.equal(stampRes.error.code, 102);
       });

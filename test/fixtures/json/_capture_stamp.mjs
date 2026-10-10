@@ -63,7 +63,7 @@ import identities from '../identities.json' with { type: 'json' };
 //     NEGATIVE — `use=sign` does NOT include `stamp`, so john-style crypto would still 401 on
 //     the mode/use check. (The mirror image of sign.json, where use=sign is the positive.)
 //   - jane: ordinary identity used as the "wrong identity" (jane stamps john's message).
-import { T, LOGGER, signonly, jane, ed25519, PRIVATE, writeSuite } from './_capture_common.mjs';
+import { T, LOGGER, signonly, jane, ed25519, PRIVATE, writeSuite, sealedCases } from './_capture_common.mjs';
 // Minting only needs the private-key signer; no DNS is consulted here (the runner resolves DNS
 // from the suite's dnsEntries at verify time).
 const SignerStub = (await import('../../stubs/signer.js')).default;
@@ -106,7 +106,7 @@ const ATT  = { name: 'License.txt', sourceUrl: 'https://example.com/license.txt'
 // onChallenge appends for stamp (NO attachments — that is the whole point of stamp). Stage 3 never
 // re-checks the nonce, so a fixed nonce is fine. `attachments` is only ever baked in to drive the
 // onResponse 102-rejection negative.
-const mkChallenge = ({ cburl = CB, ext, type = 'stamp', identifier = ID, nonce = NONCE, iat = T, ver = 1,
+const mkChallenge = ({ cburl = CB, ext, type = 'stamp', identifier = ID, nonce = NONCE, iat = T, ver = 1, ek,
                        msg = MSG, includeMsg = true, attachments, includeAttachments = false } = {}) => {
   const data = {};
   data.cburl = cburl;
@@ -116,6 +116,7 @@ const mkChallenge = ({ cburl = CB, ext, type = 'stamp', identifier = ID, nonce =
   data.nonce = nonce;
   data.iat = iat;
   data.ver = ver;
+  if (ek !== undefined) data.ek = ek;
   if (includeMsg) data.msg = msg;
   if (includeAttachments) data.attachments = attachments !== undefined ? attachments : [];
   return Triauth.Helpers.stringToBase64Url(JSON.stringify(data));
@@ -866,6 +867,9 @@ const tests = [
         ]
       }
     } }),
+
+  // Sealed responses: the challenge carries `ek`, the stored challenge its decryption key
+  ...await sealedCases(s3, (ek) => mkChallenge({ ek }), () => mint(john.devices[0].keys)),
 ];
 
 // Normalize: a couple of dispatch tests need a non-object sole arg (null / []) that the s3()

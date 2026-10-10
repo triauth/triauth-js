@@ -7,6 +7,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { basename } from 'node:path';
+import { ResponseCipher } from '../../../src/response_cipher.js';
 
 // Suite-level frozen clock shared by every generator and suite. Every challenge iat and
 // every signature ts is minted at T, so signatures land inside each flow's
@@ -177,4 +178,27 @@ export function writeSuite(outUrl, suite) {
 
   writeFileSync(outPath, JSON.stringify(suite, null, 2) + '\n');
   console.log(`Wrote ${suite.tests.length} tests to ${outPath} (run JSON_SUITE=${file} RECORD=1 npm run test:json to fill expecteds).`);
+}
+
+// Stage-3 cases for sealed responses, shared by the minted suites. `challengeWith(ek)` builds the flow's challenge (no
+// `ek` member when ek is undefined), and `envelopeFor(challenge)` mints the plain response the authenticator seals. Key
+// pairs, ephemeral keys and ciphertexts are random, so re-minting changes their bytes (the guard masks them).
+export async function sealedCases(s3, challengeWith, envelopeFor) {
+  const pair = await ResponseCipher.generateKeyPair();
+  const other = await ResponseCipher.generateKeyPair();
+  const challenge = challengeWith(pair.encryptionKey);
+  const stored = challenge + '.' + pair.decryptionKey;
+  const envelope = await envelopeFor(challenge);
+  const sealed = await ResponseCipher.seal(pair.encryptionKey, envelope);
+  const tampered = sealed.slice(0, -5) + (sealed.at(-5) === 'A' ? 'B' : 'A') + sealed.slice(-4);
+
+  return [
+    s3('Stage 3 SEALED response opens with the decryption key of the stored challenge and verifies', { challenge: stored, response: sealed }),
+    s3('Stage 3 SEALED plain envelope for a challenge stored with a decryption key returns 224 (a keyed challenge has no unsealed path)', { challenge: stored, response: envelope }),
+    s3('Stage 3 SEALED challenge stored without its decryption key (ek present) returns 223', { challenge, response: envelope }),
+    s3('Stage 3 SEALED decryption key on a challenge without ek returns 223', { challenge: challengeWith(undefined) + '.' + pair.decryptionKey, response: sealed }),
+    s3('Stage 3 SEALED malformed decryption key (42 characters) returns 223', { challenge: challenge + '.' + pair.decryptionKey.slice(1), response: sealed }),
+    s3("Stage 3 SEALED response sealed to another challenge's key returns 224", { challenge: challengeWith(other.encryptionKey) + '.' + other.decryptionKey, response: sealed }),
+    s3('Stage 3 SEALED ciphertext changed in transit returns 224', { challenge: stored, response: tampered }),
+  ];
 }

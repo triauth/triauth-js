@@ -285,6 +285,31 @@ export class Validator {
   }
 
   /**
+   * Validates the sealed response received in stage 3 of an authentication flow, before it is opened.
+   *
+   * A sealed response is `<enc>.<ciphertext>`, both base64url: an 87-character encapsulated key, and a ciphertext of
+   * at least the 16-byte authentication tag, bounded by the sealed size of the largest response envelope.
+   *
+   * @param response {String} - Sealed response that should be validated.
+   *
+   * @returns {{valid: boolean, errors: Array<{code: number, message: string}>}}
+   */
+  static validateSealedResponse(response) {
+    const errors = [];
+    const maxLength = 87 + 1 + Math.ceil((LIMITS.signatureBytesize + 16) * 4 / 3);
+
+    if (
+      typeof response !== 'string' ||
+      response.length > maxLength ||
+      !/^[A-Za-z0-9_-]{87}\.[A-Za-z0-9_-]{22,}$/.test(response)
+    ) {
+      errors.push(224);
+    }
+
+    return this.#expandResult(errors);
+  }
+
+  /**
    * Validates the message string to be signed or stamped in a {@link Triauth.sign} or {@link Triauth.stamp} flow.
    *
    * @param message {String} - Message that should be validated.

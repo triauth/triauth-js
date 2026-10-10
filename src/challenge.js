@@ -31,7 +31,8 @@ export class Challenge {
   /**
    * Recreates the Challenge from the given challenge.
    *
-   * @param challengeString {string} - a challenge, typically as stored during the stage 1 of challenge-response flow.
+   * @param challengeString {string} - a challenge as sent to the authenticator: the part of the challenge stored during
+   *                                   stage 1 of the challenge-response flow before its `.` and decryption key.
    * @param [config={}] {object} - optional overrides for the global Triauth.config settings
    *
    * @returns {Challenge}

@@ -797,8 +797,8 @@
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
-        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiZ2hvc3RAdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiZ2hvc3RAdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0&token=:5YKzjUe57xH7GsKlZ7hg7u0-yzbdvZwzLc8fVYZFX2s"
+        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiZ2hvc3RAdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9.DK",
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiZ2hvc3RAdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9&token=:HMAC"
       }
     },
     {
@@ -843,8 +843,8 @@
         }
       },
       "expected": {
-        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkBoYXNoZWQudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkBoYXNoZWQudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0&token=:2VJR1KgOYaWMRmn3GBviRYxXhMybOg9Jg_I7ow5UbLg"
+        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkBoYXNoZWQudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9.DK",
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkBoYXNoZWQudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9&token=:HMAC"
       }
     },
     {
@@ -889,8 +889,8 @@
         }
       },
       "expected": {
-        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ&token=:Dilb2XGvOPWgMUAmwAT9r8LqcfIRFtqtbFDGuEs89W0"
+        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0.DK",
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0&token=:HMAC"
       }
     },
     {
@@ -906,8 +906,8 @@
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
-        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ&token=:Dilb2XGvOPWgMUAmwAT9r8LqcfIRFtqtbFDGuEs89W0"
+        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0.DK",
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0&token=:HMAC"
       }
     },
     {
@@ -923,8 +923,8 @@
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
-        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ&token=:Dilb2XGvOPWgMUAmwAT9r8LqcfIRFtqtbFDGuEs89W0"
+        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0.DK",
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0&token=:HMAC"
       }
     },
     {
@@ -943,8 +943,8 @@
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
-        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsic3RhbXBUb2tlbiI6dHJ1ZX0sInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsic3RhbXBUb2tlbiI6dHJ1ZX0sInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9&token=:4stsdbGKLUn-651tPefDbo8OCxYeW9DKQOB5fIfANYI"
+        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsic3RhbXBUb2tlbiI6dHJ1ZX0sInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ.DK",
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsic3RhbXBUb2tlbiI6dHJ1ZX0sInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ&token=:HMAC"
       }
     },
     {
@@ -985,8 +985,8 @@
         }
       },
       "expected": {
-        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ&token=:Dilb2XGvOPWgMUAmwAT9r8LqcfIRFtqtbFDGuEs89W0"
+        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0.DK",
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0&token=:HMAC"
       }
     },
     {
@@ -1008,8 +1008,8 @@
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
-        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsic3RhbXBUb2tlbiI6dHJ1ZSwibmVzdGVkIjp7ImZvbyI6ImJhciJ9fSwidHlwZSI6InN0YW1wIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsic3RhbXBUb2tlbiI6dHJ1ZSwibmVzdGVkIjp7ImZvbyI6ImJhciJ9fSwidHlwZSI6InN0YW1wIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0&token=:0Q6fmrwgrA8AK2GHOlm8J-GmZI1IaMmZfAkdT8R_KFA"
+        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsic3RhbXBUb2tlbiI6dHJ1ZSwibmVzdGVkIjp7ImZvbyI6ImJhciJ9fSwidHlwZSI6InN0YW1wIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9.DK",
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsic3RhbXBUb2tlbiI6dHJ1ZSwibmVzdGVkIjp7ImZvbyI6ImJhciJ9fSwidHlwZSI6InN0YW1wIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9&token=:HMAC"
       }
     },
     {
@@ -1025,8 +1025,8 @@
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
-        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoibXVsdGlAdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoibXVsdGlAdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0&token=:TcE_vFoTtLbN-57JschHgG9ti-W4GivjjzKzl77nHTI"
+        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoibXVsdGlAdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9.DK",
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoibXVsdGlAdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9&token=:HMAC"
       }
     },
     {
@@ -1042,8 +1042,8 @@
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
-        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoibm9rZXlzQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoibm9rZXlzQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9&token=:eIHyxDh2E1AmReydyk-YVjvEPaMWtl1V0jr_YZjgn3c"
+        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoibm9rZXlzQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ.DK",
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoibm9rZXlzQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ&token=:HMAC"
       }
     },
     {
@@ -1059,8 +1059,8 @@
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
-        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkBwcml2YXRlLnRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9",
-        "redirectUrl": "https://auth.private.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkBwcml2YXRlLnRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9&token=:lHvPfDDTCzBKIwlsuwzR_T4wdfYaQRprdpVUxGkjSao"
+        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkBwcml2YXRlLnRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ.DK",
+        "redirectUrl": "https://auth.private.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkBwcml2YXRlLnRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ&token=:HMAC"
       }
     },
     {
@@ -1076,8 +1076,8 @@
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
-        "challenge": "eyJjYnVybCI6Imh0dHA6Ly9sb2NhbGhvc3Q6MzAwMC9jYiIsInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHA6Ly9sb2NhbGhvc3Q6MzAwMC9jYiIsInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9&token=:IW2A3jnkAiim_oDAmdaQL1p0AGDrs7uu4vVmFwgFy2g"
+        "challenge": "eyJjYnVybCI6Imh0dHA6Ly9sb2NhbGhvc3Q6MzAwMC9jYiIsInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ.DK",
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHA6Ly9sb2NhbGhvc3Q6MzAwMC9jYiIsInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ&token=:HMAC"
       }
     },
     {
@@ -1093,8 +1093,8 @@
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
-        "challenge": "eyJjYnVybCI6Imh0dHA6Ly8xMC4wLjAuNTo4MDgwL2NiIiwidHlwZSI6InN0YW1wIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHA6Ly8xMC4wLjAuNTo4MDgwL2NiIiwidHlwZSI6InN0YW1wIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0&token=:XbwtzVWVnUJeH41p-RfL_Q019SFOh8Z3FhPw8oMMCwg"
+        "challenge": "eyJjYnVybCI6Imh0dHA6Ly8xMC4wLjAuNTo4MDgwL2NiIiwidHlwZSI6InN0YW1wIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9.DK",
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHA6Ly8xMC4wLjAuNTo4MDgwL2NiIiwidHlwZSI6InN0YW1wIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9&token=:HMAC"
       }
     },
     {
@@ -1111,8 +1111,8 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "currentTime": 1800000000000,
       "expected": {
-        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTgwMDAwMDAwMDAwMCwidmVyIjoxLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTgwMDAwMDAwMDAwMCwidmVyIjoxLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ&token=:2ufcLHbYuqbbozV4mFZctWFDM3ew5efK6dH0FT7Yqi4"
+        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTgwMDAwMDAwMDAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0.DK",
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTgwMDAwMDAwMDAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0&token=:HMAC"
       }
     },
     {
@@ -4422,8 +4422,8 @@
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
-        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2I7c2lkPTEiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2I7c2lkPTEiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ&token=:jDphfnYyeMcqW8SWxJLQNDkPQNxb3GihgAMOai61nbA"
+        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2I7c2lkPTEiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0.DK",
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2I7c2lkPTEiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0&token=:HMAC"
       }
     },
     {
@@ -4871,6 +4871,155 @@
           "expires": 1777456475000,
           "signedMetadata": {},
           "unsignedMetadata": {}
+        }
+      }
+    },
+    {
+      "name": "Stage 3 SEALED response opens with the decryption key of the stored challenge and verifies",
+      "call": "stamp",
+      "args": [
+        {
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkJFbDZEV3ZLRXhyLVdWMzJKRlRVdGVHcVljUGRYTXJNYzZDaFdJUjZPM3lVaEtBMkxobzUwSjM0X1JDMFU5R2hndm1ocWFuNDVjRzZSR2VHZl9iS21HNCIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9.j9JOsoQL4FVrNtTHPiP22G3DdTOQQ0RWqy8ebpwCUjE",
+          "response": "BPiuZ05UAsU6cJuALwUd_1pJenYz5UXjp64szOC6wZOdFq4muIflfAakrHTQ8AX4RsTd8ikPzseiHEDYRBxTCqE.KT2uEfQxsGZ7zT1v7fSu3w-RL8eXGFK9gFYoOeozXpFzIVCZnuG9O_tNcHSzQt8FH5JKNXb4GALT2rQTGxaj_sjYF0afS1EoTcoTnY808aUzmD2SR0ATA6qBiOdlotHcf3Nv41k_RshRPeIr36mgYCJhsnJDjB6qIE1Sn_HPLT4n7G3YMMTrdNjfzu-Y1Vsq9GurkyLRKo_AJSD-rc1A48Xxym3bTPHkRuh98g"
+        }
+      ],
+      "expected": {
+        "stamped": true,
+        "result": "|stamp;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;kZLGKAlS8nVqWchx9vLrv9NUtlG8iUNhRupzJ1wtXU2to2VUuDPGqO3Y6D6T0_yLlHbNAmg3smo5DyBSHfYjVg|",
+        "issuedAt": 1777454675000,
+        "signedAt": 1777454675000,
+        "verifiedAt": 1777454675000,
+        "verificationResult": {
+          "valid": true,
+          "type": "stamp",
+          "identifier": "john@triauthdemo.org",
+          "identityDomain": "john._at.triauthdemo.org",
+          "lookupCode": "",
+          "actor": "",
+          "actorIdentityDomain": "",
+          "actorLookupCode": "",
+          "via": "https://example.com/",
+          "ver": 1,
+          "signedAt": 1777454675000,
+          "verifiedAt": 1777454675000,
+          "publicProfile": {
+            "initials": "JD",
+            "name": "John Doe"
+          },
+          "groups": [],
+          "deviceName": "desktop",
+          "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+          "keys": [
+            {
+              "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+              "options": {
+                "type": "es256",
+                "use": "attest,auth,ping,sign,stamp"
+              },
+              "verified": true,
+              "skipped": false
+            }
+          ],
+          "secure": true,
+          "expires": 1777456475000,
+          "signedMetadata": {},
+          "unsignedMetadata": {}
+        }
+      }
+    },
+    {
+      "name": "Stage 3 SEALED plain envelope for a challenge stored with a decryption key returns 224 (a keyed challenge has no unsealed path)",
+      "call": "stamp",
+      "args": [
+        {
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkJFbDZEV3ZLRXhyLVdWMzJKRlRVdGVHcVljUGRYTXJNYzZDaFdJUjZPM3lVaEtBMkxobzUwSjM0X1JDMFU5R2hndm1ocWFuNDVjRzZSR2VHZl9iS21HNCIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9.j9JOsoQL4FVrNtTHPiP22G3DdTOQQ0RWqy8ebpwCUjE",
+          "response": "|stamp;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;kZLGKAlS8nVqWchx9vLrv9NUtlG8iUNhRupzJ1wtXU2to2VUuDPGqO3Y6D6T0_yLlHbNAmg3smo5DyBSHfYjVg|"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 224,
+          "message": "Invalid response"
+        }
+      }
+    },
+    {
+      "name": "Stage 3 SEALED challenge stored without its decryption key (ek present) returns 223",
+      "call": "stamp",
+      "args": [
+        {
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkJFbDZEV3ZLRXhyLVdWMzJKRlRVdGVHcVljUGRYTXJNYzZDaFdJUjZPM3lVaEtBMkxobzUwSjM0X1JDMFU5R2hndm1ocWFuNDVjRzZSR2VHZl9iS21HNCIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9",
+          "response": "|stamp;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;kZLGKAlS8nVqWchx9vLrv9NUtlG8iUNhRupzJ1wtXU2to2VUuDPGqO3Y6D6T0_yLlHbNAmg3smo5DyBSHfYjVg|"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 223,
+          "message": "Invalid challenge"
+        }
+      }
+    },
+    {
+      "name": "Stage 3 SEALED decryption key on a challenge without ek returns 223",
+      "call": "stamp",
+      "args": [
+        {
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ.j9JOsoQL4FVrNtTHPiP22G3DdTOQQ0RWqy8ebpwCUjE",
+          "response": "BPiuZ05UAsU6cJuALwUd_1pJenYz5UXjp64szOC6wZOdFq4muIflfAakrHTQ8AX4RsTd8ikPzseiHEDYRBxTCqE.KT2uEfQxsGZ7zT1v7fSu3w-RL8eXGFK9gFYoOeozXpFzIVCZnuG9O_tNcHSzQt8FH5JKNXb4GALT2rQTGxaj_sjYF0afS1EoTcoTnY808aUzmD2SR0ATA6qBiOdlotHcf3Nv41k_RshRPeIr36mgYCJhsnJDjB6qIE1Sn_HPLT4n7G3YMMTrdNjfzu-Y1Vsq9GurkyLRKo_AJSD-rc1A48Xxym3bTPHkRuh98g"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 223,
+          "message": "Invalid challenge"
+        }
+      }
+    },
+    {
+      "name": "Stage 3 SEALED malformed decryption key (42 characters) returns 223",
+      "call": "stamp",
+      "args": [
+        {
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkJFbDZEV3ZLRXhyLVdWMzJKRlRVdGVHcVljUGRYTXJNYzZDaFdJUjZPM3lVaEtBMkxobzUwSjM0X1JDMFU5R2hndm1ocWFuNDVjRzZSR2VHZl9iS21HNCIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9.9JOsoQL4FVrNtTHPiP22G3DdTOQQ0RWqy8ebpwCUjE",
+          "response": "BPiuZ05UAsU6cJuALwUd_1pJenYz5UXjp64szOC6wZOdFq4muIflfAakrHTQ8AX4RsTd8ikPzseiHEDYRBxTCqE.KT2uEfQxsGZ7zT1v7fSu3w-RL8eXGFK9gFYoOeozXpFzIVCZnuG9O_tNcHSzQt8FH5JKNXb4GALT2rQTGxaj_sjYF0afS1EoTcoTnY808aUzmD2SR0ATA6qBiOdlotHcf3Nv41k_RshRPeIr36mgYCJhsnJDjB6qIE1Sn_HPLT4n7G3YMMTrdNjfzu-Y1Vsq9GurkyLRKo_AJSD-rc1A48Xxym3bTPHkRuh98g"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 223,
+          "message": "Invalid challenge"
+        }
+      }
+    },
+    {
+      "name": "Stage 3 SEALED response sealed to another challenge's key returns 224",
+      "call": "stamp",
+      "args": [
+        {
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkJEZUxnNFY0cnQzZ0dtQmtYZ2RWbWRTUXp3UHVGN0VVUVoweXNTX1RoZ2hwcl9hUGNwWm5hdU1JaVhBcEtBd2s5QUFWT3NPQnNQSzZLYWI3aHd2NzdsQSIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9.n3Mt3b4LqThd2STJt2Msk3tIZgYpx4d4PNwhti-mTtw",
+          "response": "BPiuZ05UAsU6cJuALwUd_1pJenYz5UXjp64szOC6wZOdFq4muIflfAakrHTQ8AX4RsTd8ikPzseiHEDYRBxTCqE.KT2uEfQxsGZ7zT1v7fSu3w-RL8eXGFK9gFYoOeozXpFzIVCZnuG9O_tNcHSzQt8FH5JKNXb4GALT2rQTGxaj_sjYF0afS1EoTcoTnY808aUzmD2SR0ATA6qBiOdlotHcf3Nv41k_RshRPeIr36mgYCJhsnJDjB6qIE1Sn_HPLT4n7G3YMMTrdNjfzu-Y1Vsq9GurkyLRKo_AJSD-rc1A48Xxym3bTPHkRuh98g"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 224,
+          "message": "Invalid response"
+        }
+      }
+    },
+    {
+      "name": "Stage 3 SEALED ciphertext changed in transit returns 224",
+      "call": "stamp",
+      "args": [
+        {
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkJFbDZEV3ZLRXhyLVdWMzJKRlRVdGVHcVljUGRYTXJNYzZDaFdJUjZPM3lVaEtBMkxobzUwSjM0X1JDMFU5R2hndm1ocWFuNDVjRzZSR2VHZl9iS21HNCIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9.j9JOsoQL4FVrNtTHPiP22G3DdTOQQ0RWqy8ebpwCUjE",
+          "response": "BPiuZ05UAsU6cJuALwUd_1pJenYz5UXjp64szOC6wZOdFq4muIflfAakrHTQ8AX4RsTd8ikPzseiHEDYRBxTCqE.KT2uEfQxsGZ7zT1v7fSu3w-RL8eXGFK9gFYoOeozXpFzIVCZnuG9O_tNcHSzQt8FH5JKNXb4GALT2rQTGxaj_sjYF0afS1EoTcoTnY808aUzmD2SR0ATA6qBiOdlotHcf3Nv41k_RshRPeIr36mgYCJhsnJDjB6qIE1Sn_HPLT4n7G3YMMTrdNjfzu-Y1Vsq9GurkyLRKo_AJSD-rc1A48Xxym3bTPHkRAh98g"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 224,
+          "message": "Invalid response"
         }
       }
     }

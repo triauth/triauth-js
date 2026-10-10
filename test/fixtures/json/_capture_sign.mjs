@@ -54,7 +54,7 @@ import identities from '../identities.json' with { type: 'json' };
 //   - signonly (published with use=sign in this suite's dnsEntries): for the SIGN flow a
 //     POSITIVE (the key may sign) — the mirror image of auth/ping where use=sign is a negative.
 //   - jane: ordinary identity used as the "wrong identity" (jane signs john's message).
-import { T, LOGGER, signonly, jane, ed25519, PRIVATE, writeSuite } from './_capture_common.mjs';
+import { T, LOGGER, signonly, jane, ed25519, PRIVATE, writeSuite, sealedCases } from './_capture_common.mjs';
 // Minting only needs the private-key signer; no DNS is consulted here (the runner resolves DNS
 // from the suite's dnsEntries at verify time).
 const SignerStub = (await import('../../stubs/signer.js')).default;
@@ -100,7 +100,7 @@ const ATT_LAN = { name: 'License.txt', sourceUrl: 'http://10.0.0.5:8080/license.
 // Challenge.build (cburl, [ext], type, identifier, nonce, iat, ver) followed by the msg/attachments that
 // _perform's onChallenge appends (so the baked strings read like real ones). Stage 3 never
 // re-checks the nonce, so a fixed nonce is fine.
-const mkChallenge = ({ cburl = CB, ext, type = 'sign', identifier = ID, nonce = NONCE, iat = T, ver = 1,
+const mkChallenge = ({ cburl = CB, ext, type = 'sign', identifier = ID, nonce = NONCE, iat = T, ver = 1, ek,
                        msg = MSG, attachments = [], includeMsg = true, includeAttachments = true } = {}) => {
   const data = {};
   data.cburl = cburl;
@@ -110,6 +110,7 @@ const mkChallenge = ({ cburl = CB, ext, type = 'sign', identifier = ID, nonce = 
   data.nonce = nonce;
   data.iat = iat;
   data.ver = ver;
+  if (ek !== undefined) data.ek = ek;
   if (includeMsg) data.msg = msg;
   if (includeAttachments) data.attachments = attachments;
   return Triauth.Helpers.stringToBase64Url(JSON.stringify(data));
@@ -855,6 +856,9 @@ const tests = [
         ]
       }
     } }),
+
+  // Sealed responses: the challenge carries `ek`, the stored challenge its decryption key
+  ...await sealedCases(s3, (ek) => mkChallenge({ ek }), () => mint(john.devices[0].keys)),
 ];
 
 // Normalize: a couple of dispatch tests need a non-object sole arg (null / []) that the s3()

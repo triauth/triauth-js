@@ -81,6 +81,14 @@ report — only after eyeballing it; the `git diff` of the suite is the final re
   and `stamp` expecteds echo the full response envelope in `expected.result`, so those blocks
   legitimately change on re-mint; `ping`/`attest`/`verify` expecteds carry only stable
   base64url (public keys, deviceTag).
+- **Stage-1 keys are masked**: stage 1 mints a fresh key pair for every challenge, so a successful
+  Stage-1 `expected` carries placeholders. `challenge` is `<c>.DK`, `<c>` decodes to JSON with
+  `"ek":"EK"`, and a token flow's `redirectUrl` ends in `token=<issuer>:HMAC`. The runner checks
+  the key pair and the token HMAC, then masks them (rule in the `test/test_json.js` header).
+  Stage-3 cases store bare challenges (no `ek`, no `.`), so they take the plain-response path.
+  The `Stage 3 SEALED` cases are the exception: a stored `<challenge>.<decryptionKey>` and a
+  sealed response, built by `sealedCases` in `_capture_common.mjs`. They pin the decryption byte
+  for byte, and a re-mint prints new random bytes for them (the guard masks them).
 - **DNS stub defaults**: a bare-string TXT record means `{value, ttl: 1800, dnssec: true}`.
   Non-DNSSEC cases (e.g. the `requireSecure` twins) use the object form with `dnssec: false`.
 - **Token gating**: `ping`/`sign`/`stamp`/`attest` require a `token` at Stage 1 *before*

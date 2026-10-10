@@ -26,7 +26,7 @@ import identities from '../identities.json' with { type: 'json' };
 // Shared generator plumbing: frozen clock, logger, the local signonly/jane/ed25519 fixture
 // identities (single definition keeps every suite's keypairs in lock-step), and the guarded
 // suite writer.
-import { T, LOGGER, signonly, jane, ed25519, PRIVATE, writeSuite } from './_capture_common.mjs';
+import { T, LOGGER, signonly, jane, ed25519, PRIVATE, writeSuite, sealedCases } from './_capture_common.mjs';
 // Minting only needs the private-key signer; no DNS is consulted here (the runner resolves DNS
 // from the suite's dnsEntries at verify time).
 const SignerStub = (await import('../../stubs/signer.js')).default;
@@ -53,7 +53,7 @@ const RAND = '00112233445566778899aabbccddeeff00112233';
 // Build a ping challenge string with full control over every field. Field order mirrors
 // Challenge.build (cburl, [ext], type, identifier, nonce, iat, ver) so the baked strings read like
 // real ones; Stage 3 never re-checks the nonce, so a fixed nonce is fine.
-const mkChallenge = ({ cburl = CB, ext, type = 'ping', identifier = ID, nonce = NONCE, iat = T, ver = 1 } = {}) => {
+const mkChallenge = ({ cburl = CB, ext, type = 'ping', identifier = ID, nonce = NONCE, iat = T, ver = 1, ek } = {}) => {
   const data = {};
   data.cburl = cburl;
   if (ext !== undefined) data.ext = ext;
@@ -62,6 +62,7 @@ const mkChallenge = ({ cburl = CB, ext, type = 'ping', identifier = ID, nonce = 
   data.nonce = nonce;
   data.iat = iat;
   data.ver = ver;
+  if (ek !== undefined) data.ek = ek;
   return Triauth.Helpers.stringToBase64Url(JSON.stringify(data));
 };
 
@@ -540,6 +541,9 @@ const tests = [
 
   // Delegated secure aggregation: the subject-side term of the two-resolution AND.
   s3('SECURITY: delegated ping with the include record served without DNSSEC -> pinged:true with secure:false - the subject-side resolution degrades the two-resolution AND', { challenge: CH, response: RESP_DELEGATED }, { dnsEntries: johnWithGrant({ value: 'include jane@triauthdemo.org scope=any', ttl: 1800, dnssec: false }) }),
+
+  // Sealed responses: the challenge carries `ek`, the stored challenge its decryption key
+  ...await sealedCases(s3, (ek) => mkChallenge({ ek }), (challenge) => mint(john.devices[0].keys, { challenge })),
 ];
 
 // Normalize: a couple of dispatch tests need a non-object sole arg (null / []) that the s3()
