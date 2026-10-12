@@ -69,7 +69,7 @@ import identities from '../identities.json' with { type: 'json' };
 import attesters from '../attesters.json' with { type: 'json' };
 // Shared generator plumbing: frozen clock, logger, the local jane/ed25519 fixture identities
 // (one definition keeps every suite's keypairs in lock-step), and the guarded suite writer.
-import { T, LOGGER, jane, ed25519, PRIVATE, writeSuite, sealedCases } from './_capture_common.mjs';
+import { T, LOGGER, jane, ed25519, PRIVATE, writeSuite, sealedCases, SEAL, sealStage3, SESSION_KEY } from './_capture_common.mjs';
 // Minting only needs the private-key signer; no DNS is consulted here (the runner resolves DNS
 // from the suite's dnsEntries at verify time).
 const SignerStub = (await import('../../stubs/signer.js')).default;
@@ -127,7 +127,7 @@ const ATT_EDCHECK = { 'ed25519-check': { label: 'Verified by an Ed25519 attester
 // _perform's onChallenge appends for attest. Stage 3 never re-checks the nonce, so a fixed nonce is
 // fine. (Because the signed payload is sha256(thisString), every response is minted against the exact
 // string this returns — see mintResponse below.)
-const mkChallenge = ({ cburl = CB, ext, type = 'attest', identifier = ID, nonce = NONCE, iat = T, ver = 1, ek,
+const mkChallenge = ({ cburl = CB, ext, type = 'attest', identifier = ID, nonce = NONCE, iat = T, ver = 1, ek = SEAL.encryptionKey,
                        attest = ATT_ROBOT, includeAttest = true } = {}) => {
   const data = {};
   data.cburl = cburl;
@@ -137,7 +137,7 @@ const mkChallenge = ({ cburl = CB, ext, type = 'attest', identifier = ID, nonce 
   data.nonce = nonce;
   data.iat = iat;
   data.ver = ver;
-  if (ek !== undefined) data.ek = ek;
+  if (ek !== null) data.ek = ek;
   if (includeAttest) data.attest = attest;
   return b64u(JSON.stringify(data));
 };
@@ -579,7 +579,7 @@ const tests = [
   s3('null sole arg is normalized to {} by attest Object.assign -> 101', null, { _argsOverride: [null] }),
   s3('empty-array sole arg is normalized to {} by attest Object.assign -> 101', null, { _argsOverride: [[]] }),
   s1('Stage 1 unrecognized option returns 102', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, unknownKey: 'x' }),
-  s1('Stage 1 ATTEST-DISTINCT: attachments are a sign-only input — supplying them (even empty) to attest is a misplaced input, 102', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, token: ':aaaaaaaaaaaaaaaa', attachments: [] }),
+  s1('Stage 1 ATTEST-DISTINCT: attachments are a sign-only input — supplying them (even empty) to attest is a misplaced input, 102', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY, attachments: [] }),
   s3('Stage 3 unrecognized option returns 102', { challenge: CH, response: RESP_OK, unknownKey: 1 }),
 
   // ===================================================================================
@@ -605,86 +605,87 @@ const tests = [
   s1('Stage 1 non-string callbackUrl returns 221', { identifier: ID, callbackUrl: 123, attestations: ATT_ROBOT }),
   s1('Stage 1 over-length callbackUrl (>2048 bytes) returns 221',
     { identifier: ID, callbackUrl: 'https://example.com/' + 'a'.repeat(2048), attestations: ATT_ROBOT }),
-  s1('Stage 1 plain-http callbackUrl on a named host (http://example.com/cb) passes URL validation; the tokenless request then returns 226 — an ordering pin: the callbackUrl gate precedes the token gate', { identifier: ID, callbackUrl: 'http://example.com/cb', attestations: ATT_ROBOT }),
-  s1('Stage 1 plain-http callbackUrl on a LAN IPv4-literal host (http://10.0.0.5:8080/cb) builds a challenge — the callback is transport, while the provider URLs stay on secure origins', { identifier: ID, callbackUrl: 'http://10.0.0.5:8080/cb', token: ':aaaaaaaaaaaaaaaa', attestations: ATT_ROBOT }, { random: RAND }),
+  s1('Stage 1 plain-http callbackUrl on a named host (http://example.com/cb) passes URL validation; the request without a session key then returns 226 — an ordering pin: the callbackUrl gate precedes the session key gate', { identifier: ID, callbackUrl: 'http://example.com/cb', attestations: ATT_ROBOT }),
+  s1('Stage 1 plain-http callbackUrl on a LAN IPv4-literal host (http://10.0.0.5:8080/cb) builds a challenge — the callback is transport, while the provider URLs stay on secure origins', { identifier: ID, callbackUrl: 'http://10.0.0.5:8080/cb', sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND }),
   s1("Stage 1 callbackUrl with punycode domain returns 221", {"identifier":ID,"callbackUrl":"https://xn--mller-kva.de/cb","attestations":{"not-a-robot":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}}),
   s1('Stage 1 array-shaped ext returns 222', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, ext: ['not', 'a', 'plain', 'object'] }),
 
   // ===================================================================================
-  // Stage 1 — token validation (226). ATTEST allows token (like ping/sign/stamp).
+  // Stage 1 — session key validation (226). ATTEST takes sessionKey (like ping/sign/stamp).
   // ===================================================================================
-  s1('Stage 1 too-short token (<16 chars) returns 226', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, token: 'short' }),
-  s1('Stage 1 colon-less token returns 226 (a token is issuer:secret - the issuer may be empty, the colon is structural)', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, token: 'aaaaaaaaaaaaaaaa' }),
-  s1('Stage 1 token with more than one colon returns 226', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, token: 'issuer.example:aaaaaaaaaaaaaaaa:x' }),
-  s1('Stage 1 token with an uppercase issuer returns 226 (the issuer must be a canonical lowercase domain)', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, token: 'Issuer.Example:aaaaaaaaaaaaaaaa' }),
-  s1('Stage 1 token with a non-domain issuer returns 226', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, token: 'not_a_domain:aaaaaaaaaaaaaaaa' }),
-  s1('Stage 1 non-string token returns 226', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, token: 123 }),
-  s1('Stage 1 over-length token (>255 bytes, the Normal-String default byte cap) returns 226', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, token: 'a'.repeat(257) }),
+  s1('Stage 1 too-short session key (42 characters) returns 226', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY.slice(0, 42) }),
+  s1('Stage 1 session key in standard base64 (with /) returns 226 - a session key is base64url', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY.slice(0, 42) + '/' }),
+  s1('Stage 1 session key with base64 padding (44 characters ending in =) returns 226', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY + '=' }),
+  s1('Stage 1 session key in the issuer:secret form of a token returns 226', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: ':aaaaaaaaaaaaaaaa' }),
+  s1('Stage 1 empty session key returns 226', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: '' }),
+  s1('Stage 1 non-string session key returns 226', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: 123 }),
+  s1('Stage 1 too-long session key (44 characters) returns 226', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY + 'A' }),
+  s1('Stage 1 session key with data in the unused bits of its last character (not canonical base64url) returns 226', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY.slice(0, 42) + '9' }),
 
   // ===================================================================================
   // Stage 1 — ATTEST-DISTINCT attestations validation (229), done in onChallenge (after
-  // id/callbackUrl/ext/token, before DNS). Each case isolates one validateAttestations branch.
+  // id/callbackUrl/ext/sessionKey, before DNS). Each case isolates one validateAttestations branch.
   // ===================================================================================
-  s1('Stage 1 omitting attestations entirely returns 229 (validateAttestations(undefined))', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa' }),
-  s1('Stage 1 null attestations returns 229', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: null }),
-  s1('Stage 1 string attestations returns 229', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: 'nope' }),
-  s1('Stage 1 number attestations returns 229', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: 123 }),
-  s1('Stage 1 array attestations returns 229 (object-but-Array guard)', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: [] }),
+  s1('Stage 1 omitting attestations entirely returns 229 (validateAttestations(undefined))', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY }),
+  s1('Stage 1 null attestations returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: null }),
+  s1('Stage 1 string attestations returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: 'nope' }),
+  s1('Stage 1 number attestations returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: 123 }),
+  s1('Stage 1 array attestations returns 229 (object-but-Array guard)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: [] }),
   // JSON.parse, not an object literal — a literal {__proto__: ...} sets the prototype instead of
   // creating the own key that this case needs. The name would bake into the challenge, which
   // stage-3 safeParseJson categorically refuses — validateAttestations fails fast instead.
-  s1('Stage 1 attestation named __proto__ returns 229 — a prototype-poisoning name would bake into a challenge that stage-3 safeParseJson could never verify', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: JSON.parse('{"__proto__":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}') }),
-  s1('Stage 1 more than maxMultiSignatures-1 (5) attestation IDs returns 229', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: {
+  s1('Stage 1 attestation named __proto__ returns 229 — a prototype-poisoning name would bake into a challenge that stage-3 safeParseJson could never verify', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: JSON.parse('{"__proto__":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}') }),
+  s1('Stage 1 more than maxMultiSignatures-1 (5) attestation IDs returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: {
     a: { label: 'a', providers: [ROBOT_VIA] }, b: { label: 'b', providers: [ROBOT_VIA] }, c: { label: 'c', providers: [ROBOT_VIA] },
     d: { label: 'd', providers: [ROBOT_VIA] }, e: { label: 'e', providers: [ROBOT_VIA] } } }),
-  s1('Stage 1 attestation entry that is not an object returns 229', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: { a: 'not-an-object' } }),
-  s1('Stage 1 attestation entry with an unknown property returns 229', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: { a: { label: 'l', providers: [ROBOT_VIA], extra: 'x' } } }),
-  s1('Stage 1 attestation entry missing label returns 229', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: { a: { providers: [ROBOT_VIA] } } }),
-  s1('Stage 1 attestation entry with empty-string label returns 229', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: { a: { label: '', providers: [ROBOT_VIA] } } }),
-  s1('Stage 1 attestation entry missing providers returns 229', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: { a: { label: 'l' } } }),
-  s1('Stage 1 attestation entry with empty providers array returns 229', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: { a: { label: 'l', providers: [] } } }),
-  s1('Stage 1 attestation entry with too many providers (>4) returns 229', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: { a: { label: 'l', providers: [ROBOT_VIA, ROBOT_VIA, ROBOT_VIA, ROBOT_VIA, ROBOT_VIA] } } }),
-  s1('Stage 1 provider URL on plain http returns 229 — providers are verbatim trust anchors and keep the secure-origin rule the callback no longer needs', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: { a: { label: 'l', providers: ['http://insecure.example/p'] } } }),
-  s1('Stage 1 provider URL with an IPv4-literal host (https://127.0.0.1/p) returns 229 — the secure-origin rule wants a named host even where the callback grammar admits the dotted quad', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: { a: { label: 'l', providers: ['https://127.0.0.1/p'] } } }),
-  s1('Stage 1 provider URL with a ";" in its path (https://attest.triauthdemo.org/p;v1) returns 229 — a provider URL is embedded whole as the attestation via, so the envelope delimiter is banned in every span of it', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: { a: { label: 'l', providers: ['https://attest.triauthdemo.org/p;v1'] } } }),
-  s1("Stage 1 provider URL with an apostrophe (https://attest.triauthdemo.org/o'brien) returns 229 — the trust-anchor charset stays apostrophe-free even where the callback grammar admits it", { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: { a: { label: 'l', providers: ["https://attest.triauthdemo.org/o'brien"] } } }),
-  s1('Stage 1 provider URL with credentials returns 229', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: { a: { label: 'l', providers: ['https://user:pass@example.com/p'] } } }),
-  s1('Stage 1 provider URL with a query string returns 229', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: { a: { label: 'l', providers: ['https://example.com/p?q=1'] } } }),
-  s1('Stage 1 provider URL ending in a bare "?" (https://example.com/p?) returns 229 — a canonical URL cannot carry an empty query, and provider URLs allow no query at all', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: { a: { label: 'l', providers: ['https://example.com/p?'] } } }),
-  s1('Stage 1 provider URL with a fragment returns 229', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: { a: { label: 'l', providers: ['https://example.com/p#frag'] } } }),
-  s1('Stage 1 provider URL with percent-encoding returns 229', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: { a: { label: 'l', providers: ['https://example.com/p%20space'] } } }),
-  s1('Stage 1 provider URL with a punycode domain returns 229', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: { a: { label: 'l', providers: ['https://xn--example.com/p'] } } }),
-  s1('Stage 1 provider URL that is unparseable returns 229', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: { a: { label: 'l', providers: ['https://'] } } }),
-  s1('Stage 1 ATTEST-DISTINCT: a provider URL on localhost (http accepted) is valid and builds a challenge — the secure-origin rule keeps localhost-http for development', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: { 'local-check': { label: 'local check', providers: ['http://localhost:8080/verify'] } } }, { random: RAND }),
+  s1('Stage 1 attestation entry that is not an object returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: 'not-an-object' } }),
+  s1('Stage 1 attestation entry with an unknown property returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: [ROBOT_VIA], extra: 'x' } } }),
+  s1('Stage 1 attestation entry missing label returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { providers: [ROBOT_VIA] } } }),
+  s1('Stage 1 attestation entry with empty-string label returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: '', providers: [ROBOT_VIA] } } }),
+  s1('Stage 1 attestation entry missing providers returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l' } } }),
+  s1('Stage 1 attestation entry with empty providers array returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: [] } } }),
+  s1('Stage 1 attestation entry with too many providers (>4) returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: [ROBOT_VIA, ROBOT_VIA, ROBOT_VIA, ROBOT_VIA, ROBOT_VIA] } } }),
+  s1('Stage 1 provider URL on plain http returns 229 — providers are verbatim trust anchors and keep the secure-origin rule the callback no longer needs', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['http://insecure.example/p'] } } }),
+  s1('Stage 1 provider URL with an IPv4-literal host (https://127.0.0.1/p) returns 229 — the secure-origin rule wants a named host even where the callback grammar admits the dotted quad', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://127.0.0.1/p'] } } }),
+  s1('Stage 1 provider URL with a ";" in its path (https://attest.triauthdemo.org/p;v1) returns 229 — a provider URL is embedded whole as the attestation via, so the envelope delimiter is banned in every span of it', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://attest.triauthdemo.org/p;v1'] } } }),
+  s1("Stage 1 provider URL with an apostrophe (https://attest.triauthdemo.org/o'brien) returns 229 — the trust-anchor charset stays apostrophe-free even where the callback grammar admits it", { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ["https://attest.triauthdemo.org/o'brien"] } } }),
+  s1('Stage 1 provider URL with credentials returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://user:pass@example.com/p'] } } }),
+  s1('Stage 1 provider URL with a query string returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://example.com/p?q=1'] } } }),
+  s1('Stage 1 provider URL ending in a bare "?" (https://example.com/p?) returns 229 — a canonical URL cannot carry an empty query, and provider URLs allow no query at all', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://example.com/p?'] } } }),
+  s1('Stage 1 provider URL with a fragment returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://example.com/p#frag'] } } }),
+  s1('Stage 1 provider URL with percent-encoding returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://example.com/p%20space'] } } }),
+  s1('Stage 1 provider URL with a punycode domain returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://xn--example.com/p'] } } }),
+  s1('Stage 1 provider URL that is unparseable returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://'] } } }),
+  s1('Stage 1 ATTEST-DISTINCT: a provider URL on localhost (http accepted) is valid and builds a challenge — the secure-origin rule keeps localhost-http for development', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { 'local-check': { label: 'local check', providers: ['http://localhost:8080/verify'] } } }, { random: RAND }),
 
   // ===================================================================================
   // Stage 1 — DNS / configuration (301, 110). Stage 1 resolves the endpoint record only; identity
   // existence and the identity-domain derivation are settled on the signed response at stage 3.
   // ===================================================================================
-  s1('Stage 1 domain with no triauth TXT record returns 301', { identifier: 'john@unconfigured.example', callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: ATT_ROBOT }, { random: RAND }),
-  s1('Stage 1 endpoint record with an invalid (non-domain) value returns 301 (isDomainName false)', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'triauthdemo.org': { TXT: ['triauth invalid_domain mode=public'] } } }),
-  s1('Stage 1 domain with multiple triauth TXT records returns 301 (ambiguous, refuse to choose)', { identifier: 'user@ambiguous.example', callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: ATT_ROBOT }, { random: RAND }),
-  s1('Stage 1 unknown identifier under a configured domain still builds a challenge - existence is never probed at issue', { identifier: 'ghost@triauthdemo.org', callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: ATT_ROBOT }, { random: RAND }),
-  s1('Stage 1 per-test dnsEntries patch can NXDOMAIN a known domain (returns 301)', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'triauthdemo.org': null } }),
-  s1('Stage 1 endpoint with an unknown mode still builds a challenge - an unresolvable mode surfaces only once a response is verified', { identifier: 'john@hashed.triauthdemo.org', callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'hashed.triauthdemo.org': { TXT: ['triauth auth.triauthdemo.org mode=unknownmode'] } } }),
-  s1('Stage 1 SERVFAIL on the identifier domain (endpoint lookup) surfaces as 110', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'triauthdemo.org': { _error: 'SERVFAIL' } } }),
-  s1('Stage 1 SERVFAIL on the identity domain (records lookup) still builds a challenge - the identity domain is never queried at issue', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'john._at.triauthdemo.org': { _error: 'SERVFAIL' } } }),
+  s1('Stage 1 domain with no triauth TXT record returns 301', { identifier: 'john@unconfigured.example', callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND }),
+  s1('Stage 1 endpoint record with an invalid (non-domain) value returns 301 (isDomainName false)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'triauthdemo.org': { TXT: ['triauth invalid_domain mode=public'] } } }),
+  s1('Stage 1 domain with multiple triauth TXT records returns 301 (ambiguous, refuse to choose)', { identifier: 'user@ambiguous.example', callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND }),
+  s1('Stage 1 unknown identifier under a configured domain still builds a challenge - existence is never probed at issue', { identifier: 'ghost@triauthdemo.org', callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND }),
+  s1('Stage 1 per-test dnsEntries patch can NXDOMAIN a known domain (returns 301)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'triauthdemo.org': null } }),
+  s1('Stage 1 endpoint with an unknown mode still builds a challenge - an unresolvable mode surfaces only once a response is verified', { identifier: 'john@hashed.triauthdemo.org', callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'hashed.triauthdemo.org': { TXT: ['triauth auth.triauthdemo.org mode=unknownmode'] } } }),
+  s1('Stage 1 SERVFAIL on the identifier domain (endpoint lookup) surfaces as 110', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'triauthdemo.org': { _error: 'SERVFAIL' } } }),
+  s1('Stage 1 SERVFAIL on the identity domain (records lookup) still builds a challenge - the identity domain is never queried at issue', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'john._at.triauthdemo.org': { _error: 'SERVFAIL' } } }),
 
   // ===================================================================================
   // Stage 1 — success (challenge + attest.html redirectUrl). Deterministic via fixed nonce + clock.
   // ===================================================================================
-  s1('Stage 1 ATTEST-DISTINCT: deterministic challenge bakes the attestations object, redirect uses /attest.html', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: ATT_ROBOT }, { random: RAND }),
-  s1('Stage 1 empty attestations {} is valid and builds a challenge with attest:{}', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: ATT_EMPTY }, { random: RAND }),
-  s1('Stage 1 multiple attestation IDs are all baked into the challenge', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: ATT_TWO }, { random: RAND }),
-  s1("Stage 1 token produces a redirectUrl with a &token= param carrying the token's public part and the hmac", { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, token: ':aaaaaaaaaaaaaaaa' }, { random: RAND }),
-  s1('Stage 1 token + ext together: challenge bakes the ext, redirectUrl carries the token and its hmac', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, token: ':aaaaaaaaaaaaaaaa', ext: { attestToken: true } }, { random: RAND }),
-  s1("Stage 1 omitting the token returns 226 - token-gated flows require a token at issue (src/challenge_response_flow.js)", {"identifier":ID,"callbackUrl":CB,"attestations":{"not-a-robot":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}}, { random: RAND }),
-  s1('Stage 1 endpoint record with a __proto__ option is parsed safely (option dropped) and still builds a challenge', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'triauthdemo.org': { TXT: ['triauth auth.triauthdemo.org __proto__=evil mode=public'] } } }),
-  s1('Stage 1 challenge bakes in the ext object', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: ATT_ROBOT, ext: { attestToken: true, nested: { foo: 'bar' } } }, { random: RAND }),
-  s1('Stage 1 multi-device identity still builds a challenge', { identifier: 'multi@triauthdemo.org', callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: ATT_ROBOT }, { random: RAND }),
-  s1('Stage 1 identity with a profile but no key records still builds a challenge (key absence surfaces in Stage 3)', { identifier: 'nokeys@triauthdemo.org', callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: ATT_ROBOT }, { random: RAND }),
-  s1('Stage 1 localhost http callbackUrl is accepted (validateCallbackUrl localhost branch)', { identifier: ID, callbackUrl: 'http://localhost:3000/cb', token: ':aaaaaaaaaaaaaaaa', attestations: ATT_ROBOT }, { random: RAND }),
-  s1('Stage 1 per-test currentTime changes the iat baked into the challenge (nonce unchanged)', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attestations: ATT_ROBOT }, { random: RAND, currentTime: 1800000000000 }),
+  s1('Stage 1 ATTEST-DISTINCT: deterministic challenge bakes the attestations object, redirect uses /attest.html', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND }),
+  s1('Stage 1 empty attestations {} is valid and builds a challenge with attest:{}', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_EMPTY }, { random: RAND }),
+  s1('Stage 1 multiple attestation IDs are all baked into the challenge', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_TWO }, { random: RAND }),
+  s1("Stage 1 session key produces a redirectUrl with a &token= param carrying an empty issuer and the hmac", { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY }, { random: RAND }),
+  s1('Stage 1 session key + ext together: challenge bakes the ext, redirectUrl carries the hmac', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY, ext: { callbackMethod: 'POST' } }, { random: RAND }),
+  s1("Stage 1 omitting the session key returns 226 - the flows that follow a sign-in require it at issue (src/challenge_response_flow.js)", {"identifier":ID,"callbackUrl":CB,"attestations":{"not-a-robot":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}}, { random: RAND }),
+  s1('Stage 1 endpoint record with a __proto__ option is parsed safely (option dropped) and still builds a challenge', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'triauthdemo.org': { TXT: ['triauth auth.triauthdemo.org __proto__=evil mode=public'] } } }),
+  s1('Stage 1 challenge bakes in the ext object', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT, ext: { callbackMethod: 'POST', nested: { foo: 'bar' } } }, { random: RAND }),
+  s1('Stage 1 multi-device identity still builds a challenge', { identifier: 'multi@triauthdemo.org', callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND }),
+  s1('Stage 1 identity with a profile but no key records still builds a challenge (key absence surfaces in Stage 3)', { identifier: 'nokeys@triauthdemo.org', callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND }),
+  s1('Stage 1 localhost http callbackUrl is accepted (validateCallbackUrl localhost branch)', { identifier: ID, callbackUrl: 'http://localhost:3000/cb', sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND }),
+  s1('Stage 1 per-test currentTime changes the iat baked into the challenge (nonce unchanged)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND, currentTime: 1800000000000 }),
 
   // ===================================================================================
   // Stage 3 — challenge (223) & response (224) validation
@@ -925,7 +926,7 @@ const tests = [
   // callbackUrl base-directory delimiter guards (";" and "|" are envelope separators).
   s1("Stage 1 SECURITY: callbackUrl with a \";\" in its base directory (https://example.com/a;b/cb) returns 221 — \";\" is the signature envelope field delimiter, so the base URL that becomes the signed via must not contain it; rejecting at validation avoids a silent downstream failure (the authenticator’s Signature.generate refuses such a via)", {"identifier":ID,"callbackUrl":"https://example.com/a;b/cb","attestations":{"not-a-robot":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}}),
   s1("Stage 1 SECURITY: callbackUrl with a \"|\" in its base directory (https://example.com/a|b/cb) returns 221 — \"|\" is the signature envelope wrapper/separator; a base URL containing it would corrupt the envelope, so it is rejected at validation rather than failing silently downstream", {"identifier":ID,"callbackUrl":"https://example.com/a|b/cb","attestations":{"not-a-robot":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}}),
-  s1("Stage 1 callbackUrl with a \";\" in its LAST path segment (https://example.com/cb;sid=1) builds a challenge — the final segment never enters the base URL/via, so the envelope delimiter rule stops at the base span", {"identifier":ID,"callbackUrl":"https://example.com/cb;sid=1","token":":aaaaaaaaaaaaaaaa","attestations":{"not-a-robot":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}}, { random: RAND }),
+  s1("Stage 1 callbackUrl with a \";\" in its LAST path segment (https://example.com/cb;sid=1) builds a challenge — the final segment never enters the base URL/via, so the envelope delimiter rule stops at the base span", {"identifier":ID,"callbackUrl":"https://example.com/cb;sid=1","sessionKey":SESSION_KEY,"attestations":{"not-a-robot":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}}, { random: RAND }),
   // PUBLICPROFILE: shape and hardening of the publicProfile surfaced on attest (the ATTESTER profile) results
   // (per-test dnsEntries publish the profile records; the envelope is the canonical minted one).
   s3("PUBLICPROFILE: attest surfaces the attester's name/initials and x- extensions; unrecognized keywords (incl. former 'roles'/'title') and over-long x- keys are dropped", { challenge: CH, response: RESP_OK }, { dnsEntries: {
@@ -1082,13 +1083,16 @@ for (const t of tests) {
   if (t._argsOverride) { t.args = t._argsOverride; delete t._argsOverride; }
 }
 
+// Store every stage-3 case as an application does: challenge with its decryption key, response sealed to `ek`
+await sealStage3(tests);
+
 const suite = {
   title: 'attest',
   description:
     'Comprehensive, branch-complete coverage of Triauth.attest. Stage 1 (request): dispatch/arg guards, ' +
-    'identifier/callbackUrl/ext/token validation, the ATTEST-DISTINCT attestations (229) validation done ' +
+    'identifier/callbackUrl/ext/sessionKey validation, the ATTEST-DISTINCT attestations (229) validation done ' +
     'in onChallenge, DNS configuration (301/302) and DNS failure (110), and deterministic challenge + ' +
-    '/attest.html redirect building (with the attestations object baked in, and the token HMAC). Stage 3 ' +
+    '/attest.html redirect building (with the attestations object baked in, and the session key HMAC). Stage 3 ' +
     '(verify): challenge/response validation, the onResponse attest re-validation (229), dispatch ' +
     'constraints (401/403), signature-envelope parse failures (225), generic verification failures (401), ' +
     'the IdentityKeys add/verify branches and WebAuthn verifier reached via the verify path, the 15min ' +
@@ -1110,4 +1114,4 @@ const suite = {
   tests,
 };
 
-writeSuite(new URL('./attest.json', import.meta.url), suite);
+await writeSuite(new URL('./attest.json', import.meta.url), suite);

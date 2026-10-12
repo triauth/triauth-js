@@ -58,14 +58,8 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  * > An attester that binds nothing attests anonymously (the default); the binders it did state are surfaced under `attestations.<id>.signedMetadata.bind`, so you can require their presence.
  *
  * > [!NOTE]
- * > **To use this function you must request and obtain a special `attestToken`**<br/>
- * > To do so, provide the `ext:{attestToken:true}` parameter to the `Triauth.authenticate` function during the initial call (i.e., when building the challenge),
- * > and, given that the user agrees and/or authenticator supports it, in the authentication result you will receive `ext.attestToken` property (string).
- * > You should keep the `attestToken` value private, and pass it as a `token` parameter in the initial call to the `attest` method.
- * > The token is issued by the authenticator on the device that signed in, and only that device honors it.
- * > A user with several devices holds a different token on each.
- * >
- * > Also, the `callbackUrl` used in this method must have the **same base URL** (its origin plus the path up to and including the last `/`) as the `callbackUrl` from the initial `Triauth.authenticate` call.
+ * > **Use the same base callbackUrl as for authentication**<br/>
+ * > The `callbackUrl` used in this method must have the **same base URL** (its origin plus the path up to and including the last `/`) as the `callbackUrl` from the initial `Triauth.authenticate` call.
  * > For example, if `callbackUrl` used for authentication was `https://example.com/dir1/callback`, the `callbackUrl` used in this method
  * > must sit in that same `https://example.com/dir1/` base directory — only the final path segment may differ, e.g., `https://example.com/dir1/this-callback` (a deeper path such as `https://example.com/dir1/dir2/this-callback` does **not** match the base URL, and the request will be rejected).
  *
@@ -76,7 +70,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  * At first, you need to call the `Triauth.attest` method with the `identifier` option set to the user provided personal identifier (lowercase string),
  * a `callbackUrl` option set to the URL under which your application expects to receive a response (string),
  * an `attestations` option (object) whose keys are caller-chosen attestation IDs and whose values consist of a `label` (string) and `providers` (array of `https://` URL strings),
- * a `token` (string) option set to the `attestToken` previously obtained via `ext.attestToken` from a `Triauth.authenticate` call,
+ * a `sessionKey` (string) option set to the `sessionKey` of a `Triauth.authenticate` result,
  * and an optional `ext` option (object) listing the [protocol extensions](#protocol-extensions) that you wish to use.
  *
  * In return, you will receive an object with the `challenge` (string) and `redirectUrl` (string).
@@ -86,7 +80,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  *
  * ```javascript
  *
- * let result = await Triauth.attest({identifier, callbackUrl, attestations, token, ext});
+ * let result = await Triauth.attest({identifier, callbackUrl, attestations, sessionKey, ext});
  * // returns {challenge, redirectUrl} the challenge should be remembered, and user redirected to the redirectUrl
  * // returns {error} on error
  *
@@ -108,7 +102,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  *         ]
  *       }
  *     },
- *     token: ':tgX6ZXfNi3xwzSwuennigDoA'
+ *     sessionKey: '59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8'
  *   }
  * );
  * // {challenge: 'eyJjYn…l19fX0.PEq5CslSnTExe9xko1O5B-K9T4wBse5XtyClYb8WxJM', redirectUrl: 'https://auth.triauthdemo.org/attest.html#?challenge=eyJjYn…l19fX0&token=:8LvHcbpz8mDJgDSl-CJtL3T28uAZCKTY8FbAduvVkYU'}
@@ -236,7 +230,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  * @param [options.identifier] {string} - (stage 1) the user provided identifier
  * @param [options.callbackUrl] {string} - (stage 1) an application provided URL to which the user's web browser should be redirected with the response
  * @param [options.attestations] {object} - (stage 1) an object whose keys are caller-chosen attestation IDs and whose values are `{label, providers}` objects describing each requested attestation; at most 4 attestations, each listing at most 4 `https://` provider URLs (error 229 otherwise)
- * @param [options.token] {string} - (stage 1, required) the `attestToken` previously obtained via `ext.attestToken` from a `Triauth.authenticate` call; a stage-1 request without it returns error 226
+ * @param [options.sessionKey] {string} - (stage 1, required) the `sessionKey` of a `Triauth.authenticate` result; a stage-1 request without a valid session key returns error 226
  * @param [options.ext] {object} - (stage 1) an optional object of protocol extensions to use (e.g., `{callbackMethod:'GET'}`)
  *
  * @param [options.challenge] {string} - (stage 3) a challenge as it was returned by the method after stage 1 call

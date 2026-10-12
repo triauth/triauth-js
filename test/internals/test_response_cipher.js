@@ -51,7 +51,7 @@ export default function() { describe('Triauth.ResponseCipher', () => {
 
   it('opens the RFC 9180 A.3.1 ciphertext with the recipient key', async () => {
     const recipient = await vectorKeys(VECTOR.pkRm, VECTOR.skRm);
-    const pt = await Triauth.ResponseCipher.openBase(hexToBytes(VECTOR.pkEm), recipient.privateKey, hexToBytes(VECTOR.pkRm), hexToBytes(VECTOR.info), hexToBytes(VECTOR.aad), hexToBytes(VECTOR.ct));
+    const {pt} = await Triauth.ResponseCipher.openBase(hexToBytes(VECTOR.pkEm), recipient.privateKey, hexToBytes(VECTOR.pkRm), hexToBytes(VECTOR.info), hexToBytes(VECTOR.aad), hexToBytes(VECTOR.ct));
 
     assert.equal(bytesToHex(pt), VECTOR.pt);
   });
@@ -64,34 +64,40 @@ export default function() { describe('Triauth.ResponseCipher', () => {
     assert.match(decryptionKey, /^[A-Za-z0-9_-]{43}$/);
   });
 
-  it('seals a response that opens with the key pair, as `<enc>.<ciphertext>`', async () => {
+  it('seals a response that opens with the key pair, as `<enc>.<ciphertext>`, and gives both sides the same session key', async () => {
     const {encryptionKey, decryptionKey} = await Triauth.ResponseCipher.generateKeyPair();
-    const sealed = await Triauth.ResponseCipher.seal(encryptionKey, ENVELOPE);
+    const {sealedResponse: sealed, sessionKey} = await Triauth.ResponseCipher.seal(encryptionKey, ENVELOPE);
+    const opened = await Triauth.ResponseCipher.open(encryptionKey, decryptionKey, sealed);
 
     assert.match(sealed, /^[A-Za-z0-9_-]{87}\.[A-Za-z0-9_-]{22,}$/);
     assert(!sealed.includes('john'), 'the sealed response does not show the identifier');
-    assert.equal(await Triauth.ResponseCipher.open(encryptionKey, decryptionKey, sealed), ENVELOPE);
+    assert.equal(opened.response, ENVELOPE);
+    assert.match(sessionKey, /^[A-Za-z0-9_-]{43}$/);
+    assert.equal(opened.sessionKey, sessionKey);
   });
 
   it('round-trips UTF-8 beyond Latin-1', async () => {
     const {encryptionKey, decryptionKey} = await Triauth.ResponseCipher.generateKeyPair();
     const text = '|auth;Привет \u{1F389}|';
 
-    assert.equal(await Triauth.ResponseCipher.open(encryptionKey, decryptionKey, await Triauth.ResponseCipher.seal(encryptionKey, text)), text);
+    const {sealedResponse} = await Triauth.ResponseCipher.seal(encryptionKey, text);
+
+    assert.equal((await Triauth.ResponseCipher.open(encryptionKey, decryptionKey, sealedResponse)).response, text);
   });
 
-  it('uses a fresh ephemeral key for every seal', async () => {
+  it('uses a fresh ephemeral key, and so a fresh session key, for every seal', async () => {
     const {encryptionKey} = await Triauth.ResponseCipher.generateKeyPair();
     const first = await Triauth.ResponseCipher.seal(encryptionKey, ENVELOPE);
     const second = await Triauth.ResponseCipher.seal(encryptionKey, ENVELOPE);
 
-    assert.notEqual(first.split('.')[0], second.split('.')[0]);
-    assert.notEqual(first, second);
+    assert.notEqual(first.sealedResponse.split('.')[0], second.sealedResponse.split('.')[0]);
+    assert.notEqual(first.sealedResponse, second.sealedResponse);
+    assert.notEqual(first.sessionKey, second.sessionKey);
   });
 
   it('refuses a ciphertext or encapsulated key that was changed in transit', async () => {
     const {encryptionKey, decryptionKey} = await Triauth.ResponseCipher.generateKeyPair();
-    const sealed = await Triauth.ResponseCipher.seal(encryptionKey, ENVELOPE);
+    const {sealedResponse: sealed} = await Triauth.ResponseCipher.seal(encryptionKey, ENVELOPE);
 
     assert(await rejects(Triauth.ResponseCipher.open(encryptionKey, decryptionKey, flip(sealed, sealed.length - 5))), 'tampered ciphertext');
     assert(await rejects(Triauth.ResponseCipher.open(encryptionKey, decryptionKey, flip(sealed, 40))), 'tampered encapsulated key');
@@ -100,7 +106,7 @@ export default function() { describe('Triauth.ResponseCipher', () => {
   it('refuses a response sealed to another key pair', async () => {
     const intended = await Triauth.ResponseCipher.generateKeyPair();
     const other = await Triauth.ResponseCipher.generateKeyPair();
-    const sealed = await Triauth.ResponseCipher.seal(intended.encryptionKey, ENVELOPE);
+    const {sealedResponse: sealed} = await Triauth.ResponseCipher.seal(intended.encryptionKey, ENVELOPE);
 
     assert(await rejects(Triauth.ResponseCipher.open(other.encryptionKey, other.decryptionKey, sealed)));
     assert(await rejects(Triauth.ResponseCipher.open(intended.encryptionKey, other.decryptionKey, sealed)));
@@ -108,7 +114,7 @@ export default function() { describe('Triauth.ResponseCipher', () => {
 
   it('refuses a malformed sealed response', async () => {
     const {encryptionKey, decryptionKey} = await Triauth.ResponseCipher.generateKeyPair();
-    const sealed = await Triauth.ResponseCipher.seal(encryptionKey, ENVELOPE);
+    const {sealedResponse: sealed} = await Triauth.ResponseCipher.seal(encryptionKey, ENVELOPE);
     const [enc, ct] = sealed.split('.');
 
     for (const malformed of [ENVELOPE, enc, enc + '.', '.' + ct, sealed + '.' + ct, '', 'false', 123]) {
@@ -129,7 +135,7 @@ export default function() { describe('Triauth.ResponseCipher', () => {
 
   it('validates the sealed form and its length before any crypto (224)', async () => {
     const {encryptionKey} = await Triauth.ResponseCipher.generateKeyPair();
-    const sealed = await Triauth.ResponseCipher.seal(encryptionKey, ENVELOPE);
+    const {sealedResponse: sealed} = await Triauth.ResponseCipher.seal(encryptionKey, ENVELOPE);
     const [enc] = sealed.split('.');
 
     assert.equal(Triauth.Validator.validateSealedResponse(sealed).valid, true);

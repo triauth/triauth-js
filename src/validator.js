@@ -43,7 +43,7 @@ export class Validator {
     223: 'Invalid challenge',
     224: 'Invalid response',
     225: 'Invalid signature',
-    226: 'Invalid token',
+    226: 'Invalid session key',
     227: 'Invalid message',
     228: 'Invalid attachments',
     229: 'Invalid attestations',
@@ -407,40 +407,28 @@ export class Validator {
   }
 
   /**
-   * Validates the `token` that gates stage 1 of {@link Triauth.ping}, {@link Triauth.sign}, {@link Triauth.stamp}, and {@link Triauth.attest}.
+   * Validates the `sessionKey` that gates stage 1 of {@link Triauth.ping}, {@link Triauth.sign}, {@link Triauth.stamp}, and {@link Triauth.attest}.
    *
-   * A token has the form `issuer:secret` — an issuer prefix that is either empty (the identifier's own domain) or the
-   * lowercase domain name whose endpoint record names the authenticator that minted the token, a single `:`, and a
-   * secret of at least 16 characters. The whole token keys the HMAC that binds the challenge to the token holder,
-   * and must be a normal string within the allowed byte size.
+   * A session key is the `sessionKey` of a {@link Triauth.authenticate} result, 32 bytes in 43 base64url characters.
+   * Its bytes key the HMAC that binds the challenge to the holder of the session key.
    *
-   * @param token {String} - Token that should be validated.
+   * @param sessionKey {String} - Session key that should be validated.
    *
    * @returns {{valid: boolean, errors: Array<{code: number, message: string}>}}
    */
-  static validateToken(token) {
-    const errors = [];
-
-    if (
-      typeof token !== 'string' ||
-      !Helpers.isNormalString(token)
-    ) {
+  static validateSessionKey(sessionKey) {
+    if (typeof sessionKey !== 'string' || sessionKey.length !== 43 || !Helpers.isBase64UrlString(sessionKey)) {
       return this.#expandResult([226]);
     }
 
-    // Validate token structure
-    const [tokenDomainName, tokenSecret, rest] = token.split(':');
-
-    if (
-      (tokenDomainName && !Helpers.isDomainName(tokenDomainName)) ||
-      tokenDomainName.toLowerCase() !== tokenDomainName ||
-      (tokenSecret || '').length < 16 ||
-      rest !== undefined
-    ) {
-      errors.push(226);
+    // The canonical base64url of 32 bytes has no data in the unused bits of its last character
+    try {
+      Helpers.base64UrlToUint8(sessionKey);
+    } catch {
+      return this.#expandResult([226]);
     }
 
-    return this.#expandResult(errors);
+    return this.#expandResult([]);
   }
 
   /**

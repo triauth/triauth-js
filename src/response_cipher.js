@@ -34,6 +34,9 @@ const SUITE_ID = Uint8Array.of(0x48, 0x50, 0x4b, 0x45, 0x00, 0x10, 0x00, 0x01, 0
 // so a response sealed for another application or version does not open.
 const INFO = Helpers.stringToUtf8Bytes('triauth/response/v1');
 
+// The `exporter_context` of the session key (RFC 9180, section 5.3)
+const SESSION_KEY = Helpers.stringToUtf8Bytes('triauth/session-key');
+
 /**
  * Seals and opens the responses of the challenge-response flows, so that a response travels only as ciphertext.
  *
@@ -52,6 +55,10 @@ const INFO = Helpers.stringToUtf8Bytes('triauth/response/v1');
  * the holder of the stored challenge can open it.
  *
  * A sealed response is `<enc>.<ciphertext>`, both base64url.
+ *
+ * Sealing and opening a response give both sides the same session key. HPKE secret export (RFC 9180, section 5.3)
+ * derives it from the encryption context of the response, so the key never travels. The session key does not open
+ * any response, because the export is separate from the AES key and the nonce.
  *
  * @class
  * @memberof Triauth
@@ -76,18 +83,23 @@ export class ResponseCipher {
 
   /**
    * Seals a response envelope to the challenge's encryption key. This is the authenticator's side. Every call makes a
-   * new one-time key pair, so the same envelope seals to different bytes each time.
+   * new one-time key pair, so the same envelope seals to different bytes and a different session key each time.
    *
    * @param encryptionKey {string} - the challenge's `ek`.
    * @param response {string} - the response envelope (`|...|`).
    *
-   * @returns {Promise<string>} the sealed response, `<enc>.<ciphertext>`.
+   * @returns {Promise<{sealedResponse: string, sessionKey: string}>} the sealed response, `<enc>.<ciphertext>`, and
+   *          the session key of this response in 43 base64url characters.
    *
    * @throws {Error} when the encryption key is not a P-256 point.
    */
   static async seal(encryptionKey, response) {
-    const {enc, ct} = await this.sealBase(Helpers.base64UrlToUint8(encryptionKey), INFO, EMPTY, Helpers.stringToUtf8Bytes(response));
-    return Helpers.arrayBufferToBase64Url(enc) + '.' + Helpers.arrayBufferToBase64Url(ct);
+    const {enc, ct, exporterSecret} = await this.sealBase(Helpers.base64UrlToUint8(encryptionKey), INFO, EMPTY, Helpers.stringToUtf8Bytes(response));
+
+    return {
+      sealedResponse: Helpers.arrayBufferToBase64Url(enc) + '.' + Helpers.arrayBufferToBase64Url(ct),
+      sessionKey: Helpers.arrayBufferToBase64Url(await this.export(exporterSecret, SESSION_KEY, 32))
+    };
   }
 
   /**
@@ -97,7 +109,8 @@ export class ResponseCipher {
    * @param decryptionKey {string} - the private scalar kept with the stored challenge.
    * @param sealedResponse {string} - the sealed response, `<enc>.<ciphertext>`.
    *
-   * @returns {Promise<string>} the response envelope.
+   * @returns {Promise<{response: string, sessionKey: string}>} the response envelope, and the session key of this
+   *          response in 43 base64url characters, the same that `seal` gave.
    *
    * @throws {Error} when the sealed response is malformed, or was not sealed to this key pair.
    */
@@ -115,8 +128,12 @@ export class ResponseCipher {
       y: Helpers.arrayBufferToBase64Url(pkRm.subarray(33, 65))
     }, P256, false, ['deriveBits']);
 
-    const pt = await this.openBase(Helpers.base64UrlToUint8(enc), skR, pkRm, INFO, EMPTY, Helpers.base64UrlToUint8(ct));
-    return Helpers.utf8BytesToString(pt);
+    const {pt, exporterSecret} = await this.openBase(Helpers.base64UrlToUint8(enc), skR, pkRm, INFO, EMPTY, Helpers.base64UrlToUint8(ct));
+
+    return {
+      response: Helpers.utf8BytesToString(pt),
+      sessionKey: Helpers.arrayBufferToBase64Url(await this.export(exporterSecret, SESSION_KEY, 32))
+    };
   }
 
   /**
@@ -131,20 +148,20 @@ export class ResponseCipher {
    * @param [ephemeral=null] {?CryptoKeyPair} - a fixed sender key pair, only for known-answer tests such as the
    *   RFC 9180 test vector A.3.1. Reusing it for the same recipient repeats the AES key and nonce, which breaks AES-GCM.
    *
-   * @returns {Promise<{enc: Uint8Array, ct: Uint8Array}>} the encapsulated key (the sender's one-time public key) and
-   *          the ciphertext with its 16-byte tag.
+   * @returns {Promise<{enc: Uint8Array, ct: Uint8Array, exporterSecret: Uint8Array}>} the encapsulated key (the
+   *          sender's one-time public key), the ciphertext with its 16-byte tag, and the exporter secret for `export`.
    */
   static async sealBase(pkRm, info, aad, pt, ephemeral = null) {
     ephemeral ??= await crypto.subtle.generateKey(P256, true, ['deriveBits']);
 
     const enc = new Uint8Array(await crypto.subtle.exportKey('raw', ephemeral.publicKey));
-    const {key, nonce} = await this.#keySchedule(await this.#ecdh(ephemeral.privateKey, pkRm), enc, pkRm, info);
+    const {key, nonce, exporterSecret} = await this.#keySchedule(await this.#ecdh(ephemeral.privateKey, pkRm), enc, pkRm, info);
     const ct = await crypto.subtle.encrypt(
       {name: 'AES-GCM', iv: /** @type {BufferSource} */ (nonce), additionalData: /** @type {BufferSource} */ (aad)},
       key, /** @type {BufferSource} */ (pt)
     );
 
-    return {enc, ct: new Uint8Array(ct)};
+    return {enc, ct: new Uint8Array(ct), exporterSecret};
   }
 
   /**
@@ -159,18 +176,43 @@ export class ResponseCipher {
    * @param aad {Uint8Array} - the associated data.
    * @param ct {Uint8Array} - the ciphertext with its tag.
    *
-   * @returns {Promise<Uint8Array>} the plaintext.
+   * @returns {Promise<{pt: Uint8Array, exporterSecret: Uint8Array}>} the plaintext, and the exporter secret for
+   *          `export`.
    *
    * @throws {Error} when the ciphertext does not authenticate under this key pair.
    */
   static async openBase(enc, skR, pkRm, info, aad, ct) {
-    const {key, nonce} = await this.#keySchedule(await this.#ecdh(skR, enc), enc, pkRm, info);
+    const {key, nonce, exporterSecret} = await this.#keySchedule(await this.#ecdh(skR, enc), enc, pkRm, info);
     const pt = await crypto.subtle.decrypt(
       {name: 'AES-GCM', iv: /** @type {BufferSource} */ (nonce), additionalData: /** @type {BufferSource} */ (aad)},
       key, /** @type {BufferSource} */ (ct)
     );
 
-    return new Uint8Array(pt);
+    return {pt: new Uint8Array(pt), exporterSecret};
+  }
+
+  /**
+   * HPKE secret export (RFC 9180, section 5.3). It derives a secret from the encryption context of one message. The
+   * sender and the recipient get the same value without sending it. Each `exporterContext` gives a different secret,
+   * and an exported secret does not reveal the AES key or the nonce.
+   *
+   * @param exporterSecret {Uint8Array} - the exporter secret of the context, from `sealBase` or `openBase`.
+   * @param exporterContext {Uint8Array} - the label of the exported secret.
+   * @param length {number} - the length in bytes, from 1 to 32.
+   *
+   * @returns {Promise<Uint8Array>} the exported secret.
+   *
+   * @throws {RangeError} when the length is not from 1 to 32.
+   */
+  static async export(exporterSecret, exporterContext, length) {
+    if (!Number.isInteger(length) || length < 1 || length > 32) {
+      throw new RangeError('Invalid export length');
+    }
+
+    // LabeledExpand(exporter_secret, "sec", exporter_context, L). Up to 32 bytes, HKDF-Expand is one block,
+    // HMAC(exporter_secret, info || 0x01) (RFC 5869, section 2.3). Web Crypto's HKDF always runs Extract first.
+    const labeledInfo = this.#concat(Uint8Array.of(0x00, length), HPKE_V1, SUITE_ID, Helpers.stringToUtf8Bytes('sec'), exporterContext, Uint8Array.of(0x01));
+    return (await Helpers.hmacSha256(exporterSecret, labeledInfo)).slice(0, length);
   }
 
   /**
@@ -195,17 +237,18 @@ export class ResponseCipher {
   }
 
   /**
-   * Derives the AES key and nonce for one message. ExtractAndExpand derives the KEM shared secret from the DH result
-   * and both public keys (RFC 9180, section 4.1). KeySchedule then derives the key and the base nonce for base mode,
-   * with an empty pre-shared key (RFC 9180, section 5.1). One message per context means sequence number 0, so the
-   * nonce is the base nonce itself (RFC 9180, section 5.2).
+   * Derives the AES key, the nonce and the exporter secret for one message. ExtractAndExpand derives the KEM shared
+   * secret from the DH result and both public keys (RFC 9180, section 4.1). KeySchedule then derives the key, the base
+   * nonce and the exporter secret for base mode, with an empty pre-shared key (RFC 9180, section 5.1). One message per
+   * context means sequence number 0, so the nonce is the base nonce itself (RFC 9180, section 5.2).
    *
    * @param dh {Uint8Array} - the 32-byte Diffie-Hellman shared secret.
    * @param enc {Uint8Array} - the sender's one-time public key.
    * @param pkRm {Uint8Array} - the recipient's public key, an uncompressed P-256 point.
    * @param info {Uint8Array} - the application context.
    *
-   * @returns {Promise<{key: CryptoKey, nonce: Uint8Array}>} the AES-128-GCM key and the 12-byte nonce.
+   * @returns {Promise<{key: CryptoKey, nonce: Uint8Array, exporterSecret: Uint8Array}>} the AES-128-GCM key, the
+   *          12-byte nonce and the 32-byte exporter secret.
    */
   static async #keySchedule(dh, enc, pkRm, info) {
     const sharedSecret = await this.#hkdf(KEM_ID, EMPTY, 'eae_prk', dh, 'shared_secret', this.#concat(enc, pkRm), 32);
@@ -215,7 +258,8 @@ export class ResponseCipher {
 
     return {
       key: await crypto.subtle.importKey('raw', /** @type {BufferSource} */ (key), 'AES-GCM', false, ['encrypt', 'decrypt']),
-      nonce: await this.#hkdf(SUITE_ID, sharedSecret, 'secret', EMPTY, 'base_nonce', context, 12)
+      nonce: await this.#hkdf(SUITE_ID, sharedSecret, 'secret', EMPTY, 'base_nonce', context, 12),
+      exporterSecret: await this.#hkdf(SUITE_ID, sharedSecret, 'secret', EMPTY, 'exp', context, 32)
     };
   }
 

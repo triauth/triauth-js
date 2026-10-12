@@ -26,7 +26,12 @@ import identities from '../identities.json' with { type: 'json' };
 // Shared generator plumbing: frozen clock, logger, the local signonly/jane/ed25519 fixture
 // identities (single definition keeps every suite's keypairs in lock-step), and the guarded
 // suite writer.
-import { T, LOGGER, signonly, jane, ed25519, PRIVATE, writeSuite, sealedCases } from './_capture_common.mjs';
+import { T, LOGGER, signonly, jane, ed25519, PRIVATE, writeSuite, sealedCases, SEAL, sealStage3, SESSION_KEY } from './_capture_common.mjs';
+
+// A session key with every base64url character class (A-Z, a-z, 0-9, - and _)
+const SK_ALPHABET = 'AZaz09-_AZaz09-_AZaz09-_AZaz09-_AZaz09-_Aa0';
+// A session key that would show in a redirect that leaked it
+const SK_VISIBLE = 'NeverInTheRedirectNeverInTheRedirectNever00';
 // Minting only needs the private-key signer; no DNS is consulted here (the runner resolves DNS
 // from the suite's dnsEntries at verify time).
 const SignerStub = (await import('../../stubs/signer.js')).default;
@@ -53,7 +58,7 @@ const RAND = '00112233445566778899aabbccddeeff00112233';
 // Build a ping challenge string with full control over every field. Field order mirrors
 // Challenge.build (cburl, [ext], type, identifier, nonce, iat, ver) so the baked strings read like
 // real ones; Stage 3 never re-checks the nonce, so a fixed nonce is fine.
-const mkChallenge = ({ cburl = CB, ext, type = 'ping', identifier = ID, nonce = NONCE, iat = T, ver = 1, ek } = {}) => {
+const mkChallenge = ({ cburl = CB, ext, type = 'ping', identifier = ID, nonce = NONCE, iat = T, ver = 1, ek = SEAL.encryptionKey } = {}) => {
   const data = {};
   data.cburl = cburl;
   if (ext !== undefined) data.ext = ext;
@@ -62,7 +67,7 @@ const mkChallenge = ({ cburl = CB, ext, type = 'ping', identifier = ID, nonce = 
   data.nonce = nonce;
   data.iat = iat;
   data.ver = ver;
-  if (ek !== undefined) data.ek = ek;
+  if (ek !== null) data.ek = ek;
   return Triauth.Helpers.stringToBase64Url(JSON.stringify(data));
 };
 
@@ -268,8 +273,8 @@ const tests = [
   s3('array options arg returns 102 — hasOnlyKnownProperties Array.isArray-guard fires first', null,
     { _argsOverride: [[]] }),
   s1('Stage 1 unrecognized option returns 102', { identifier: ID, callbackUrl: CB, unknownKey: 'x' }),
-  s1('Stage 1 PING-DISTINCT: attachments are a sign-only input — supplying them (even empty) to ping is a misplaced input, 102', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', attachments: [] }),
-  s3('Stage 3 unrecognized option returns 102 (token IS allow-listed for ping, but unknownKey is not)',
+  s1('Stage 1 PING-DISTINCT: attachments are a sign-only input — supplying them (even empty) to ping is a misplaced input, 102', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attachments: [] }),
+  s3('Stage 3 unrecognized option returns 102 (sessionKey IS allow-listed for ping, but unknownKey is not)',
     { challenge: CH, response: RESP_DESKTOP, unknownKey: 1 }),
 
   // ===================================================================================
@@ -295,11 +300,11 @@ const tests = [
   s1('Stage 1 non-string callbackUrl returns 221', { identifier: ID, callbackUrl: 123 }),
   s1('Stage 1 over-length callbackUrl (>2048 bytes) returns 221',
     { identifier: ID, callbackUrl: 'https://example.com/' + 'a'.repeat(2048) }),
-  s1('Stage 1 plain-http callbackUrl on a named host (http://example.com/cb) passes URL validation; the tokenless request then returns 226 — an ordering pin: the callbackUrl gate precedes the token gate', { identifier: ID, callbackUrl: 'http://example.com/cb' }),
+  s1('Stage 1 plain-http callbackUrl on a named host (http://example.com/cb) passes URL validation; the request without a session key then returns 226 — an ordering pin: the callbackUrl gate precedes the session key gate', { identifier: ID, callbackUrl: 'http://example.com/cb' }),
   s1("Stage 1 callbackUrl with punycode domain returns 221", {"identifier":ID,"callbackUrl":"https://xn--mller-kva.de/cb"}),
-  s1("Stage 1 callbackUrl with an IPv4-literal host (https://127.0.0.1/cb) passes URL validation — a canonical dotted quad is a grammar host; the tokenless request then returns 226", {"identifier":ID,"callbackUrl":"https://127.0.0.1/cb"}),
+  s1("Stage 1 callbackUrl with an IPv4-literal host (https://127.0.0.1/cb) passes URL validation — a canonical dotted quad is a grammar host; the request without a session key then returns 226", {"identifier":ID,"callbackUrl":"https://127.0.0.1/cb"}),
   s1("Stage 1 callbackUrl with an IPv6-literal host (https://[::1]/cb) returns 221 — bracketed IPv6 literals are outside the canonical-URL host grammar", {"identifier":ID,"callbackUrl":"https://[::1]/cb"}),
-  s1("Stage 1 callbackUrl with an apostrophe in its path (https://example.com/a'b/cb) passes URL validation — \"'\" is RFC 3986 pchar; the tokenless request then returns 226", {"identifier":ID,"callbackUrl":"https://example.com/a'b/cb"}),
+  s1("Stage 1 callbackUrl with an apostrophe in its path (https://example.com/a'b/cb) passes URL validation — \"'\" is RFC 3986 pchar; the request without a session key then returns 226", {"identifier":ID,"callbackUrl":"https://example.com/a'b/cb"}),
   s1('Stage 1 callbackUrl with a leading-zero IPv4 octet (https://1.2.3.04/cb) returns 221 — an IPv4 host has exactly one canonical spelling, the dotted quad without leading zeros', { identifier: ID, callbackUrl: 'https://1.2.3.04/cb' }),
   s1('Stage 1 callbackUrl with an out-of-range IPv4 octet (https://256.1.1.1/cb) returns 221', { identifier: ID, callbackUrl: 'https://256.1.1.1/cb' }),
   s1('Stage 1 callbackUrl with a dword IPv4 spelling (https://2130706433/cb) returns 221', { identifier: ID, callbackUrl: 'https://2130706433/cb' }),
@@ -307,50 +312,51 @@ const tests = [
   s1('Stage 1 array-shaped ext returns 222', { identifier: ID, callbackUrl: CB, ext: ['not', 'a', 'plain', 'object'] }),
 
   // ===================================================================================
-  // Stage 1 — token validation (226). PING-DISTINCT: `token` is allow-listed for ping
-  // (authenticate() rejects it with 102), so these reach validateToken.
+  // Stage 1 — session key validation (226). PING-DISTINCT: `sessionKey` is allow-listed for ping
+  // (authenticate() rejects it with 102), so these reach validateSessionKey.
   // ===================================================================================
-  s1('Stage 1 too-short token (<16 chars) returns 226', { identifier: ID, callbackUrl: CB, token: 'short' }),
-  s1('Stage 1 non-string token returns 226', { identifier: ID, callbackUrl: CB, token: 123 }),
-  s1('Stage 1 over-length token (>255 bytes, the Normal-String default byte cap) returns 226', { identifier: ID, callbackUrl: CB, token: 'a'.repeat(257) }),
+  s1('Stage 1 too-short session key (42 characters) returns 226', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY.slice(0, 42) }),
+  s1('Stage 1 non-string session key returns 226', { identifier: ID, callbackUrl: CB, sessionKey: 123 }),
+  s1('Stage 1 too-long session key (44 characters) returns 226', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY + 'A' }),
+  s1('Stage 1 session key with data in the unused bits of its last character (not canonical base64url) returns 226', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY.slice(0, 42) + '9' }),
 
   // ===================================================================================
   // Stage 1 — DNS / configuration (301). Stage 1 resolves the endpoint record only; identity
   // existence and the identity-domain derivation are settled on the signed response at stage 3.
   // ===================================================================================
-  s1('Stage 1 domain with no triauth TXT record returns 301', { identifier: 'john@unconfigured.example', callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa' }, { random: RAND }),
-  s1('Stage 1 domain with multiple triauth TXT records returns 301 (ambiguous, refuse to choose)', { identifier: 'user@ambiguous.example', callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa' }, { random: RAND }),
-  s1('Stage 1 endpoint record without a mode option builds a challenge - the domain runs in private mode by default, and issue reads only the endpoint record', { identifier: 'user@nomode.example', callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa' }, { random: RAND, dnsEntries: { 'nomode.example': { TXT: ['triauth auth.nomode.example'] } } }),
-  s1('Stage 1 unknown identifier under a configured domain still builds a challenge - existence is never probed at issue', { identifier: 'ghost@triauthdemo.org', callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa' }, { random: RAND }),
-  s1('Stage 1 per-test dnsEntries patch can NXDOMAIN a known domain (returns 301)', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa' }, { random: RAND, dnsEntries: { 'triauthdemo.org': null } }),
-  s1('Stage 1 endpoint with an unknown mode (mode=unknownmode) still builds a challenge - an unresolvable mode surfaces only once a response is verified', { identifier: 'john@hashed.triauthdemo.org', callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa' }, { random: RAND, dnsEntries: { 'hashed.triauthdemo.org': { TXT: ['triauth auth.triauthdemo.org mode=unknownmode'] } } }),
+  s1('Stage 1 domain with no triauth TXT record returns 301', { identifier: 'john@unconfigured.example', callbackUrl: CB, sessionKey: SESSION_KEY }, { random: RAND }),
+  s1('Stage 1 domain with multiple triauth TXT records returns 301 (ambiguous, refuse to choose)', { identifier: 'user@ambiguous.example', callbackUrl: CB, sessionKey: SESSION_KEY }, { random: RAND }),
+  s1('Stage 1 endpoint record without a mode option builds a challenge - the domain runs in private mode by default, and issue reads only the endpoint record', { identifier: 'user@nomode.example', callbackUrl: CB, sessionKey: SESSION_KEY }, { random: RAND, dnsEntries: { 'nomode.example': { TXT: ['triauth auth.nomode.example'] } } }),
+  s1('Stage 1 unknown identifier under a configured domain still builds a challenge - existence is never probed at issue', { identifier: 'ghost@triauthdemo.org', callbackUrl: CB, sessionKey: SESSION_KEY }, { random: RAND }),
+  s1('Stage 1 per-test dnsEntries patch can NXDOMAIN a known domain (returns 301)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY }, { random: RAND, dnsEntries: { 'triauthdemo.org': null } }),
+  s1('Stage 1 endpoint with an unknown mode (mode=unknownmode) still builds a challenge - an unresolvable mode surfaces only once a response is verified', { identifier: 'john@hashed.triauthdemo.org', callbackUrl: CB, sessionKey: SESSION_KEY }, { random: RAND, dnsEntries: { 'hashed.triauthdemo.org': { TXT: ['triauth auth.triauthdemo.org mode=unknownmode'] } } }),
 
   // ===================================================================================
   // Stage 1 — success (challenge + redirectUrl). All deterministic via fixed nonce + clock.
   // ===================================================================================
-  s1('Stage 1 deterministic challenge + ping.html redirectUrl for a fixed nonce and clock', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa' }, { random: RAND }),
-  s1("Stage 1 PING-DISTINCT token produces a redirectUrl with a &token= param carrying the token's public part and the hmac (authenticate() would 102 on token)", { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa' }, { random: RAND }),
-  s1('Stage 1 token + ext together: challenge bakes the ext, redirectUrl carries the token and its hmac', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', ext: { pingToken: true } }, { random: RAND }),
-  s1("Stage 1 omitting the token returns 226 - token-gated flows require a token at issue (src/challenge_response_flow.js)", {"identifier":ID,"callbackUrl":CB}, { random: RAND }),
-  s1('Stage 1 localhost http callbackUrl is accepted and builds a challenge', { identifier: ID, callbackUrl: 'http://localhost:3000/cb', token: ':aaaaaaaaaaaaaaaa' }, { random: RAND }),
-  s1('Stage 1 plain-http callbackUrl on a LAN IPv4-literal host (http://10.0.0.5:8080/cb) builds a challenge — self-hosted deployments run on transport the envelope does not depend on', { identifier: ID, callbackUrl: LAN_CB, token: ':aaaaaaaaaaaaaaaa' }, { random: RAND }),
-  s1('Stage 1 https callbackUrl on a private IPv4-literal host (https://192.168.0.14/cb) builds a challenge', { identifier: ID, callbackUrl: 'https://192.168.0.14/cb', token: ':aaaaaaaaaaaaaaaa' }, { random: RAND }),
-  s1('Stage 1 callbackUrl with an explicit port 80 on https (https://example.com:80/cb) builds a challenge — only the scheme default (:443 on https, :80 on http) is non-canonical', { identifier: ID, callbackUrl: 'https://example.com:80/cb', token: ':aaaaaaaaaaaaaaaa' }, { random: RAND }),
-  s1("Stage 1 callbackUrl with \";\" in its query (https://example.com/cb?a=1;b=2) builds a challenge — query and fragment never enter the base URL/via, so the envelope delimiter rule does not reach them", { identifier: ID, callbackUrl: 'https://example.com/cb?a=1;b=2', token: ':aaaaaaaaaaaaaaaa' }, { random: RAND }),
-  s1("Stage 1 callbackUrl with an apostrophe in its query (https://example.com/cb?user=O'Brien) builds a challenge — \"'\" is RFC 3986 pchar", { identifier: ID, callbackUrl: "https://example.com/cb?user=O'Brien", token: ':aaaaaaaaaaaaaaaa' }, { random: RAND }),
-  s1('Stage 1 per-test currentTime changes the iat baked into the challenge (nonce unchanged)', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa' }, { random: RAND, currentTime: 1800000000000 }),
-  s1('Stage 1 challenge bakes in the ext object', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', ext: { pingToken: true, nested: { foo: 'bar' } } }, { random: RAND }),
-  s1('Stage 1 multi-device identity still builds a challenge', { identifier: 'multi@triauthdemo.org', callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa' }, { random: RAND }),
-  s1('Stage 1 identity with a profile but no key records still builds a challenge (key absence surfaces in Stage 3)', { identifier: 'nokeys@triauthdemo.org', callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa' }, { random: RAND }),
+  s1('Stage 1 deterministic challenge + ping.html redirectUrl for a fixed nonce and clock', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY }, { random: RAND }),
+  s1("Stage 1 PING-DISTINCT session key produces a redirectUrl with a &token= param carrying an empty issuer and the hmac (authenticate() would 102 on sessionKey)", { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY }, { random: RAND }),
+  s1('Stage 1 session key + ext together: challenge bakes the ext, redirectUrl carries the hmac', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, ext: { callbackMethod: 'POST' } }, { random: RAND }),
+  s1("Stage 1 omitting the session key returns 226 - the flows that follow a sign-in require it at issue (src/challenge_response_flow.js)", {"identifier":ID,"callbackUrl":CB}, { random: RAND }),
+  s1('Stage 1 localhost http callbackUrl is accepted and builds a challenge', { identifier: ID, callbackUrl: 'http://localhost:3000/cb', sessionKey: SESSION_KEY }, { random: RAND }),
+  s1('Stage 1 plain-http callbackUrl on a LAN IPv4-literal host (http://10.0.0.5:8080/cb) builds a challenge — self-hosted deployments run on transport the envelope does not depend on', { identifier: ID, callbackUrl: LAN_CB, sessionKey: SESSION_KEY }, { random: RAND }),
+  s1('Stage 1 https callbackUrl on a private IPv4-literal host (https://192.168.0.14/cb) builds a challenge', { identifier: ID, callbackUrl: 'https://192.168.0.14/cb', sessionKey: SESSION_KEY }, { random: RAND }),
+  s1('Stage 1 callbackUrl with an explicit port 80 on https (https://example.com:80/cb) builds a challenge — only the scheme default (:443 on https, :80 on http) is non-canonical', { identifier: ID, callbackUrl: 'https://example.com:80/cb', sessionKey: SESSION_KEY }, { random: RAND }),
+  s1("Stage 1 callbackUrl with \";\" in its query (https://example.com/cb?a=1;b=2) builds a challenge — query and fragment never enter the base URL/via, so the envelope delimiter rule does not reach them", { identifier: ID, callbackUrl: 'https://example.com/cb?a=1;b=2', sessionKey: SESSION_KEY }, { random: RAND }),
+  s1("Stage 1 callbackUrl with an apostrophe in its query (https://example.com/cb?user=O'Brien) builds a challenge — \"'\" is RFC 3986 pchar", { identifier: ID, callbackUrl: "https://example.com/cb?user=O'Brien", sessionKey: SESSION_KEY }, { random: RAND }),
+  s1('Stage 1 per-test currentTime changes the iat baked into the challenge (nonce unchanged)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY }, { random: RAND, currentTime: 1800000000000 }),
+  s1('Stage 1 challenge bakes in the ext object', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, ext: { callbackMethod: 'POST', nested: { foo: 'bar' } } }, { random: RAND }),
+  s1('Stage 1 multi-device identity still builds a challenge', { identifier: 'multi@triauthdemo.org', callbackUrl: CB, sessionKey: SESSION_KEY }, { random: RAND }),
+  s1('Stage 1 identity with a profile but no key records still builds a challenge (key absence surfaces in Stage 3)', { identifier: 'nokeys@triauthdemo.org', callbackUrl: CB, sessionKey: SESSION_KEY }, { random: RAND }),
 
   // ===================================================================================
   // PRIVATE MODE — Stage 1: a server holds no lookup code, so a private-mode identity's
   // records are unreadable at issue. Stage 1 needs none of them: it resolves the endpoint
   // record, builds the challenge, and leaves every identity-level question to Stage 3.
   // ===================================================================================
-  s1('Stage 1 PRIVATE: a private-mode endpoint builds a challenge without resolving the identity', { identifier: PRIVATE.john.identifier, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa' }, { random: RAND }),
-  s1('Stage 1 PRIVATE SECURITY: no identity records published at all still builds a challenge - secrecy means a server cannot pre-confirm existence, so stage 1 never leaks it', { identifier: PRIVATE.john.identifier, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa' }, { random: RAND, dnsEntries: { [PRIVATE.john.identityDomain]: null } }),
-  s1("Stage 1 PRIVATE: an issuer-hinted token is carried through to the private-mode identity's own endpoint (the subject's grants are unreadable without the lookup code; the stage-3 delegated walk enforces them)", { identifier: PRIVATE.john.identifier, callbackUrl: CB, token: 'issuer.example:aaaaaaaaaaaaaaaa' }, { random: RAND }),
+  s1('Stage 1 PRIVATE: a private-mode endpoint builds a challenge without resolving the identity', { identifier: PRIVATE.john.identifier, callbackUrl: CB, sessionKey: SESSION_KEY }, { random: RAND }),
+  s1('Stage 1 PRIVATE SECURITY: no identity records published at all still builds a challenge - secrecy means a server cannot pre-confirm existence, so stage 1 never leaks it', { identifier: PRIVATE.john.identifier, callbackUrl: CB, sessionKey: SESSION_KEY }, { random: RAND, dnsEntries: { [PRIVATE.john.identityDomain]: null } }),
+  s1("Stage 1 PRIVATE: a session key keys the hmac for a private-mode identity, with an empty issuer in the token param", { identifier: PRIVATE.john.identifier, callbackUrl: CB, sessionKey: SK_ALPHABET }, { random: RAND }),
 
   // ===================================================================================
   // Stage 3 — challenge (223) & response (224) validation
@@ -485,7 +491,7 @@ const tests = [
   // (the base-URL span); "|" is not a URL character at all.
   s1("Stage 1 SECURITY: callbackUrl with a \";\" in its base directory (https://example.com/a;b/cb) returns 221 — \";\" is the signature envelope field delimiter, and the base URL of the callback becomes the signed via; the base-span check rejects at validation so the authenticator's Signature.generate never has to refuse such a via downstream", {"identifier":ID,"callbackUrl":"https://example.com/a;b/cb"}),
   s1("Stage 1 SECURITY: callbackUrl with a \"|\" in its base directory (https://example.com/a|b/cb) returns 221 — \"|\" is the signature envelope wrapper and not an RFC 3986 URL character, so the grammar rejects it in every span", {"identifier":ID,"callbackUrl":"https://example.com/a|b/cb"}),
-  s1("Stage 1 callbackUrl with a \";\" in its LAST path segment (https://example.com/cb;sid=1) builds a challenge — the final segment never enters the base URL/via, so the envelope delimiter rule stops at the base span", {"identifier":ID,"callbackUrl":"https://example.com/cb;sid=1","token":":aaaaaaaaaaaaaaaa"}, { random: RAND }),
+  s1("Stage 1 callbackUrl with a \";\" in its LAST path segment (https://example.com/cb;sid=1) builds a challenge — the final segment never enters the base URL/via, so the envelope delimiter rule stops at the base span", {"identifier":ID,"callbackUrl":"https://example.com/cb;sid=1","sessionKey":SESSION_KEY}, { random: RAND }),
   // requireSecure: per-call config; the non-DNSSEC twin patches the key record to dnssec:false.
   s3("requireSecure: ping stage 3 - DNSSEC-secure result still succeeds when requireSecure:true", { challenge: CH, response: RESP_DESKTOP }, { _argsOverride: [{ challenge: CH, response: RESP_DESKTOP }, { requireSecure: true }] }),
   s3("SECURITY requireSecure: ping stage 3 - non-DNSSEC (secure:false) result is rejected with 404", { challenge: CH, response: RESP_DESKTOP }, { _argsOverride: [{ challenge: CH, response: RESP_DESKTOP }, { requireSecure: true }], dnsEntries: {
@@ -502,17 +508,16 @@ const tests = [
       }
     } }),
 
-  // --- token structure (issuer:secret) and the redirect's token param -------------------
-  // The public part travels verbatim; the secret half only ever keys the HMAC. The redirect
-  // always targets the identity's own endpoint - the issuer hint is a value the Authenticator
-  // reads, never a routing instruction the Verifier acts on.
-  s1('Stage 1 colon-less token returns 226 (a token is issuer:secret - the issuer may be empty, the colon is structural)', { identifier: ID, callbackUrl: CB, token: 'aaaaaaaaaaaaaaaa' }),
-  s1('Stage 1 token with more than one colon returns 226', { identifier: ID, callbackUrl: CB, token: 'issuer.example:aaaaaaaaaaaaaaaa:x' }),
-  s1('Stage 1 token with an uppercase issuer returns 226 (the issuer must be a canonical lowercase domain)', { identifier: ID, callbackUrl: CB, token: 'Issuer.Example:aaaaaaaaaaaaaaaa' }),
-  s1('Stage 1 token with a non-domain issuer returns 226', { identifier: ID, callbackUrl: CB, token: 'not_a_domain:aaaaaaaaaaaaaaaa' }),
-  s1("Stage 1 issuer-hinted token puts the issuer in the redirect's token param and keys the hmac with the full token, while the redirect stays on the identity's own endpoint", { identifier: ID, callbackUrl: CB, token: 'issuer.example:aaaaaaaaaaaaaaaa' }, { random: RAND }),
-  s1('Stage 1 SECURITY: an issuer hint no include grant covers is carried through unchanged - no grant is read at issue, and the secret half never appears in the redirect', { identifier: ID, callbackUrl: CB, token: 'unrelated.example:aaaaaaaaaaaaaaaa' }, { random: RAND }),
-  s1("Stage 1 issuer-hinted token whose issuer publishes no triauth endpoint still builds a challenge - the Verifier never resolves the issuer", { identifier: ID, callbackUrl: CB, token: 'noendpoint.example:aaaaaaaaaaaaaaaa' }, { random: RAND, dnsEntries: { 'noendpoint.example': { TXT: [] } } }),
+  // --- session key structure and the redirect's token param ----------------------------
+  // The session key only ever keys the HMAC and never travels. The redirect always targets
+  // the identity's own endpoint, and its token param carries an empty issuer before the HMAC.
+  s1('Stage 1 session key in standard base64 (with /) returns 226 - a session key is base64url', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY.slice(0, 42) + '/' }),
+  s1('Stage 1 session key with base64 padding (44 characters ending in =) returns 226', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY + '=' }),
+  s1('Stage 1 session key in the issuer:secret form of a token returns 226', { identifier: ID, callbackUrl: CB, sessionKey: ':aaaaaaaaaaaaaaaa' }),
+  s1('Stage 1 empty session key returns 226', { identifier: ID, callbackUrl: CB, sessionKey: '' }),
+  s1("Stage 1 session key with every base64url character class (A-Z, a-z, 0-9, - and _) is accepted and keys the hmac", { identifier: ID, callbackUrl: CB, sessionKey: SK_ALPHABET }, { random: RAND }),
+  s1('Stage 1 SECURITY: the session key never appears in the redirect - only the hmac over the challenge does', { identifier: ID, callbackUrl: CB, sessionKey: SK_VISIBLE }, { random: RAND }),
+  s1("Stage 1 null session key returns 226 - null counts as a missing session key", { identifier: ID, callbackUrl: CB, sessionKey: null }),
 
   // --- delegated ping (include grants) ---------------------------------------------------
   s3('Stage 3 delegated response (actor signs under an include grant) verifies with the composite deviceTag', { challenge: CH, response: RESP_DELEGATED }, { dnsEntries: johnWithGrant('include jane@triauthdemo.org scope=any') }),
@@ -552,14 +557,17 @@ for (const t of tests) {
   if (t._argsOverride) { t.args = t._argsOverride; delete t._argsOverride; }
 }
 
+// Store every stage-3 case as an application does: challenge with its decryption key, response sealed to `ek`
+await sealStage3(tests);
+
 const suite = {
   title: 'ping',
   description:
-    'Comprehensive coverage of Triauth.ping. Stage 1 (request): dispatch/arg guards, identifier/callbackUrl/ext validation, the ping-only token+HMAC path (authenticate() rejects token with 102), DNS configuration (301), and deterministic challenge + ping.html redirect building. Stage 3 (verify): challenge/response validation, dispatch constraints, signature-envelope parse failures (225), generic verification failures (401), the tighter pingTimeout expiry window (402), and the success body. Pins ping\'s distinct result shape ({pinged, issuedAt, signedAt, verifiedAt, expires, secure, identifier, identityDomain, lookupCode, actor, actorIdentityDomain, actorLookupCode, groups, deviceName, deviceTag, keys} — no publicProfile, no ext) and that signedMetadata.ext is ignored. Crypto-bearing Stage 3 fixtures were minted by test/fixtures/json/_capture_ping.mjs (WebCrypto ECDSA is non-deterministic to mint, deterministic to verify). A final Ed25519 section covers the type=ed25519 verifier backend (positive plus crypto/key-material/uv-taint negatives).' +
+    'Comprehensive coverage of Triauth.ping. Stage 1 (request): dispatch/arg guards, identifier/callbackUrl/ext validation, the session key + HMAC path (authenticate() rejects sessionKey with 102), DNS configuration (301), and deterministic challenge + ping.html redirect building. Stage 3 (verify): challenge/response validation, dispatch constraints, signature-envelope parse failures (225), generic verification failures (401), the tighter pingTimeout expiry window (402), and the success body. Pins ping\'s distinct result shape ({pinged, issuedAt, signedAt, verifiedAt, expires, secure, identifier, identityDomain, lookupCode, actor, actorIdentityDomain, actorLookupCode, groups, deviceName, deviceTag, keys} — no publicProfile, no ext) and that signedMetadata.ext is ignored. Crypto-bearing Stage 3 fixtures were minted by test/fixtures/json/_capture_ping.mjs (WebCrypto ECDSA is non-deterministic to mint, deterministic to verify). A final Ed25519 section covers the type=ed25519 verifier backend (positive plus crypto/key-material/uv-taint negatives).' +
     ' Stage 1 resolves the endpoint record only - identity existence is settled on the signed response, so no stage-1 case yields 302. A PRIVATE MODE section covers mode=private: stage-1 issue over an unreadable identity, stage-3 verification with the lookup code in signed-metadata and the ~lookupCode-suffixed deviceTag, and the commitment-mismatch rejection.',
   dnsEntries,
   currentTime: T,
   tests,
 };
 
-writeSuite(new URL('./ping.json', import.meta.url), suite);
+await writeSuite(new URL('./ping.json', import.meta.url), suite);

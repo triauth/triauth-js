@@ -1,6 +1,6 @@
 {
   "title": "ping",
-  "description": "Comprehensive coverage of Triauth.ping. Stage 1 (request): dispatch/arg guards, identifier/callbackUrl/ext validation, the ping-only token+HMAC path (authenticate() rejects token with 102), DNS configuration (301), and deterministic challenge + ping.html redirect building. Stage 3 (verify): challenge/response validation, dispatch constraints, signature-envelope parse failures (225), generic verification failures (401), the tighter pingTimeout expiry window (402), and the success body. Pins ping's distinct result shape ({pinged, issuedAt, signedAt, verifiedAt, expires, secure, identifier, identityDomain, lookupCode, actor, actorIdentityDomain, actorLookupCode, groups, deviceName, deviceTag, keys} — no publicProfile, no ext) and that signedMetadata.ext is ignored. Crypto-bearing Stage 3 fixtures were minted by test/fixtures/json/_capture_ping.mjs (WebCrypto ECDSA is non-deterministic to mint, deterministic to verify). A final Ed25519 section covers the type=ed25519 verifier backend (positive plus crypto/key-material/uv-taint negatives). Stage 1 resolves the endpoint record only - identity existence is settled on the signed response, so no stage-1 case yields 302. A PRIVATE MODE section covers mode=private: stage-1 issue over an unreadable identity, stage-3 verification with the lookup code in signed-metadata and the ~lookupCode-suffixed deviceTag, and the commitment-mismatch rejection.",
+  "description": "Comprehensive coverage of Triauth.ping. Stage 1 (request): dispatch/arg guards, identifier/callbackUrl/ext validation, the session key + HMAC path (authenticate() rejects sessionKey with 102), DNS configuration (301), and deterministic challenge + ping.html redirect building. Stage 3 (verify): challenge/response validation, dispatch constraints, signature-envelope parse failures (225), generic verification failures (401), the tighter pingTimeout expiry window (402), and the success body. Pins ping's distinct result shape ({pinged, issuedAt, signedAt, verifiedAt, expires, secure, identifier, identityDomain, lookupCode, actor, actorIdentityDomain, actorLookupCode, groups, deviceName, deviceTag, keys} — no publicProfile, no ext) and that signedMetadata.ext is ignored. Crypto-bearing Stage 3 fixtures were minted by test/fixtures/json/_capture_ping.mjs (WebCrypto ECDSA is non-deterministic to mint, deterministic to verify). A final Ed25519 section covers the type=ed25519 verifier backend (positive plus crypto/key-material/uv-taint negatives). Stage 1 resolves the endpoint record only - identity existence is settled on the signed response, so no stage-1 case yields 302. A PRIVATE MODE section covers mode=private: stage-1 issue over an unreadable identity, stage-3 verification with the lookup code in signed-metadata and the ~lookupCode-suffixed deviceTag, and the commitment-mismatch rejection.",
   "dnsEntries": {
     "triauthdemo.org": {
       "TXT": [
@@ -135,7 +135,7 @@
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": ":aaaaaaaaaaaaaaaa",
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8",
           "attachments": []
         }
       ],
@@ -147,12 +147,12 @@
       }
     },
     {
-      "name": "Stage 3 unrecognized option returns 102 (token IS allow-listed for ping, but unknownKey is not)",
+      "name": "Stage 3 unrecognized option returns 102 (sessionKey IS allow-listed for ping, but unknownKey is not)",
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|",
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BLE15tOwPxCwj_LYyYj7R7KpEfzy0us0LDOpIlWZ9heGw0XT6uIpa0gNL-YoJm8XGILk1aRfpH0DJcdF_rOF2p0.rIGFYSgK1mBoPnC8hUQ3-sad7QaKWWOK1PZU8D3eV_d3ZeLfOF52EgOAtLhHvpq9NXheenjzGIvPExa9_i0S4bYJitFahyqdDJkSTT-8XJ6--9K5q_2a3V3_T82X8jqXhqz-M7ncf00S_pdM5Dhrq9iUDtPIgfyANgrQBxtxGwZZcHrfVTc_MY6uwfevuSmzDGWeff7hJB9zqEe0bFJALwPKthiZcA44qLuP",
           "unknownKey": 1
         }
       ],
@@ -372,7 +372,7 @@
       }
     },
     {
-      "name": "Stage 1 plain-http callbackUrl on a named host (http://example.com/cb) passes URL validation; the tokenless request then returns 226 — an ordering pin: the callbackUrl gate precedes the token gate",
+      "name": "Stage 1 plain-http callbackUrl on a named host (http://example.com/cb) passes URL validation; the request without a session key then returns 226 — an ordering pin: the callbackUrl gate precedes the session key gate",
       "call": "ping",
       "args": [
         {
@@ -383,7 +383,7 @@
       "expected": {
         "error": {
           "code": 226,
-          "message": "Invalid token"
+          "message": "Invalid session key"
         }
       }
     },
@@ -404,7 +404,7 @@
       }
     },
     {
-      "name": "Stage 1 callbackUrl with an IPv4-literal host (https://127.0.0.1/cb) passes URL validation — a canonical dotted quad is a grammar host; the tokenless request then returns 226",
+      "name": "Stage 1 callbackUrl with an IPv4-literal host (https://127.0.0.1/cb) passes URL validation — a canonical dotted quad is a grammar host; the request without a session key then returns 226",
       "call": "ping",
       "args": [
         {
@@ -415,7 +415,7 @@
       "expected": {
         "error": {
           "code": 226,
-          "message": "Invalid token"
+          "message": "Invalid session key"
         }
       }
     },
@@ -436,7 +436,7 @@
       }
     },
     {
-      "name": "Stage 1 callbackUrl with an apostrophe in its path (https://example.com/a'b/cb) passes URL validation — \"'\" is RFC 3986 pchar; the tokenless request then returns 226",
+      "name": "Stage 1 callbackUrl with an apostrophe in its path (https://example.com/a'b/cb) passes URL validation — \"'\" is RFC 3986 pchar; the request without a session key then returns 226",
       "call": "ping",
       "args": [
         {
@@ -447,7 +447,7 @@
       "expected": {
         "error": {
           "code": 226,
-          "message": "Invalid token"
+          "message": "Invalid session key"
         }
       }
     },
@@ -538,53 +538,70 @@
       }
     },
     {
-      "name": "Stage 1 too-short token (<16 chars) returns 226",
+      "name": "Stage 1 too-short session key (42 characters) returns 226",
       "call": "ping",
       "args": [
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": "short"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP"
         }
       ],
       "expected": {
         "error": {
           "code": 226,
-          "message": "Invalid token"
+          "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 non-string token returns 226",
+      "name": "Stage 1 non-string session key returns 226",
       "call": "ping",
       "args": [
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": 123
+          "sessionKey": 123
         }
       ],
       "expected": {
         "error": {
           "code": 226,
-          "message": "Invalid token"
+          "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 over-length token (>255 bytes, the Normal-String default byte cap) returns 226",
+      "name": "Stage 1 too-long session key (44 characters) returns 226",
       "call": "ping",
       "args": [
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8A"
         }
       ],
       "expected": {
         "error": {
           "code": 226,
-          "message": "Invalid token"
+          "message": "Invalid session key"
+        }
+      }
+    },
+    {
+      "name": "Stage 1 session key with data in the unused bits of its last character (not canonical base64url) returns 226",
+      "call": "ping",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "callbackUrl": "https://example.com/cb",
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP9"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 226,
+          "message": "Invalid session key"
         }
       }
     },
@@ -595,7 +612,7 @@
         {
           "identifier": "john@unconfigured.example",
           "callbackUrl": "https://example.com/cb",
-          "token": ":aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
@@ -613,7 +630,7 @@
         {
           "identifier": "user@ambiguous.example",
           "callbackUrl": "https://example.com/cb",
-          "token": ":aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
@@ -631,7 +648,7 @@
         {
           "identifier": "user@nomode.example",
           "callbackUrl": "https://example.com/cb",
-          "token": ":aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
@@ -654,7 +671,7 @@
         {
           "identifier": "ghost@triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": ":aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
@@ -670,7 +687,7 @@
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": ":aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
@@ -691,7 +708,7 @@
         {
           "identifier": "john@hashed.triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": ":aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
@@ -714,7 +731,7 @@
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": ":aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
@@ -724,13 +741,13 @@
       }
     },
     {
-      "name": "Stage 1 PING-DISTINCT token produces a redirectUrl with a &token= param carrying the token's public part and the hmac (authenticate() would 102 on token)",
+      "name": "Stage 1 PING-DISTINCT session key produces a redirectUrl with a &token= param carrying an empty issuer and the hmac (authenticate() would 102 on sessionKey)",
       "call": "ping",
       "args": [
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": ":aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
@@ -740,26 +757,26 @@
       }
     },
     {
-      "name": "Stage 1 token + ext together: challenge bakes the ext, redirectUrl carries the token and its hmac",
+      "name": "Stage 1 session key + ext together: challenge bakes the ext, redirectUrl carries the hmac",
       "call": "ping",
       "args": [
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": ":aaaaaaaaaaaaaaaa",
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8",
           "ext": {
-            "pingToken": true
+            "callbackMethod": "POST"
           }
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
-        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsicGluZ1Rva2VuIjp0cnVlfSwidHlwZSI6InBpbmciLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIn0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsicGluZ1Rva2VuIjp0cnVlfSwidHlwZSI6InBpbmciLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIn0&token=:HMAC"
+        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsiY2FsbGJhY2tNZXRob2QiOiJQT1NUIn0sInR5cGUiOiJwaW5nIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9.DK",
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsiY2FsbGJhY2tNZXRob2QiOiJQT1NUIn0sInR5cGUiOiJwaW5nIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9&token=:HMAC"
       }
     },
     {
-      "name": "Stage 1 omitting the token returns 226 - token-gated flows require a token at issue (src/challenge_response_flow.js)",
+      "name": "Stage 1 omitting the session key returns 226 - the flows that follow a sign-in require it at issue (src/challenge_response_flow.js)",
       "call": "ping",
       "args": [
         {
@@ -771,7 +788,7 @@
       "expected": {
         "error": {
           "code": 226,
-          "message": "Invalid token"
+          "message": "Invalid session key"
         }
       }
     },
@@ -782,7 +799,7 @@
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "http://localhost:3000/cb",
-          "token": ":aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
@@ -798,7 +815,7 @@
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "http://10.0.0.5:8080/cb",
-          "token": ":aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
@@ -814,7 +831,7 @@
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://192.168.0.14/cb",
-          "token": ":aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
@@ -830,7 +847,7 @@
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com:80/cb",
-          "token": ":aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
@@ -846,7 +863,7 @@
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com/cb?a=1;b=2",
-          "token": ":aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
@@ -862,7 +879,7 @@
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com/cb?user=O'Brien",
-          "token": ":aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
@@ -878,7 +895,7 @@
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": ":aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
@@ -895,9 +912,9 @@
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": ":aaaaaaaaaaaaaaaa",
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8",
           "ext": {
-            "pingToken": true,
+            "callbackMethod": "POST",
             "nested": {
               "foo": "bar"
             }
@@ -906,8 +923,8 @@
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
-        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsicGluZ1Rva2VuIjp0cnVlLCJuZXN0ZWQiOnsiZm9vIjoiYmFyIn19LCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsicGluZ1Rva2VuIjp0cnVlLCJuZXN0ZWQiOnsiZm9vIjoiYmFyIn19LCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ&token=:HMAC"
+        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsiY2FsbGJhY2tNZXRob2QiOiJQT1NUIiwibmVzdGVkIjp7ImZvbyI6ImJhciJ9fSwidHlwZSI6InBpbmciLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIn0.DK",
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsiY2FsbGJhY2tNZXRob2QiOiJQT1NUIiwibmVzdGVkIjp7ImZvbyI6ImJhciJ9fSwidHlwZSI6InBpbmciLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIn0&token=:HMAC"
       }
     },
     {
@@ -917,7 +934,7 @@
         {
           "identifier": "multi@triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": ":aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
@@ -933,7 +950,7 @@
         {
           "identifier": "nokeys@triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": ":aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
@@ -949,7 +966,7 @@
         {
           "identifier": "john@private.triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": ":aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
@@ -965,7 +982,7 @@
         {
           "identifier": "john@private.triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": ":aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
@@ -978,19 +995,19 @@
       }
     },
     {
-      "name": "Stage 1 PRIVATE: an issuer-hinted token is carried through to the private-mode identity's own endpoint (the subject's grants are unreadable without the lookup code; the stage-3 delegated walk enforces them)",
+      "name": "Stage 1 PRIVATE: a session key keys the hmac for a private-mode identity, with an empty issuer in the token param",
       "call": "ping",
       "args": [
         {
           "identifier": "john@private.triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": "issuer.example:aaaaaaaaaaaaaaaa"
+          "sessionKey": "AZaz09-_AZaz09-_AZaz09-_AZaz09-_AZaz09-_Aa0"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHByaXZhdGUudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9.DK",
-        "redirectUrl": "https://auth.private.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHByaXZhdGUudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9&token=issuer.example:HMAC"
+        "redirectUrl": "https://auth.private.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHByaXZhdGUudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9&token=:HMAC"
       }
     },
     {
@@ -999,7 +1016,7 @@
       "args": [
         {
           "challenge": 12345,
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;j1wsisLhUsnCVbnwjrYtR10btlfrYu7yTOqcePsV5fbspTCfqDgx_W5vpsi6xG9yv7rtd7pkqSUwTgtQushh5Q|"
         }
       ],
       "expected": {
@@ -1015,7 +1032,7 @@
       "args": [
         {
           "challenge": "!!!not-base64url!!!",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;j1wsisLhUsnCVbnwjrYtR10btlfrYu7yTOqcePsV5fbspTCfqDgx_W5vpsi6xG9yv7rtd7pkqSUwTgtQushh5Q|"
         }
       ],
       "expected": {
@@ -1031,7 +1048,7 @@
       "args": [
         {
           "challenge": "AAEC",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;j1wsisLhUsnCVbnwjrYtR10btlfrYu7yTOqcePsV5fbspTCfqDgx_W5vpsi6xG9yv7rtd7pkqSUwTgtQushh5Q|"
         }
       ],
       "expected": {
@@ -1046,8 +1063,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "77u_eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "77u_eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0",
+          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;j1wsisLhUsnCVbnwjrYtR10btlfrYu7yTOqcePsV5fbspTCfqDgx_W5vpsi6xG9yv7rtd7pkqSUwTgtQushh5Q|"
         }
       ],
       "expected": {
@@ -1062,8 +1079,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJuby1hdC1zaWduLmV4YW1wbGUiLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxfQ",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJuby1hdC1zaWduLmV4YW1wbGUiLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkJCaGtYR281VXkycTJ6ajRBQVpOaTMwX1pMZmNjSnl6aTh4dTBCbHIzVkNGRUYtRG9QcXUxdWZLRDduRDJad28yMlRHZ3BYSEtpTlRpWDBZalhnVHo1TSJ9.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BFiznjSUW_0yXZbWlwW4IEW0skhF31KnPyIuuztHrjOxzNI7K-07To8oTWME4K2Tlr3bf9FVVGn34Vg2cvpqOi8.xbQB6xzdZDM-ggRYS9bFj4VHq3cnHtW8kedcpIe5n_-fLqLX2eJ1Meept8CJB9atata8AxuDlpuJzzUgKSUeI4lg3B3XlsqGoDisLky1x5V-NIIUbVWpjn-qmrA8PBsWt4SprVKHr9AWmeHGWa1UdOx5GQdDiT1OBsttpUcxAd_P_VEZQLicT_c0gKdaVb1yBUTXoo0P0Lf0cxH7JcXRdq0by7LoWtJ1BV0O"
         }
       ],
       "expected": {
@@ -1078,7 +1095,7 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
           "response": 12345
         }
       ],
@@ -1094,8 +1111,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "no-envelope-delimiters"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BHv_JNM2t5jXGOBFH1uxPaX51c2SdTXQFPf8hCiNWU2LTdfzus1y-YCjro4CyyqY9EN8oeHR93X8iw1huw8B-ww.BEYalFN26EZ57TxagpkvGXBLuzMZoZJURB3wiHfTUZHJQ3K0lwA"
         }
       ],
       "expected": {
@@ -1110,8 +1127,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": ""
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BPbLHAm0FpgSWoS14DMDEODZDSI-oVt0rXOC5Ep3kDNWTsF-HLBOl2Uix07XTrc3N21cWgzBdWJYpklTcNJfmvE.16XHLT_jYViqUOgW5DInaw"
         }
       ],
       "expected": {
@@ -1126,8 +1143,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|",
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BOMew5Su5itcnbN1I31bKjy8pRsv0i4wh_estEqftV9Yj70c7fwfqjssvZHz_4s0L3dQJdmwPklsBfltdf56xHg.ilm7_dZI7TpCixsTY-dRbIGzMp3GPoVV7gqhzXvd_KGvp05tyWOwtdd9a2tiEMsdrollnJNRw1C1UumLdV8k9H-Q6Offy9US2PPRjEFa91wBnXWt4zXy5kW5G3niR92bfBxwnPh4o4JH8cQ8HDz-eJIaLU1lD_SMck4UYf_r4lF0oAXxcty2q-Drsr7zYQxRfaS_Uz3HWJqzTWlOZC66iMMAa807IOPVeWsX",
           "identifier": "john @triauthdemo.org"
         }
       ],
@@ -1143,8 +1160,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|",
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BNn2Ec4M4A4D7sHcb5jEpk3VmWAZ9hmyG0IRwTVt4XtlwA7A1apX6L_Q9K-lFHt2xoH7ib6oBiZYye4o1Xkb4wI.Bpwg6csIgJPp3-qQFXiG8UNrni-9Z3-LOAQIOiNiGQdbedCRj_b1BmQLXMQumSLQbFgPVKcRBDtIHof_eBiVuz0xMycQFDnP208AAI3sJgPBlQDjqaKMCSNNZYVrWYqZfkoVVQuEXvpkD5HUdeLBqsmNr9QH5fkjwi73u7SEbzznCF2o0A5wSAJyo2o449bF3_9HDyO-XbZys2TovW-N6My6trchKNjprk0j",
           "callbackUrl": "https://[::1]/cb"
         }
       ],
@@ -1160,8 +1177,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|",
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BBUOmoYuxC4fFsO4e-fU6957RiPKRfUtOumrQHsxZwZKKcH4jP7YOIK_CzrrldWA7kRiQzt-4gUHvTLVlLqs91w.fAcMj7d5RfhFifqxDAkUeZbDquQPjuO_cgSU7ZMruLrnwE7eFkKVv2kgwAv2xZLeF_WmLmNNf2z5pdX0KCrbtkmiX5WXp-FwUh5RWQFizll1yRarNFGGP6bcvpI74aLAFfy3n0qjOXlrsklyW_9VpGh_nEiervJ2Ugxm75z334gvX0ZDovnMTIFO6xcD6itvO6uoig84MYXhyW7G6Gz9tPfzFGDW3cU0A1Gv",
           "callbackUrl": "http://example.com/cb"
         }
       ],
@@ -1177,7 +1194,7 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
           "response": "false"
         }
       ],
@@ -1193,8 +1210,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|",
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BK-WA4tMke61Y3LWBEO7fTB9DbsWrMuA-B9XWn0hvjQuU19-M0Mw3A18uLsIrJ36d2Za4sJeCa7N5Srm1bCZeRg.6A-pkMXcqojau2aYk2-gmE70ZkfrtWd_x5UN7355Vs2I_5_JT6e_9wx20hU_GFKHMfk0L-pHgwAzLnzzeAfH4ye5-L1qln-YijiZkXFT5iupq_7h0t9hoG7on1lFvGdBkPlApELx3dSiPj_zLku80pPhGhh5UTwGh35z3JCdoH15j_b3D01k-jZC6ksEFt6xeYnH1UaAt-8lFjOH0AIoSGz1HzBZql7KN8t5",
           "identifier": "someone-else@triauthdemo.org"
         }
       ],
@@ -1210,8 +1227,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|",
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BLk_929sdI2detqk0bdWcq25igSvDBdu23_x6N17wrgwlUBiXhvjZ6yz33FZfrUSeHMmt5M1nzsA9jhqFV7mT8Y.aonGvOmi4qG7bztPc0UDt69LYo_kgbVzF_ranq0ZGz0JfpqODqD0Cmt1BXt8C6M9zRvZBUR4He2AGaykf1jthZLdwQ9XzeD-sL1KNfMLRulEnCoveIExqggrQPdgA1_Sb8liN-9nTYXH9Yx67NYFPCETDx8SK5U_rXn3cjwpor_xCXikik9mOuUjLajBOmZeo_X6-NKR9ViOTp50bZfe4N3XfTtNylIqFc9I",
           "callbackUrl": "https://other-domain.example/"
         }
       ],
@@ -1227,8 +1244,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoiYXV0aCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoiYXV0aCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BLP6F-D-9atK4Dhr7wwAAm4nIC3-AtsJ9sUww5NV_LgOAJ16g7Als_SZiJvE-9yU-t1SU-YakVw0VHK9R0xOkzw.h7XFNcNzDTzIJJ4R_-DvCLhuqgxT9GJGC-uxHLNPsp0MGatqOjFjejZmHq-rcp-N23irKay1rI5tBAxErmhF089AdVZmAaZVhjERH4GtQSkxV5usyWY08IM8cP4rwK9KK2OsMw2iBsoQgaIRVR5MR_UnFOuJTRQUQFC-7TZ26yMwJxt3pYJbuwNVpuZlNnXKA56oUVsUtZT05M9eLalnLbojWlquHLw2Giyv"
         }
       ],
       "expected": {
@@ -1243,8 +1260,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;-;v1;1777454675000;;;AAAA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BF_ov7OccZ8cX5oPzPTB1Vx5qKD7BJ9z4p0upcmiZP5aSdO1OzXdmC3L2OWby958oQypwisG4x7VydjuS6DaAIg.tASRADx4EMOA8RQTsAcOSh01eIpsQ3W1sw_1NrGGJkkFVI5rsMLh_gI8b8Xfvf_tzALCOzvy0mT_UWDwuwujaa59-eAIIg"
         }
       ],
       "expected": {
@@ -1259,8 +1276,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/é;v1;1777454675000;;;AAAA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BOLYjZJAG3wQhb6kZh49EU5AAxOhseEPA0v4o56cc8LFV9_LyUEnrf_MtsPB25WNCsLK4_nGNoNUiZu9Y0cN8VM.6LhdHzr-KI1Cwc_i4OlZuxB8Aom34iDIjkl1hGAcEUfVV3S8ylQT-Tl0M1829f0vkY-ljkLZbbW01KR3iWNUYGxnQFSpPuFi-VZD2jN5hYWpC6KWg5xTOyiR8Q"
         }
       ],
       "expected": {
@@ -1275,8 +1292,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "||||"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BJkNQwl2lEbMOCR0L9GZ2cPyEkC3tApqPTfJsUPU8Tud4fahtGJBYpu4r_oFj7SC-dKlPNWolOUG757h1KtESkY.0oiq9GXPxMeCqRoiXF9rVxQk38c"
         }
       ],
       "expected": {
@@ -1291,8 +1308,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;AAAA|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;AAAA|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;AAAA|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;AAAA|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;AAAA|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;AAAA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BNAWFIulNGuHS6D1qUV8INkL_sJZkF1fGggI7EkzZoEwjacA8AOjX54o2cukxPFmcpDENEkICt0iCtnsxMzC8yk.7UjifZUzBcyfNTNnWUSKT_UHB0nQUWR1fAaWwJrV8vpEtAJX1xdAw4W8qrA11J771ieG3RMqiQ_kVaE3Bm8bjQJv08F8TA31yk-4G0_F4D6vUfJtY5uQoYRx0igsJkekVb8vjt4jWavixDZnLn56B515Z8On3XeKpaWObkZ_Ib1B_U4QtP8mNpYGpiqdkkzLm5_diagaZm74EGZ8sgfoXHr-AXlOyx6LwP1bndp7DS5YlnPtsfonr0MbIrJKUNaCjRHPGiz7koLDtN0Hp0ZHrS0JP2fOIy6-bgoJJFzRjMY9WIgpWpJTfQeR_EIqkyspKiJjvjqKAnrdzhd9MD2mBe--H7jnEDcJ7Bt32kofhoJSLvGdLkk8uEoQvm7bqDIQwCDluLbqBJRYZmhMEXZbrly4Qhd6D5LOdsUTEYXbcOWcTELr9gtZIEbMh0ylW-D01BmnFgHiPTOt-ZPmIUmCKbJNOeOUzend6bZntLvmtJzvZE_VYLG6W7kiEWT2WdP3IrFrmZefvVPRLgT0FTtWUwp_pas028wZLefSwbkMDQqmli937ogWq_jBvrfPrI_MduK7CaAHeBkHoiWnN0jYc3M"
         }
       ],
       "expected": {
@@ -1307,8 +1324,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;AAAA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BAi9BfE3jNmTIi9W1XYUj6PBQv75oUp_u-6l6drix8E2BpHJ98_7RaaQaDAF5xi455IWCOKyHLjJW5Py0yRxjmM.o3KhZjQOGOPqGu9MYE08-EG33nK4AhK1dj3V-6JDgyMBZ1Tht7mdyM-_GrG0XIQm60kWtbPetPT3wQga1kkvE9UxNKwKQZHGy7unB_vHoepuNApRNqlo4W4"
         }
       ],
       "expected": {
@@ -1323,8 +1340,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;AAAA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BOabX_FlX4pGVqTFfbLV0Tp9eyo41LchtsRCOnrCU6oGG6iLNpJV1EgkRdt8ZYRQUXsgNJUjMUIolRP9ntyMvL0.N_nE0c0iP5Uu6KIfllJdZgsynlHS3nbQPv8fHuu14UXKx2fqtEsPCjNioiCOh5JD1he91tCtnu7aWCscaPHFtNm4AykqP4EcaEQsVGQ2eb8SojuMBTjmHak"
         }
       ],
       "expected": {
@@ -1339,8 +1356,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;AAAA|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BBBB|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BPihDy1Hrae_f3bt8ovpQb4CuUjgVNrHKYhwczMYPU9Fs9C0pq6dtTePVj5EqfB30Pu-Y5KqFtnRDt8TOpIwt2Q.hya6hRmqTjURXcruZxYMzfPGb4zjlC__ZbUtbm7AjgA4kAcW8w5XQ1VHVz9k_2UQYc1n0BUvCjCjW8mlvnMNKqrBWUEH914sAO7KxRErv5GpMwhpI9QAet_eUmXPhj8RCY6etfipktj8GP_aeUxKL16Bi7_Q2VNbhFMlUTYrCI3-cJmKsN4rsIf2vgdQkWAt2yCRhmQzOuPQ1bFLOJaOhNo"
         }
       ],
       "expected": {
@@ -1355,8 +1372,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;jane@triauthdemo.org;;https://example.com/;v1;1777454675000;;;KbZC-9d3j31YyCgwdkWMo-wRSCNUkQ3fAsraicEe-B8Vei2JmfgxjP60-5WikyO3-lFc6-Djbs5i6ZqQUpqXBg|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BK4JJDf-quop95rl3jud02SGDpWzIhx_PbCw77fdZtOcEy6wPSQgHE9u_ZcTrgceWbU0bCVm8G0hEfcikQjhrfI.EzKI_9YPqb0bLHTzqpr38PNho67bMfF9-BnJDCxbcAAVP79CRqjafdTBoh0CUWIyVGNMj31N02HDm0bghNdDp22_yEIVR2_GeH5mw7qjlJ39-sCWB-a7J_qkRDHbqHMc9zUa2LikkvljinudFutVxfjni0rVq071e_XzT8EPv0wsf9c3QM0JK7pTVzRIqus00w5Zg7kxye4-fuDRCT2IslpbxAwkGhZrZlUz"
         }
       ],
       "expected": {
@@ -1371,8 +1388,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://attacker.example/;v1;1777454675000;;;Lrm15MWfjagAUOv92CyOzLmlD7OU_0APN8ATUR_qAvczmiL29hBrYmeODkmjAFYfrTuaJgVswb9emPNKFo_tWA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BLOuH6obUHYopCWTzVIqkmgchZd7UOYMatvd-FaE1L2Ryw3sTWsxCJr1skYXPAjzIrCV3ZTHARdISSo0g0azoCo.L4yAfSAaRlQoPtDZ2skcnqw9_NRsU8choUfztnYhA2ZCP-hlL8-HImK4wArWckdT2ocXK_euiNk_TYh_4Jv2di3P6Az-vDMPH6yA0Wvwyzp88eliRQ6Xu4LDJL6PmEGLC50XsbbQpi6PcFKD-LNmGZoEer2QJQfrxBo-zM_bEf1DUdIEv6XQsMUHcV4SoPZv6Ps-K3uYqtdn9AF1nnlhcHE_OyqrV7U6Q2uUaXppHTc"
         }
       ],
       "expected": {
@@ -1387,8 +1404,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJzaWdub25seUB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxfQ",
-          "response": "|ping;signonly@triauthdemo.org;;https://example.com/;v1;1777454675000;;;4eHxP4pIynFPChgYsn8Wyya00CmyuYIyYQKmyeRmpIuhZjbEGtw73JMt876qikhLBep-hF8Cq3j_f4NGmZir5A|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJzaWdub25seUB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkJCaGtYR281VXkycTJ6ajRBQVpOaTMwX1pMZmNjSnl6aTh4dTBCbHIzVkNGRUYtRG9QcXUxdWZLRDduRDJad28yMlRHZ3BYSEtpTlRpWDBZalhnVHo1TSJ9.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BDp9SD6x21Bhkdikm48Ln-TK815dVg66HltvRVBQzEThnBd1n8Ze1GL_0n1x_4UuZsypZZPmoSXIBajBEtlF4qw.c5rAnv2nQ0ONJVq_fvmdn69KJvrwHeKO6mT3EiFXkUBxI13g4rZsxLQ7cTiwZr_ysLBjPrkjhuI9iJYuYfT2q8Pc7LTfkBzn6nKQj4DdlPIS8vb3TPR6pdIBr03ZH3W-N3jfQcJu9o7wE5r8lIm6k6Acvo8tmk0zdhWA7IDhNXvEIn9c8kc7yg2DRAar3f7GKp6ADR0h-GGRllvZ3aWOiiovy-pzHHsCZMJa0yepCA"
         }
       ],
       "expected": {
@@ -1403,8 +1420,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BIR1JbwM4pYUs9zOHP6C34Z3ZLvktIMQgRItmM1tnxLAcwiEx7QLIy80WtvbXIrnv2PAGMFFmsTBksYaeEISQRc.75wI63VZObvPajK7ExAPZpYSuMbRkbtjYUkOlftY3yYKEDsaHxFELYcBJVeK9OwCZFK3oTnDpB4TJIkJyYhrbpbpFp4sQUwd7YlZvVR3VLPM7YqhnXTbWPRsPPMGgbgBcgxXhkkUOLW1I_HG8t9-Qfndu1rnYDDHt6RXIIjChpaZ1FMjlbUxI2oYOFNzEW3-aDJ1AYnHt7j9eQ9mtNy5LudmX-RqVWM77L4L"
         }
       ],
       "dnsEntries": {
@@ -1422,8 +1439,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BJhZ3NVXRh2jtBcDz2sJCIY7ml86J_DK_iKt6jUkJ_B5BotqXX27nnLNKlkrHF3jVTAhwv8Sa06_GlWpLOixcmw.8L2X4PlGhqsInvHTBcCRta0j-j0V9ex2hNAvbSAr1v6YBDycpm05N8VWZVcLbBZ6755nIK1MgYd6DYMeZ9-06mBAj1LzCY5aVMrPqil43Jd0gMzq23SPRDfI2B1Lkk490VKn4wPvMqmImI769M7PPy8SpyVI8cNWnGIxcwKFf_46shcNLO7ynACZMFxlAPn5AaoVi6kK0zAVQpC_fXtKmfTbKjQiBvbfLh7w"
         }
       ],
       "dnsEntries": {
@@ -1441,8 +1458,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BFSzkIvFGm9rTnPf3PUIzMqoo7yMN5eoAecuTR5R0mdCUBDfT8opz8rBnZX-WMXST9Flv7ihcXCSoU03z7GiZO8.fc-q7afi9n-h0ta7DDME9ioK0JjC1u0TRdG2MLBWuxsB6SNHqhOcSxSNs3TRS3e7a8vyJ0E6wLudWSiy6aDk-4r6__5w5dyrIG3PyjgyiRhK_-GTCods6ihjN19DdL4MNC4msmgAJzR6ynDVcn05BQ7SOGWeUhIR9yqGt2ad-Gtfj0mYuRYOA3lzbiO_syX7bjJc-TJktB79gL9rpGSLtrB6oLhbyaQmxUDd"
         }
       ],
       "dnsEntries": {
@@ -1462,8 +1479,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BLCKKCxnay3mcdU5_u3spbrWPdAOkUXm_ezez3nSbPSbAsDqMf0nbCbq3Ch9iEJHc_KOae_hrNYJIJHDL6dBcLo.nHyKzulfw8IJX8Kgx5Ok_YoXmxXoOOVbUH_May0ShaUrZIyq_Vnp4_qqupUE7fl_z4rdzQpDGNOsXOpuO4C7BXLEOlp7QMGeoAuF-tWZ33lNIUfvcX6jD1pNqIVvnHu28rmYAFZ9qX2heObTab6kQiM8yPO-fUoLXB8FzFL5znBc-VjtOm9gwE7uCX_sGhMywkqqGSEfxv1vZjx65JojlB8yuPc5_3akkU-t"
         }
       ],
       "dnsEntries": {
@@ -1483,8 +1500,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BP-q50yc47WcRh_UNHqtMs6IzcvibSrBp6UPx2Hh2GHmrfasGfD_m3WNjka2LLpgGt8YMF0dvY8NClmZE4WBLbY.z18JEesZ6JvGAfsl39OHVRM3rVTJG_L6QBiZxQlJ6PZBqCuQkHsLjEIDpsxgsc8pCiWlpwztHiAOfwsnS0jXDv4EwRrLl3lakBmmfrS-KdN_mO2X_aEPQcaN839bvC-nkPh2ZFPbzTZsB2yYVAzUCr8k-7hFQmJrlOH9gBV8T3Fm-XttyAdW_xnnUKth3XKO7cdFOgD8du04Xq1c0VpEbNG6CJYyfSNA1FW4"
         }
       ],
       "dnsEntries": {
@@ -1508,8 +1525,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BMb5LylRWDfBKxqh26hep7GuPyHfgSzee0GBD3f_YaGfX9xNaJ3jLzfLs1T0P-_JvLU0BtWVjierRPfrPb5h6qI.dba-UottVfPzJw05OJ8P0CtmkddPyeCfoAlZtViidDH7Njx11N4RBZlqpLzvTDCQ6JO83rqtpCbPv1ZlftlVfLp0fHSgOxa2hJyQfapvMrmYZB7KEex0oNb13TXIqsokdliWs7yKcU6Ve1O8Y_PiVXULjdBBcDAjNsP3xpEsTLEnWHL9z8Tkc5woAzDLS1Un8KevkhPXi5cGSrENV4BaOiWYMJf3YZbpzRRE"
         }
       ],
       "dnsEntries": {
@@ -1533,8 +1550,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;UPCMcAbBr0uL8b_mz-rF-R3v4PWG6-P2GdmrVlzAtqkDLBYM5l_rOXjzpZ8M3GjosRVxNCX7Dkq1lhdjPDYSYA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BJUNwLItgxHRhveezngbdgxA83w6EVTjdfOSu6s59lAHU8m4thIOQH5CxD__uh06gRr-Tn-cKTzJjuUmCzpoE1A.waCeBwyd9UtAMpRAS4BaGxnAKCMohe2L8ihNrqe6WI7x1UKeZI81kM8i650qMArdh51Tj75zn_iMU2Ub3G10pLxuXpfdt-0viLZdUIiG8FhM-LXUzn719_FU-OQYg1QHWpJaG2pBRYgrKtDTzxkqc8RXf1CU4NDTioNTCwUeKiuu-0-_T5SChSoAqgfwb08rfGDO2YgP7B5SQTnHCkPonIoh0gK9fI35tWYg"
         }
       ],
       "dnsEntries": {
@@ -1558,8 +1575,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;AAAA;BBBB;CCCC;DDDD;EEEE;FFFF;GGGG;HHHH;IIII;JJJJ;KKKK|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BEHYJoaxI0SKFdeWC1kXCoWDQrfpsc1WtB-AnlBfoAglKDtaxKNluM6AUI17PNpUrYhCbLtdojNcuVlHeGXPs0w.2Luj3D4PfyJ1YLHQQoHLhm4sW6jJ4Te0pgojDToqxy7sdTVcIjca3YfYBlNS4hXjjtDkgjxOknJJ1AB9ZzQdpcISVtenoJBE5vCQb8ro7KihSoohY6n2YiI85xU2Rn5HQCayXKHbU2QEg2aCOSv7ktFh0wnbi3OtebQPkxARU4gpSjX6HwPF9ctMYQ"
         }
       ],
       "expected": {
@@ -1574,8 +1591,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BJh2wQWZYsm-wvWGP62M9kXaP-5U3UK5XcsSQAJB_k72rvwDJ9jl3Z2pdQZ8AiSUOv8B3JVhcvSXLBaZzrMlPCE.AtdUm5yu9b9eawcuKrg1jIg37Sbcmk7wiQ5e5cAGd-Al2KrBU4ykWkvdG8FXam-U07NiQnS-Kv2Pr-SvYDIgxxqZs1hN1dK8Czra1sSL5kevSYdOG2hyAyfbFYdkC7eKUsLpZ-HLR5Z5F7XVLe-tDp_P72KL2H7Fvg4KhlRdtoSDGO5BJbBPzswx3QZbwl7-S5JiTgbTEtfi-MNlS-d5f3-UCY1XE5iAe2fI"
         }
       ],
       "dnsEntries": {
@@ -1599,8 +1616,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BM-qFuOMU2YEbTxwuvNnWXq0krNhVYIXVb-IeWO2m-OtEPkVbAbSFu4z0r6uLap5OFP6FxRoofbLFTQQFHYqnGE.NyD7scitTRQI3PwSg0ja57hGbkt3jLI-yf1uapXQ4qNJVNir4s5wFZhxkvaotqr2W1QW8c4M7klD5XJunBiCVqJgfQ1IXMsC-jo6kP82Z3bPFxy8-11giXqgBMOILieCDR2C_IAc08pX5QwHmd9KT1TL8t7VEKg1ISdolvLaYqHpbNNSRPGjbdmDtU0FdpUKD5lLPrYFjjxhEnXxTnJek_de_-_eQFZge80q"
         }
       ],
       "dnsEntries": {
@@ -1624,8 +1641,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BB0TThXcMenLC6UPAaQDCEl-MX-Wtfzuupk6f-qbajLFqgzk16ATn_xhOz8-x2gOZbLHLGA51OQSBg22yyDaxPI.jWXo5e6-ehhNnKwU3OxZjcM1uQTlCz9xKsazJLm6ZsZPZrEUWaZl-DKChC6X5zMFACTLanJ2oovaVSaOfNdCj4la6UvCWv9TEXjijrG_CaAVHuRRYyyS16uoMHZgXFu6cck94PMzRfQKDW75A1S8QjvRpk1T4Lr3r7KUJVoyEmE5j1B-_5JXY6H-ZR2dyNjYpCPezqobfLHNXzBmP9dXsxbe7VFxJvYPIyvs"
         }
       ],
       "dnsEntries": {
@@ -1659,8 +1676,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BMLHJCfGqb97rvaknMMQae1kCeq0RLJrM13fFtWv7mZncxWRx5MWV-oQYiWGCL2hWmIsgs2VVCu4UA0BYcjPI3I.4I8vqETUhdvtzxq7hDFlrjvVNLTWpM8zZufROsG_qpqZoiM4rRVta1N5bdIndp7dlhUs89b-I3QHexda7_P1KnD7wMG9OMb9tnBWV9Lhi3YKEifSy1QZ-LNBroYkCV7ut3rRg3uF9R4iQ2o_bczxDL6j9vCzQhGm2-PtpR9rMcOWspfpB31edVfZpbwrM60FUoKWcekMrW4Z6mPZYZTa2vhFxy7QBv9194_Z"
         }
       ],
       "dnsEntries": {
@@ -1684,8 +1701,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BOsuR9nJQZ_jrBsHVUWOwOih2Dss9E5-uj75bFFxqbOBWGh-qp9PTE1-_D1WJfm2XiVl-zFUJY21sIjfUgsepmo.x6aFC_4Vj_yMMnr7I8Ut791fO_I-ZR-_hJii5wsnCPvT3WvHb7IFbUwOfeJPcV_hhzErx9ihJ_VufLQU5i63pCz39vhIeO-Idja8don8u26pYixqHa_UFi3CqS2j5k4iNRs7VxIx_BrS5L45vlezfqPdmr8AtXs9wlM5W2Ak6LkiGMydz_SGdsq0z9kKffVL3ZDxEtgqEltzrzAfNoL7x8LM3jEXhupIwa6v"
         }
       ],
       "dnsEntries": {
@@ -1710,8 +1727,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BPZ7csxQB1vIulzYcvquAk1WvAa5pJJPvVRjEaKR8RF_aaBVZE0qGcesyJYSTUW-uNy57iEPh8b-vWCaviGu5w0.L_4N_mqp3qzfS0GkQyOilpnh4meYYHtmLm9XpgwvZCh2yKpkfCuV-2X1_g5Nj_agX40bY59K-vrBHMVD7NEgIgZnqKUTyr5XhIEipPq-0U6AWWPKxCwE80ltDg4thtkxf40fnNpeYof4TI0HefyB3s7aajeM_pq62vyhe6z6OFqdYTXXyk3O5gTtxQ-SaNklko6-EoDlGRVokG9gfSmQ3JGcK3HRDDFBNvmM"
         }
       ],
       "dnsEntries": {
@@ -1735,8 +1752,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BOSv3Go9REFMHf2Cc5HgrWLsWG3EDf2Fei06Z5O-LjgWLEGa_dfnwwle__Kg27Y0DCAYXEnzowxVvaqM-_vFwrU.SFeCFu_sagY6UanXjU8TkHAO2mp--IxGRNvVUh7nsBRk_L-iVVAhtqfk6GasafM8_x9_MJ5T63v-ic7TtRP_z80pmTvdtnahQ-wG9wBL1fHCo9155A2xZmIcgA6UJA9uwS5_ql2S5rSbTpsDr5Z_6DN8BLqjfuabmnNxtqDANACs6A35XqtejBTzwwMJJ7wM5Ki0QAvNMcEGy2rSPpEKzSJktBB-fbNAX2Tw"
         }
       ],
       "dnsEntries": {
@@ -1760,8 +1777,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzAwMDAwMDAwMDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;gR6x6vfGdiwGVjJB6Dda0NJxNbbxeDi1WLB3mmU_nhKSH-BATcd4rfI0FJMR02dIR95HXYQgFJ81JY43Kys-jA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzAwMDAwMDAwMDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BKASqgiNqfswmwLpJ5o8CevvRPNkVBpuCOR9fOUakhMnZybC-n62xckq95OaWcHx87ZLsAPVBkJyL0GYa98FNbg.1hRXKmkWlyYgomCJTlqM8jh3l8oFgxeuds3hme5yVxUGaxfrjGMMVBUIrEoxFNVEDabcDvGOWaqvH9X_YAt1ec7MRBElQ0mSYsT6f_CNAj61Ah29T7kx92GCzkdde3DIh484nWnrczAqVPuncZ4sKnLqR8wTpyzuOr8VnLYq6rCPRNPEp4eHVBqIJ5rrBdz5Apycs5mhzvN6UVTzNDKPNut5fhvKVQUKRSpo"
         }
       ],
       "expected": {
@@ -1776,8 +1793,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxODAwMDAwMDAwMDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;rqgTA_RwcteivV5qGvSIpkcTPt4vdrmxDbLqReQ37ttrUNqmVTajzrV61RTXeKSzwtYQcg_qAOLeD26cDrLbAw|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxODAwMDAwMDAwMDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BHm8imne7NEtpItcuGe1kU7tFHYmF1CFxTlSMeQ0lyvGf-MTG2rIg7c-vlhjZ3ojdH96yqkACaxx5atxtNCBDPU.kwx4ZVLRAj3DYcG_0W2cYncCirSb-z5fwy1nTOR8yn0FfYINwt5Wn9_WrM18hIA5QK5C0HbCOeTVrrUmxE-bFYgfN5huJkLP7sCShGdYdjq1Vx0U6DzMZL-lZPDtevuPFz08l7vPqF8xqIp7crTNzoTyNgf5f_NBJ9o7pi6USxvHDxf3lgAyfE962l_vJbZ3-zIJWBuA9ORbxey1mch0vCyEpSE82i2i-2tv"
         }
       ],
       "expected": {
@@ -1792,8 +1809,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0NjE1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;q84Uv2L_iqVlbf1zjFMXYalHr_-VPJtiSSrls3JSmKMqEmXaBQDMrp7homoRtfSd4ybRTfKFqDDURc5kPNZvpw|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0NjE1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BKCjWYGTP_QhEW8q_RjJcjRRBkK_ZGZs30YU5u6F4-PNQsc76y4xA2hmJvxhI4oZwQrKxq_Y6D0EFhUG4s85Fcg.MGPVm_H_4O6K5p5plN8aZlL8USO3SvNqyoG004JRcExSfHAHUJ8j7scq655F7f2Xy4gpTnY_llsZqpw2_DiR7bEPchrn0cB--Cve2Is8n1TTvmIH9G_hnzCoAs8D70P7TTlOg9Xt19d8YFr0uyz-DJvW6ggmiEoEIqRT0xacyHOaYmMJq8nrG1s_DUXOgQQYttCMhjUFvo0SMaeC1BdPYT11f_1rKLbP816o"
         }
       ],
       "expected": {
@@ -1808,8 +1825,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1700000000000;;;AAAA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BGS_shBP16VbqTT0LduvdfJChzMVCnFimonzJ8KPTD0MQU41XHT-7UcWLIWcdC9u4VFurTnDaIQkF4sDwyQ2ieM.aHNQxyNFtHlCSt2MmLkfv6rARzDpF53U839LzEgxKSI7yKsZK4YsyZXFFsKwe8JjqFhFku2z9YmPBXsk5wlVOvrkWKJIDX2OaCCMEQAOI9R1wknFGDRydFk"
         }
       ],
       "expected": {
@@ -1824,8 +1841,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1800000000000;;;AAAA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BJjRRv2TyiEvTkk5KX4TFmDgL4wcN59nOIOwlzToDNyqi91qanwXVz9EvdLj_Ztdi69_K2cd2qWvxHAxFtxfsSI.1uehnPNm9gD_zXMzQHT9J0haM_Noqo3Y9JSyLa9ix2nVCRPRTnH42WZ1zCJIo-hFQq7asogzfFobyP_Uw7apZE6f6MYslSoea1cdkF2sFfvnCva2A1p1Kvk"
         }
       ],
       "expected": {
@@ -1840,8 +1857,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;WyJ0b3RhbGx5Iiwid3JvbmciLCJzaGFwZSJd;;R3XJqVxJRaC4Jue4wZhvG5K2KoP6SWPcGDyS-fKb-ssKkkHclyNUSnShUtwFIvkWZMJdK1IfMiijt6q7AebmEQ|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BBUJq64jT0s9Al8KsCyQRxaVOufK5pfGwGzQYXvP-Q1CL_VhLhkLY6KdVe3687WCLboWBSxByIi-VNdYVRguslM.TwnwkifJcSYZBV_JYc2UL1TS8GBtR_K5NhS2pLrG02jyV3im0-lSDBX9aBTvi9fc18zSPIlRknjeIn8q19UD8MmJEnZwW53kKBzAId4R234ed05GaOACwWuTlrwa3jIaXCJ-Q-XshIgwA75zWKYkDtQTbA65cIEBS1oJMDGVBsKVrGXufPm1ky57wxRzf3dwWR34fPgSCpaSPjwBXKPo44B3g7SLrE_9UOCAuv5XxlupaKtZEu2KgJZGbwGmzsMRKltqvFMevCQlcwHXU964"
         }
       ],
       "expected": {
@@ -1856,8 +1873,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;eyJfX3Byb3RvX18iOnsicG9sbHV0ZWQiOnRydWUsImlzQWRtaW4iOnRydWV9fQ;;w0Wg8M-NezwgyrzrLWwm5MwM8ZAE8dknUeXtVAhzkSkc-8g-Hg06kYUcK_Mg1EgKUfDYtx4dFQolQjDwzT_m8Q|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BLmBE9Q0-GS7VtTqP06BM5TmnzGbQh2wxmnXH-QkXqZV2lVrvjAqVwq1HfAguJH6OuZGDZumsFjsDleFFyIxfJM.X-QL-KWCYCfzsy66w4leg3zW7AMbx7d_yJfLtBSwrBKX02HxrEYjRzUJRAcxN7E2HMHXreKU4uDCHCxrqpP6eV5Ksgw7961N_FUjjFcUcU79pZE5V-sLXsWMAyxLkLJwGicUN1ct6VBuX3NNm5RXdZvyvQ_vy8c7RjBJk6rzIfbmnEhe-CeBmW0b7Nqmn3c2xc8Gkr4tzMPEy0JkFePKSI6G8tnv2LSt3Xf29MV0srUGyOsBVIi6amCT2oNYl6xKWMcwOm8f5JCCNNNsqpX_baYud088YLkVp3Ak3CJDdeJXQ_Qe8kEEmXw"
         }
       ],
       "expected": {
@@ -1872,8 +1889,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJjb25zdHJ1Y3RvciI6eyJwcm90b3R5cGUiOnsiZXNjYWxhdGVkIjp0cnVlLCJldmlsRm4iOiJtYXJrZXIifX19;k0XvmZXU9U6vH0XgftYkJyJBGAcDfyZQtROvuAMIzkxmly2CzDq6cScI4MFJGUL9Y6ZQXpoc-Xzpx9tQ2rJh2Q|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BCwCydB0IomC7krXZ1CLq8GuUMA5uwobPScDH_8UiNin4H5iXQG29fc0W080DLNEpfg-l4IPTZEqJPB1bHtJNx0.1MUJuhM3IITYgBRc0IbvjhjNCfNyf6tftiALkdtCso7QMZB-YCgGm3TI0PUTL9FOTNdKfNrNjitF7qskaOyYxB2RiClhqUcNzMr99uu0AnRhsqKXAkeKSH8wQM8qxKcbd42TF66K71vdyp_NfCxCDxBVbTYb261AcmvZR8EimWCAURLisZLJ7FXWMFqAr1tQSWb-SLYsbueAONVD2gmxvd_E5iNx6dvtibdp-XVlwYI37HsYF7PgZzAzAX4NoKcOB-7yETQbE931q8AIEBYhDgA8rZRoeQ2jPrb-2RXaN12JBeVthD54wg8_QVBDk4iYEAGmFeQ7POEuJ1ukur12l9SPIg"
         }
       ],
       "expected": {
@@ -1888,8 +1905,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;c29tZS1yYW5kb20tcGxhaW4tdGV4dC1ub3QtanNvbg;;2jH0y5zYsF-PPYDlq7zzW-FL7NKvpJeq5BTSQcWjz7fVsnFl8f3DRV9jFX9n21irin2Fw5PVhoygNXpS7xmU-A|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BDTZMXTksA7AnC14CI0xXFpbz1d5nwzhbMD9ua4rVClnYhNK_OPs31vTCUraG0bc4zF_6M4OmZ8L4gR0w4g6CAQ.WQS5Aieh91sfJsqJkg5PN1wkdHuG6JGeeZCL6SEm8jMR-yCilNjVi39pBK0c5RAj7crnNFAoAUBcFQuy0-_lHqQdZQZFX-mNQlWY25zchDeVRWf6QFc8_7tRiEXAKs9ojgHS5PGSXwHeu2ALlh3ZEIC4LVam3unoeGF8Ztw9w1KyKnWC1q8lJqAkN5XH9u9sot9D1Pw5MC5v6v9v4hKVzojT2Jac1U9Fh_fNZ4ZoJYRM_fUAJiZKEi03BMmTaO9hENjPp9hJsFkVnkFqPIp4Sukp-L2k"
         }
       ],
       "expected": {
@@ -1904,8 +1921,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;77u_eyJleHQiOnsiYm9tIjp0cnVlfX0;;Oh3QQ1kQufqiWTxpnt1Ypi0njL18moRJaI4fDok8RyHRJIhz8BI7GxE6lTDAuWTOqoDga-QsBVTi4rPE8fS0aw|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BKPBmG-u50ZPl4tCZD7L5ZC20JAg_hV-sTrLnwGGglmuE0hVM9gBb64bk-WlVyZ4jytyHqXHNjvoyDzWSJa3RNM.U90di-8Uo-bIA8SfeMGK7UaaCNSh8S3h-75JWG0gA6PzoUKXoRxdMKLHLnRVi8r4VNYC553pjCMul7xW9PDDtqYLyMtO-MngoIbHaAAKUGWG-u7KmwsKdVsyKPs-abtQlurdaNWYaDyvhkBRGvQt-qa9Bd-8fHQlZWi_TYraFNcinr3nln_7_K6PFYwjEhlZQHl7gmZEirj8PHFqJusgJHcKRlkra45wPkcWzbOViO1DmJ1nzOh7icof_Bydg2kMdh9MCGMKW6hqJQ"
         }
       ],
       "expected": {
@@ -1920,8 +1937,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;WyJldmlsIiwiYXJyYXkiLCJpbiIsInVuc2lnbmVkTWV0YWRhdGEiXQ;aWa1pEWwfYowrBwV-H_zf7d6mPvHZ6y4o6YvGgRYhTvwSSLjx3sBP92_DWJfPte8Yd6hD-4-f1oF3E2U4-H_jQ|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BL1mCakrYSIqvawb7B-5u-U3F-l5vjsVP2sL3L1hpbAjD8pKGio28HFGVm6uj2ojCW7zk0PJfKdmrMaOb2sMsiA.X5WXBIAaTRLwxxyuwY5VbI-8gifMHac_hf9IfPuc-GIwZ2SMqDMcraoKBy5pPOvXEN-NjrPQIQYn9KPmvwlSVEmJ3JZc7m3Nxseuy_dRjqcldJYWHapA5MeFzAK9vaHHU0d2iwRfB1StYmHFsg5ivHxvH8hrPyHhkx-rSJt-ewMcSQhVcgqDNg0p_d9bgJTDB4NyAD-ASUKFid-ROEIRndmL0MrSCH191EFK0F0aAms0P9cdTfW_oq6K8v0rPSTeDMD74XLNFj-c9U8re4KzFOjF6JpfzbTyKKZTHnHBvf5E"
         }
       ],
       "expected": {
@@ -1936,8 +1953,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;AAECAwQFBgcICQoLDA0ODw;yidorXCwJp5s5jeDbTFXzC1fFAtP56a_jgKxPQKU8bR2c02DrV590ZWm8eZxrhwNm03skmqfXruczj2kJUrYqA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BE4Zw6Gksxoc746acwoO3V9jatkCxesLosCCFcV0Ixsznnr_Sp4zbnw8Z_wwAu6ofi9kYCxPGBOeWb3W7KVeWyg.W9g9KbDWfZlO4lOX0H4lEz3g0w2nk9saTRy_vAoQ9jm4phf6UZ34SZhNGJtGWUGRoO62VhwPXlFdiNRKaDEE8ROi0d1Cs5xexL3rjFWMs-phyVZolVAueDKHFqMhu7i2hmFObhzSi2o-o7jrChuegIXDomLYYeIL98IzatRjgUHY60VoAxvL6Z6d-mj8LMR3gCNgKnFYQP5pvS4BqHSgomj4L1LiBHtvx1dOHzSY49DvkMm355c3DVf26bxAkb86FA"
         }
       ],
       "expected": {
@@ -1952,8 +1969,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJhIjp7ImIiOnsiYyI6eyJkIjp7ImUiOnsiZiI6eyJnIjp7ImgiOnt9fX19fX19fX0;1TaEolkMmTyP244Iu3L6yyBTyJhmhGEiP32HxIQaL4Am9EqD1NXFicepNhDaSyAQzX5zrpUecJu9nN1NcZ0noQ|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BDADBdQ9JsuyT8pdNhCbV-Zx-asqnm4TddxwbJ88C79XLR8i2NTS8LuD2u5Ku9mVOh_YeogvCscMvdShvYTwfYc.JCX4QLtODV0PGXuKzLz6fD_QAOVyBQpdQ8oIckOP-jljXTC29YRbXjwv4x6YVqmoLaN6bJ_ud4eAMp21LkvTt89TxiQfAxA6AlwH1bmOh3ep0RgX_MX7ZEnnYTjGOsVteEJhKQcM1Pf0cF4oMspcBYge_PGJalplY3kJkw7Ih6_3rv5elqVp9VH7n5MlhWucrQY6u1PRswk1STW7SXZ3lzk6o-LxCDGe1-pZQNy5EpICI2gU-brflGS1wRMwR7nOoEpb-zjlsibCt6LPMyJCv7hq8E4ge8_jwC-ZaVuhcYgrX8olFlljQrqeqmE5Cw"
         }
       ],
       "expected": {
@@ -1968,8 +1985,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSI6MX0;RhZoH7g6gi7R0uqb-QHuuevwgapL28Ut8HFnSI3wthImeZcfJgH0kIi2Kl6zqS-Z3ljE96-HdpFbh1LNVvGomg|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BEFLrMarF8qwUdmXfJ9sgrbkLJcAY3XIVoLveVLxqRCXP7hhOR_wqh4pEm1DIPmVLz47nG1XOx-GLJ2upLo7fPs.UTnDXnsDe6eZRpQoGcqttnyC-peFk_SXbiVnRvE_J8gkMAMwFP4JTGv_VqI-iuN6GYHIyvnseh-0NZmJP_D7S2Ry_yk5hjs0SK-i8x7H_8l2rpVW-ef9e9OOSl3lVbfgRSaTn7yNr-1X1ZYKBv_LXFrADPmU1hUtyCEdBXkkyxbtS52g2SXMDPPcTTtMmQ6TEDyGNhShDkNUg6vkXSBg1gUa5k3u6mc2SA_AIZY9ola-fcz0JAucmUNINKnMMpET0vm1WYk8Vace0kHwcG6ylV-fbWexq_aqBwhekMEGe74WAZ8MfqONnKqZ3swpFfdPQzD7HyMbdA_dPyCWv8xMpZmbCvrau9TEOl6ZthL2KfTnNdQ9SnFDN9Z7KfUTokCW3JbTl8AAg4IKbAVV_N0yyL7jsJH7nNclkInp9RsI8J5C_Why5w89XLeB6SFoSbkgkIXJGzdHq7B90qWQmLR1wplbyv-dIsyZO4dhoA26BWp2SISxt7vSRne5UQWam-ykw3Io3-AKsYsbUU-Vcw16vMizPhVZuwqYInZ-Bua2w8X09kerufs9ZgWmTyrhpJ03EL4RUCALCYsX03XKqBLxXasJE_FxdqySaNLLLcNxOFnxDfr_HiSOCt6Ln1AdzHaQ7_AZc4lWkqN8EVkpJS84pi5xfAm27NvwZV92sS-rCQG2RqFtELL0cC5v"
         }
       ],
       "expected": {
@@ -1984,8 +2001,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJy6XN1bekiOjF9;f2ftrP9-REE8yAhGNb5d3mdJpd9n7ByJh2dzQjKTbfXhAnbKg4Fqp4fgCaQ8DTjJl9f2ojYruzZ4g16Fg8PCtw|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BDwDXsIF9g8Fb8ElVEohdXDX5R_sveKTeSaFTgW8GAFh1FoyE6Tn5POBLIFs0s3aNGY_VxXpVZ-J3oSa63n-0Fw.aRpiA1CumcVOz1icO5RYM5ZpoGAGfJr8ENhRXkhV2piXjX2_BPqE-RABhrixjvUC5xbw28CkOqSjn-6b10s6Jpe-nNW4eh7hKewYX8I3ZWDPE7sLWqnjhd9beefRljD9AykHyVt32gP9YN6qHCcCsGSplkgy_9o0u24N4cNByhCPj2RIqhHXMjWxNlUiXTo0Phmjk79YubHyIIaMG3NXObHVtPhA8WfAoJtFCils7vu7-8mEHNRx2pEIIw"
         }
       ],
       "expected": {
@@ -2000,8 +2017,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJleHQiOnsiYSI6IukifX0;A84dZelexwLX2caIfiKFRafz_hqSmjPUSRQLHRTlw0bbTCzk7aPUPG0ZLkRo5mkK_qdL1fQOEu_Wtj8dT0qyDQ|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BF4dZjnXvD8bwQQqcsyZGbjG0-eBflI3kUUiXrpRBPReTZNI0gOVI2j_CL2kn6fp6BU2W_X-5NGFRIOtCmIgF-4.u9zj3bfZSQmM-i87zny-WppC4gaoRPXJGCaHF4mn7cyErGu4o0jxj4gB2Xvk0AraQJeh-TYbGUNzn8PpD8fzeWiiCOnKNKq5aguboj-HH7Vkb-sn61itdfQpECGxAdZigepIOOF7xZ3ACWOd2wOtmUZJWEXtMsO_CoizA7Fwe3toWWlpK1HnqHLiOP1atK53oxKI7UaP77tSIRDD1zliPotV7QVeu3PvlQ7NNIyqCG16pAF2MxYIUh5HkaamfK8hluA"
         }
       ],
       "expected": {
@@ -2016,8 +2033,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJyw6lzdW3DqSI6MX0;g6pb0oBIdCRITPVhXRNZkIU-G6-0sDfNMb1rXfClDmMBxZISg_mFWmmJ1L1IFzo9eLZW2wMsgPFU8xzPd_0gaA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BOrIB5lO3g1XA3DwUmpsVVOp-ScrgUJDnlYHvEnmftm2xqjGCua4eFmU4l6kHa5OLC9YA5-Oqn0tegJla34bjck.Y4v3jkoPxSLkxa0mFon0xv6-5dSVpiqzpnF5F34bcuxGkCRYjuCpDjEkKlQrJt04lU8xKxM0AQ0Q3KF2YoEsCvhL2cjHAIm1T8yyQYQf2lELsC9yS6gbuUAgJm1zLsHDvWIoycUUbMLphafw8XuiZjbHNzKRRfzzz2oB9PQhZ0PBIPK94HN0y0q-eQGkr32UMCyPZjAD7AT-U6oHSFHxeknrj9mdwzmmoc3kZOKTzZe76VAPtEekafsjCkOdJg"
         }
       ],
       "expected": {
@@ -2032,8 +2049,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJ4XHVkODAweSI6MX0;75thnrOIvQZ9iYJ8FJcIHueseuBwaqnDjGUvOjsMpWyNA8LXqcZxcq5PCoI60vzoGHxkLGF3TPJYw_cXk3dA6Q|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BOtWizjhM8odsiOImfwWnGovlKFnO3EmP-pO9RnqPKim_Ozo_vgK6lfwn8UvXPJ9CyhRPxa8K6e-proeFCKwERQ.iTxQ8dIT-6vLIlITdXBCJG8aZPLL7VtbuQbHIofiMV4roD2JS89DbjOXbHJpjzS-JpMMF14iwBz4X3sYwOxk9fRZzei-fQzv-Uj54dF9vOAHtPMHdqlR0-VpSqhaIRTPuHliz4Cl9Myv0Mazu4Sstz85Es_r6hpBhm1B12gHc34_bDTdZd65xIKheCg_AJDw0qWPxPOHeH2e0dwssib_nIsFnrqNvrhEAyB_XFptRkRjdYjjIC14zAyXChtHcg"
         }
       ],
       "expected": {
@@ -2048,8 +2065,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BBpkPbsw8n9YFeq28mAyerKD429I4fntled4Cj7Ng6_lkdMqPRnobj6HlBHYuseGZMmu35ohWM_sJRaHaLC9sns.KQPDhnLXKB7P0hE7jeTP0KdCq4149na-C345smPgyzY5dwcruTLhNByK-fABq1IshFnyZoJRUpxc7r5zwNl9cd6GUihDW0_cgbsG1MuIgFlAFd4TA2kRl87jQ-IlB7cqT8LFBFnjrlRlB32fKvl6IyDIw5N5YQKp93u6zgYUHv3Tc44S3Plf1MDKHkw6G6os8uaP3hJafqsBVp85CvneMjUQfwUSEgGyK5GZ"
         }
       ],
       "expected": {
@@ -2086,8 +2103,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;Yq_ApLIGw_kc1a2VZj13hirN9SOg3W8LNM6h6A7HMjTJMC97m7zxwUgft-CA8H9CcT3wnBL7KU_pGRXW7pHzOg;AVEy5e6BEtmkJ_ieFJ8LR3KX4BKgGd9AvYtzGTTbr18RytbxBFDpoebr_yfUY-t6zsxwsGKYm3RztsWd-Mh4FA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BNKXQ1wMM8vvqIcCa2Aj0SR1r0f3KnlMT9Mo0mm1roEwUnqWIkjAu_hK1_8Re4X6Oe5mdgZ-guHVrsDFTiG7iks.gnMwU7hT1Ir1Fq7QQ6Ek5QFW8Fs4CalsNzQKF0sNZjEqqSsXMDwcpAUCfMft75X6R68QBpCwXNzUOFTR5mSlcRUyhH-NtpcVKSbjIpN3UnshuOrGcJ8mMRD7fbadH3gRpQ4MFeJjm7PNsqEFzdTxrlVIwyuhVxLwWjMYenYk277QS-ZtPfxW4x9c9BFmwfiESqkCCk_D3Uq43whyLl_oOY_tywSXCfaXNcgDNrDsYYZknXikResjh7KM4lMqxaORvG5wI0GnkNan1k9xahQM9ssIo8hxos991Gec5Pul6Aei3sVmBEeM2RaOzSLwW6comCYSs9fhtpMOGj17zgTJO922"
         }
       ],
       "expected": {
@@ -2133,8 +2150,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHByaXZhdGUudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MX0",
-          "response": "|ping;john@private.triauthdemo.org;;https://example.com/;v1;1777454675000;eyJsb29rdXBDb2RlIjoiSzdRSjNGQjlNMldaWDBDNCJ9;;elcb6ndPO81XFvwzULIYGkGgVjHoVurm5nWb6BOsKDE36RAZNKzvRPBO5nyJyBbrqRH_-1giBSPdJ0VhevO-Cw|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHByaXZhdGUudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJCQmhrWEdvNVV5MnEyemo0QUFaTmkzMF9aTGZjY0p5emk4eHUwQmxyM1ZDRkVGLURvUHF1MXVmS0Q3bkQyWndvMjJUR2dwWEhLaU5UaVgwWWpYZ1R6NU0ifQ.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BJFn_5YQp2U69JBGIhQeS7pH6D8Z1JLpeSrx3rkzOHWIhmIOSbZS4Zic-yp0tDhY8u7xERH7xOz3QLSAj_Rxgew.6oPNFUzKdO0TorDYe4rLr_MzxXCyT9QOnNt4M22rqytN3VBSADZ4DKlKn00ru9WhsVHmtMAho1XkPYgxk21DUeguRvQWcqNf-WPpRaQQekmZH7ezHYTKaRhDd0gRXguLhGtuSfZT6Q-i5BzXZ8Xp8ssV9GGZx0MdbGc5HArFLI58X16tImWUAXEsKKQbl8UWDGQELTl2kRYn9qPKMI6_E--lN-dXeBIj3LE4yt9IMs2UCRrnsAW4vaSPe78P29ezhg6aDoADT6fAkgqluZ9B8DlOmN846EVqls5GnyenLQ"
         }
       ],
       "expected": {
@@ -2171,8 +2188,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHByaXZhdGUudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MX0",
-          "response": "|ping;john@private.triauthdemo.org;;https://example.com/;v1;1777454675000;eyJsb29rdXBDb2RlIjoiSzdRSjNGQjlNMldaWDBDNCJ9;;elcb6ndPO81XFvwzULIYGkGgVjHoVurm5nWb6BOsKDE36RAZNKzvRPBO5nyJyBbrqRH_-1giBSPdJ0VhevO-Cw|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHByaXZhdGUudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJCQmhrWEdvNVV5MnEyemo0QUFaTmkzMF9aTGZjY0p5emk4eHUwQmxyM1ZDRkVGLURvUHF1MXVmS0Q3bkQyWndvMjJUR2dwWEhLaU5UaVgwWWpYZ1R6NU0ifQ.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BMYRz2NXj09GVDIQ2JmjA4Zs8A7cvTOs0OPp7q8qwBqtSO5BWGNsuUcqBHNHpFrv0cFhAAo-nePYnrV5ZXIh_84.-GZ_eZTcXyDh__UqKCnk4J7QaQx1U_wwSOM3vGNo4Ymi-xCTxZomti7PsYtzjyKSCMDUmIN1kdhZn1yaA7vbkjg9HkBA-LtLlKsSA8Yl6bAnuAVBzIp6WTDkHdDIY1VTGKiuEWNn6X8Ep7K5Xf1KXarm03kiB49jIdf0D-PVZ-bE9VCopeOVi1zgC1PoXHXdN-obLUA89AXiomkv0FQugJiEiNr4DGtgJEcp18xHblBqTMDkI7FDkxNiVVrbegO4wsrhqQQUfoOD6hsrrgGHCKr60789aYcmzarb33VXsw"
         }
       ],
       "dnsEntries": {
@@ -2196,8 +2213,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vIiwidHlwZSI6InBpbmciLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxfQ",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;ZbN20fsZFi32_UqSgH0DSQfkqSbY81cQ5AiWbrP-PTJ-FmXosWjxP3A6b9sqX7NNKP06tmKeZKrWpf2JNSSbBg|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vIiwidHlwZSI6InBpbmciLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkJCaGtYR281VXkycTJ6ajRBQVpOaTMwX1pMZmNjSnl6aTh4dTBCbHIzVkNGRUYtRG9QcXUxdWZLRDduRDJad28yMlRHZ3BYSEtpTlRpWDBZalhnVHo1TSJ9.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BKJsNPNvM3PBRcl3NaNp1WLXXZY-2nyi0Ih-o2FKBf1jJ0vtljvROoX9TVzPI2pGbLs9fJ4wOXecFqIECOHEmcc.6aXCvKtKTKEFx_W6zpJ3EZoG8DB5cMvHW9ZEAn4FQ4Bct2sKLA06mafo6DlC8dVtrvwGY-H8sHmgyXp9lB5Pnnz-VSK14tBSLaS28mZH8n6ca7fgNtkU8ngOqRzcKzNF5i9rp4ZnhmFXQ7xt7POotOFu3RcEiFlx_aPNXiNGu073VpqjBIg3i8oW2_5uX6093bxGEheAD1nFEIg7ByqsGBTj2yDImqeHD59R"
         }
       ],
       "expected": {
@@ -2234,8 +2251,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;eyJleHQiOnsicGluZ1Rva2VuIjp0cnVlLCJwcml2YXRlUHJvZmlsZSI6eyJpbml0aWFscyI6IkpEIn19fQ;;zujfGN2plsFDZCs8lypVMz00Ky8dutPne9DBWJLQ23iXNmp7p_FtmLG0mUzVlu7wOOg_hbnawYogg1hNLpljrg|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BJZiLI1HexRMO_BIzWmMv_8T6Zm3eaTvj1WE2Zq7r6NTtuCg9uKEs6ji1KZI4uc-6BKerGZEoRY3W2z4dpDeOmI.GrrzrcrC901BwGBJUie9LjMyDtBGIFKcF53FT9dLfgm3n_OHBMAWZdvjqgj7-mC2bVXrzjNgNZCaQsDjrJW9-wu4F6FcAlq1PzwEkRcO1SgUX7bnp9ECqYhrTVXtveUHyc0yFTiZ-hmPoMjL9NHECwmL-pmVnyVK0-h5F_91PCw-qlRrIUwWLAUqwhd7P3RVPh--FPgLU7emg3UgRrbVlDOrsJts2VLMq6LklGGXWhE95wPVTVNX5bJSWzn_oqMtOIMAIP_k6yVgtHvXimPQ1OzYXao8PWQ37aIk_2sLUezSRvSpiEPhOHm9hPU-D0yHI5y1P-dySgqYA0z-uw"
         }
       ],
       "expected": {
@@ -2272,8 +2289,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJvayI6bnVsbH0;pSDh-uciQ5hT-gH0r82qIUvNKnk8PZtvaGy2wT7aLMWYJWUwP35PGSuK2_ns0g11svWSUKYUcpn_u8dpuUWV7Q|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BCOFCb1wlPf2DBYlGeBv_XsbcqLUKGtVzhFEfI71hF8oBfqdED5PjUVsYbObwyb_48aLQPbj1sGrWKgatyj4w4o.UoAyhej3KdD2cqDBaMNsM-I9e06DbmxSqA6UwOhveKl_NHMgwIqaSMVSXOQZR3zcWwET1EvBgB2UzOnjyfEl_SMtYsOQZDsNh4CQMYyQDY3iQ1pR7I07UvwLgDAu68Dbc3SENjhjyLyXCNJhT9uRk0G5IfIvgr0nLDks0j1kbcdq-vuRJG3V3871Ar-W5TamjFxT02dEeor0_B4rouD2-rBNTvMQuhIkI6pkLNy4Lyx9iQ9PkFjHQCuj"
         }
       ],
       "expected": {
@@ -2310,8 +2327,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BAj0TIJCIPFCFwJpf-3xIOhW9O_ASGWyQUkoYB0Enbh74IC0MxsF_29SUL2z6KC6heZSM60gZWyzqSUbEOJTa3E.OHKYK-ikegS8C9ilBjJ2HaEnH8nFrG-a9LVxxd3yBAA38jc4r95_bvlnjuNs6_ge88uTg9k18NHqj8w_fUdaJw4kXFkIf4udowjzMfRfyyWM_1M1ld5ankOWuZ03YF-IxrzXuDbyL9jPcWmC25Mb0aSTt3kccQPwZlIHYEyhSGSFsHy_pUdbq71bRYbp_tEmZC2jn1nZlHB3X6fK2vb-PRjRE_H2CMD9817C"
         }
       ],
       "dnsEntries": {
@@ -2361,8 +2378,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BM_85hNDs0TFn9g9dQ9jqHRL6dmP47u028xLCmDlBjWELs4wk3S3AqIL-E_sAJIkSrSXsEnx8plMbcH2_Bus0iM._XpOVpgoDMoV1FK8OErvLJ93ShVNnT2CZ3GD2AZ8sHXsEQ-VkgqGNbUeNTrPL9CQXmpE9ZlO3W6HaGChWR8Ldv3I4eJoVjmTYWFnG9mymFlSz6K6ze5rphYsfBiHvskRHWgrirefzMrQafRz94hOiWuEM4EVnu7TY4WCkHJ8zNMtQq3stZZ8FIrQxtolA7FOOlmCQmkCR_b6WgUo5AvBx1OjARUSUwkqLQ_z"
         }
       ],
       "dnsEntries": {
@@ -2412,8 +2429,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BDeuhqf6Nzode4PXBd8z4tI-Gdmn_waTYYTnj8B9xXZDGCzA_V2nf75CnyfA9VEoS7PxJXo_rnsPV7WwNl7IcOM.RwH7a5kfqjLX1IrDQk6kpmPKbU0sFxR_AQDO_o5ZpwAkTz9BmW7sTg68iCGWyjOvaZMV9BnVGEc1cOQosN5qMysaljVj3Rij47ZmL7CZecJ7d2OcuWHDMXV3iWwYNC3797QE9Dtml4s7s0jgxus1VSZOutAmI4GS5YFlEvTizFUNguWMNijs5Vuf3JfkFlNBG0rLWtXCvSbquXsm0-fo4AJ4crFcJ4dN_g-W"
         }
       ],
       "dnsEntries": {
@@ -2460,8 +2477,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BO-1I4f4Hpgs2gwsFLx4fMbzuE6HdtGM3-dYF-0wJdMGV46CjH9cg4liQPiMa7dxwNxI5orjNqW42xRrrrwdSEY.K0t7saWsUzch82p4kBiEWrQhlrBj_HMjPKTpIHpyiKEeTo2WsIrrdHwL7FBA9Cnz1OwhNJbBn-YVwd9ZjTsW9HEKx54hDN_d0jdQIX9gPOEufr9JvpvNe9DiWrCv1KvbQh5u7IhqhMpWd_z0MtfXltPNp3DwVYW0GYm4yn2aRvrJGvmlvhVz2It49TSxcPjy39d99LOb17AgCmYHzQmzM1IDOSNb07KdAvHT"
         }
       ],
       "dnsEntries": {
@@ -2508,8 +2525,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BFPY6KLbHLJlpEyZbCdQHmDukexd9UDPVkWYV_pU7zS1iqkjhply9bJowmYB-rWQgkQrYcZWfD8RN4MnAX1BHF4.8BscrHDrmWlrQo1ilVZ557ImiYGIDpAEezZRLsuSurFhLIUHawxcYaUFlbKvns0VXu09VF5X_1NULKdYSe7LZoJVL6xMfDQocdTDiv3GWMnZOkkoscdljGYnx1HPzj_NqFhqaseWE8F7-Y7vxwDRYaGJs6fSUGxOlbEVjn6t5PSi890u9BxjybnWXAKZH5yDgHQKRDFTfq5WW-twNtFD_9pXGJp0JbPoagNs"
         }
       ],
       "dnsEntries": {
@@ -2557,8 +2574,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BP4mSVceEJtGdT9K8braehxu10SFq8jSAxfjLz8YoO7DWbodIXxis1dta7cI0vD3_WQ8eUpGF2EWI9RgOGwGX5c.q25x2o6iC2_gPEJKrzLbcAHYjI39d8slXbwDz1iemOjhVWbEIBrS4BhjTTFLV2DWr_xB1wTxcjruqLEqM4uXMYfngdGij2yCVhiR3ml3pyT3P44WYK5xhOwSTTDkG28pAHUVIeBn6TDMqsXbP-138HywJwBVsHK0nYJ4PkMw4Lu2hPYD4VpPaCp-abMhmVvMWKoUpFg317Yo0c5wdJL6g-Zmfcn7nK9Sow5v"
         }
       ],
       "currentTime": 1777454672000,
@@ -2596,8 +2613,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BBu9J0Gbt7gIsLf4OCloO6jMrjxfQSOc4LknkwjFeZd0QjKprs-P4lb4qwyxpceQRG-YmTkCdwyaLyGWw9OJsK8.iCzBwmghtP_iOOFalwaNVkegRV-Zn1M7HKjnl--8VhS_GieZBP2UrnrFlzYnIDlY8UVFfSH6QvbGhItf1NNtLXFX-nzR_WMGMHKPHY_idA4WCq0X3q-fTZmF6fTD6kYIw1DsKen8SX-NKuQDybckrYvlcigCOH9XvWrM0cFOUgLGDrHm19m5hZWCV45RlEbVFm3-_dsilvfobdOynwNQuhSj_G_lovOyh5ub"
         }
       ],
       "dnsEntries": {
@@ -2623,8 +2640,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJlZDI1NTE5QHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;ed25519@triauthdemo.org;;https://example.com/;v1;1777454675000;;;KCTdtbtxPS1IuccbdwpSfXZhogyTsmEo2MmgepdVj9GZ6hTxd0krOF_IKb1AtlhK6ACKMb_fKS5P8TWCrgdxCg|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJlZDI1NTE5QHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BKopvcWzMopGblPfb4JZAdKpl7KdI8I0uRkplVYrJgSpohpLO4QpTTsRLofqrZf77wtmXMS1edPsobFf2l_-iwI.0peXjp0B4tUwCqAaehjavX1nrsF-rK_VcYerpnbPfzrCmNtT-yzH7JSMVg3_9FvRRrYX2fxITzVv3cGK3SkwEAS0cy4U2o9zRiFpd-ux5Gb4C-XNn0Q2Y_IQTTx7BQlPZIpOXlcsN6jDPnC4jIp6S9O_OCgdaOZGaZ64jl8R9UXF_qjqM2GJ8EuNt4qP6auG9-kxNuojsFX5CYnA9G4jvS38e3USR9UBK1GjjDF9"
         }
       ],
       "expected": {
@@ -2661,8 +2678,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHA6Ly8xMC4wLjAuNTo4MDgwL2NiIiwidHlwZSI6InBpbmciLCJpZGVudGlmaWVyIjoiZWQyNTUxOUB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxfQ",
-          "response": "|ping;ed25519@triauthdemo.org;;http://10.0.0.5:8080/;v1;1777454675000;;;njwgk-xR5-2tl5aRqDz9uzN3qcG-CBRBEiSfpUL54dnMKukzdfkRtkgofthW9wgwqTQRvn1DfmhVMYsjQZ1PAw|"
+          "challenge": "eyJjYnVybCI6Imh0dHA6Ly8xMC4wLjAuNTo4MDgwL2NiIiwidHlwZSI6InBpbmciLCJpZGVudGlmaWVyIjoiZWQyNTUxOUB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkJCaGtYR281VXkycTJ6ajRBQVpOaTMwX1pMZmNjSnl6aTh4dTBCbHIzVkNGRUYtRG9QcXUxdWZLRDduRDJad28yMlRHZ3BYSEtpTlRpWDBZalhnVHo1TSJ9.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BPpIcrh0XB1dQu3JyB5r9sZh0trginkWGtHAd78hLmphV0a636nggXb9FLIPEyTC-6PuFVZtk83d2Dp2VkqB1Xw.Vax1UDIIHf44WyNrdFucL0RkNPo2jG2sF9Zo2b0KdWfH23w3Obvz4XTFHkF7zz0Dk4D5SnKcpaqDAJTkxXbySkZkceRRp3SfzMc3qCDNtRsrv4QlYhmPxcHy4GXDwKc38OwKV-OBU0nHKIZFsHCH-TKxLheElF1Ab4e8A8VgXwnwf8DfbjiNxklbJKOIV5g9K1CG3Ds_p7VIGzcTgzJruj4oM-dT5CUCUwNxW1WeIA"
         }
       ],
       "expected": {
@@ -2699,8 +2716,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJlZDI1NTE5QHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;ed25519@triauthdemo.org;;https://example.com/;v1;1777454675000;;;AAAA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJlZDI1NTE5QHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BInJ3Il31IzZkwe-4Hscu74YJAn0A7Q0544HzP0jQ_XxR10DEe62OL0DiwKineqxnZQ1krdrtO12J0_h2xdxsto.ExEwtnl0TyfhUoV6EGpS7zeJb2NZX5SnzWRUGSbrgv-T9oj07jP0XkQ7Z0xOwOpK-NK7HyJMmGYvfC0oaTg-f5k2L5Gyc0bd3VXZvU6C1juzTvY-iwq9FNuJY2U"
         }
       ],
       "expected": {
@@ -2715,8 +2732,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJlZDI1NTE5QHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;ed25519@triauthdemo.org;;https://example.com/;v1;1777454675000;;;KCTdtbtxPS1IuccbdwpSfXZhogyTsmEo2MmgepdVj9GZ6hTxd0krOF_IKb1AtlhK6ACKMb_fKS5P8TWCrgdxCg|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJlZDI1NTE5QHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BHf4B5y_7Zu_rbjCEy8-l-ujCEiipCd_hTX1cKqTdn0t6k7AzTCX0CaWYIDEH1n37oQP9AqQgDpLQw6Gp8o8qz0.uVGhLotmKSYmXucek_GSQrcA-8JerRURmWUYlv_vF_arTPv_g6vTDYvfbYFdbUylNu1kPniR6wkct7IvxpnZaIU5vc4VYclZiPp3uqzNqZuG_qT_vmkyM8XK7e0nwjBsXPfTVDtkxRGDNZKHjsj8OfnIPeKvAsK_h6MLIN4HTPGj9bKUeQClC0ieiCUobgCAaWsWjFn_4gFOeylNQ6tQg95LlcHXvIU6jGBPE0A9"
         }
       ],
       "dnsEntries": {
@@ -2739,8 +2756,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJlZDI1NTE5QHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;ed25519@triauthdemo.org;;https://example.com/;v1;1777454675000;;;KCTdtbtxPS1IuccbdwpSfXZhogyTsmEo2MmgepdVj9GZ6hTxd0krOF_IKb1AtlhK6ACKMb_fKS5P8TWCrgdxCg|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJlZDI1NTE5QHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BFDmO1wa5gBnskiuqf8cvQSC_IrGwck0yfRyMvXolcNQZ1n3NctReFh8pguhimC02xEcUjvQ8Cc7DPukhNEWiBQ.bOLAt9jQCIVAcO5y9-XHuVlHr8JnNCQM9pdb5sm1wWUcE9h5mBYL6-eUf5TQSCAgd_ujRqL241v_4qviUKs7sXePV2iyAIh4xkx4H3cc0cSuksfdAvh8VZRgQQqWo35LfpraZmSnzl12nS0ePkSxy4zY0rTxPIffEn_yzZArHBAQMf2stHaF12TO8xNG3eHR_JvJQHS3hdfwp8pPbqGu5fWMtOwQ17dReCiUfbd8"
         }
       ],
       "dnsEntries": {
@@ -2797,7 +2814,7 @@
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com/cb;sid=1",
-          "token": ":aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
@@ -2811,8 +2828,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BLomBueYxH9iolLYs6s5l6Fltr1Sr4DQbmqtHJT8CmuAHRl2nlhB5rMpD-IhRnlojdB3zsSAQHqgpEQnM4ZIzLU.TvzMdHxo3Vl5Aowp1WgngjijEIukDeMkAwwU4ZaOQrubY6kxTPheYSMv6m2wvLb4U_32oHCzJPYAOY7FmGkKX3jVjrf9TFwI7ZVQvx3tZo0eyQ7FtDFmdhsnSZ2dDS_7DJyYg5SAGIEcM2cOuzvf63dExbng8fQ92P8k7yomwSbvGUnW5n-2XAEYu1Jq2n-Mm5OgZzLaDnIrZaaSy9tr671UvISA9UTIuqnd"
         },
         {
           "requireSecure": true
@@ -2852,8 +2869,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BMYNUcy0xljAe6HTIkb0OI6FowUHlivMvqmK2Fqyb055iIeLfX5Og0XqwMIshUProEw9xHFualk19rmAUMwSuTc.kODfh7w-6eb2mRpIcp7jItVrEKs6J9Z6FzIy00SS51B6iQWyDjGTRF4NvmNVS7145Ab6MU6A80ME5m8G95yE-MaJfGJdyzYO6v8TPMR1tugNRxnm2ijJjJYOKjeKbTksll3OPfjwInBOhSPOSj3GvQLHRs65grbHy3seuvHcIxFo6_LWJmlQlQO0cM1CNkauy-Ero-NBJsA8wY2eEPvBvAmK2wIMDuRXcmP3"
         },
         {
           "requireSecure": true
@@ -2880,124 +2897,120 @@
       }
     },
     {
-      "name": "Stage 1 colon-less token returns 226 (a token is issuer:secret - the issuer may be empty, the colon is structural)",
+      "name": "Stage 1 session key in standard base64 (with /) returns 226 - a session key is base64url",
       "call": "ping",
       "args": [
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": "aaaaaaaaaaaaaaaa"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP/"
         }
       ],
       "expected": {
         "error": {
           "code": 226,
-          "message": "Invalid token"
+          "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 token with more than one colon returns 226",
+      "name": "Stage 1 session key with base64 padding (44 characters ending in =) returns 226",
       "call": "ping",
       "args": [
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": "issuer.example:aaaaaaaaaaaaaaaa:x"
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8="
         }
       ],
       "expected": {
         "error": {
           "code": 226,
-          "message": "Invalid token"
+          "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 token with an uppercase issuer returns 226 (the issuer must be a canonical lowercase domain)",
+      "name": "Stage 1 session key in the issuer:secret form of a token returns 226",
       "call": "ping",
       "args": [
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": "Issuer.Example:aaaaaaaaaaaaaaaa"
+          "sessionKey": ":aaaaaaaaaaaaaaaa"
         }
       ],
       "expected": {
         "error": {
           "code": 226,
-          "message": "Invalid token"
+          "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 token with a non-domain issuer returns 226",
+      "name": "Stage 1 empty session key returns 226",
       "call": "ping",
       "args": [
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": "not_a_domain:aaaaaaaaaaaaaaaa"
+          "sessionKey": ""
         }
       ],
       "expected": {
         "error": {
           "code": 226,
-          "message": "Invalid token"
+          "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 issuer-hinted token puts the issuer in the redirect's token param and keys the hmac with the full token, while the redirect stays on the identity's own endpoint",
+      "name": "Stage 1 session key with every base64url character class (A-Z, a-z, 0-9, - and _) is accepted and keys the hmac",
       "call": "ping",
       "args": [
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": "issuer.example:aaaaaaaaaaaaaaaa"
+          "sessionKey": "AZaz09-_AZaz09-_AZaz09-_AZaz09-_AZaz09-_Aa0"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ&token=issuer.example:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ&token=:HMAC"
       }
     },
     {
-      "name": "Stage 1 SECURITY: an issuer hint no include grant covers is carried through unchanged - no grant is read at issue, and the secret half never appears in the redirect",
+      "name": "Stage 1 SECURITY: the session key never appears in the redirect - only the hmac over the challenge does",
       "call": "ping",
       "args": [
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": "unrelated.example:aaaaaaaaaaaaaaaa"
+          "sessionKey": "NeverInTheRedirectNeverInTheRedirectNever00"
         }
       ],
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ&token=unrelated.example:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ&token=:HMAC"
       }
     },
     {
-      "name": "Stage 1 issuer-hinted token whose issuer publishes no triauth endpoint still builds a challenge - the Verifier never resolves the issuer",
+      "name": "Stage 1 null session key returns 226 - null counts as a missing session key",
       "call": "ping",
       "args": [
         {
           "identifier": "john@triauthdemo.org",
           "callbackUrl": "https://example.com/cb",
-          "token": "noendpoint.example:aaaaaaaaaaaaaaaa"
+          "sessionKey": null
         }
       ],
-      "random": "00112233445566778899aabbccddeeff00112233",
-      "dnsEntries": {
-        "noendpoint.example": {
-          "TXT": []
-        }
-      },
       "expected": {
-        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ&token=noendpoint.example:HMAC"
+        "error": {
+          "code": 226,
+          "message": "Invalid session key"
+        }
       }
     },
     {
@@ -3005,8 +3018,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;jane@triauthdemo.org;https://example.com/;v1;1777454675000;;;B9Z6yIy29TNAu7A4m3bp-Ikekak-yL7kHRU4eVPsYwxQP82OF5BwuvaMDC4hTTUPkvsHbPm1-qyTBzF-cyyZfw|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BN4386E8GyeR924NbTIVc6cf9hDNMAzTzMF7u582vXnus__M2v4PvwVC31ABTEM4F9tvTMCSt9jQLCfedoJkhBo.Nclqy89Tjgz5L7tse9csty1Mchgk7TSC0IcQLfjprIthdlnA7XeyxERkG-FUBsd9YZ7GiBmR03qzTCoxGuULqxA9ewxo6fAmt_u3Vo4PJsS15WCgdC-aJiqf0dOVbm06yOZDjqrh_N2JA46-dA-S-IA-KuSFtMSRhlGkZcdJGM5OyeQcvRljObB7jpzPkjTqFE-g8TdFC7JjlblNdBycp9gqlLMaZUByp3vwipvtQ8seFxEtUsYLZwFKiNFGbMI"
         }
       ],
       "dnsEntries": {
@@ -3055,8 +3068,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;jane@triauthdemo.org;https://example.com/;v1;1777454675000;;;B9Z6yIy29TNAu7A4m3bp-Ikekak-yL7kHRU4eVPsYwxQP82OF5BwuvaMDC4hTTUPkvsHbPm1-qyTBzF-cyyZfw|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BEN-qKS6gFqiIkZUoDRyDxnW9WmbWcIoy9dPwOo69ALb1omR3rr91hREG8w_Bpd1Gve6rkv8bNukO2eAjwHkwOk.8VFtUynRVrXrW2euCWbm4RYI8xlG4prLwiE99CHvJGzInlcMSh2-h-MIWsCGGllZHGg8-P5LDONEnDsM_9M6ecEncGe_onu8VvVTk3Y4iQmaMYdxXM6R1-NpiXhcm2cy3Zq2dnD33PTyj-vEDV4rOfgGYG9fv5yuVzUtY-_FLNXmm-JG8nuXN-Lv8wOSRI8QXdWFtYkQAcFbUYB5I6JlTzO97aXLM3DAcQEyL5H1YYGxD5yRhcCt38lud-YzkYA"
         }
       ],
       "dnsEntries": {
@@ -3105,8 +3118,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;jane@triauthdemo.org;https://example.com/;v1;1777454675000;;;B9Z6yIy29TNAu7A4m3bp-Ikekak-yL7kHRU4eVPsYwxQP82OF5BwuvaMDC4hTTUPkvsHbPm1-qyTBzF-cyyZfw|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BPQv5eqw_OD_Yx6zjKXkk1wZzbOMZIa5lcZJzCx6RIldpTDNQ6wsup3oz0ycJIPB6i8iLaocG8pDksjm_aE6hiI.JEJ_c40hARBxKeUoc1x7CGGK4c964fncdDnEYSh4IQGscORn0fXlJINqep0lI8AFn4R96lbzhOqEA0oqHPfOk9tZgec8G-zHWBKXHl4Z4a8nbDr46i9AloxTzaNSniYG96kPciKI2BjKzJmLVo0ofDcFB-jDpisGjS_G9Te1oJJkHZU2iGtABQMz8LVdZSuBDi-ZDT9T1kTL5jpCXDNOXm2x64hwBch1ONiVb_TL_whjDLdI_dO46YwLzhpDkSA"
         }
       ],
       "expected": {
@@ -3121,8 +3134,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;jane@triauthdemo.org;https://example.com/;v1;1777454675000;;;B9Z6yIy29TNAu7A4m3bp-Ikekak-yL7kHRU4eVPsYwxQP82OF5BwuvaMDC4hTTUPkvsHbPm1-qyTBzF-cyyZfw|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BC1nPJaN39D5r-RWzCgkMJ5O8rXMUJJXRFgB0xswj3PDAnivMxX4qQdfaxmiYnUMZdhPBYI-us6wXsKc3Uos6OE.4CbJpY2okRzgcLMJ6MQGoma4NATugUfASR5RutNnSS2ayM1lbZEZ0lDzWeyczJ6FISj7XQunK2MgPTFLymk4lbQpGQ09x_-Feqv06jhFiPb_XFllPjU14D8CX5WqWbwU_an7H6L19rnGxU6PTRGTmrVtRXozKR0ruJmUob9Ae8-za_0lmcKEexXzHzcSKjmoALItCzq3q-hTfixjXzs6J9GN_1pI_3CH9CG4o6yNk7ZugM8e4k5-4GI0eqibr-w"
         }
       ],
       "dnsEntries": {
@@ -3149,8 +3162,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;jane@triauthdemo.org;https://example.com/;v1;1777454675000;;;B9Z6yIy29TNAu7A4m3bp-Ikekak-yL7kHRU4eVPsYwxQP82OF5BwuvaMDC4hTTUPkvsHbPm1-qyTBzF-cyyZfw|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BLfjYiYcSDCDQ6z0lLAXqq9vfVnaCk9q5f_1Lx0qWo0gb7hb5AeQUWMCVWTI49dvTD8qd4HjspJbO9qnMRk-Td4.uQJ7LPyIfQ_qceS5XwESf5o0FxZVtyiW76m7QzcbUKUL3rmQe6DSQMxY8xzX3cBPWWGU9SAhTOvkRGeDEtQYNEH1hJGXiL-eoYCzNx3C6BPhbWHHmn6hBBz87VtQN-wvuh_B1SB5bXYni-pRKFmbIl3xrZcX5RdOqcoyBvlNosn4hCWO4_n8wxUWCJJtWAVvRa3BK58bwK6nhjrRHjDf7c77W0U-syQp2G0XvQorA3YODSp7DK5xFVvwfcy9KpA"
         }
       ],
       "dnsEntries": {
@@ -3177,8 +3190,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;jane@triauthdemo.org;https://example.com/;v1;1777454675000;;;B9Z6yIy29TNAu7A4m3bp-Ikekak-yL7kHRU4eVPsYwxQP82OF5BwuvaMDC4hTTUPkvsHbPm1-qyTBzF-cyyZfw|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BKVtO5hde2V4VxpayDQ7zq7G3Ts4rwjKodQQcX_STE6-MivkhU6HMHE3ljOEhWxRf--r9mqqTc0N2J-KBsDKOCA.V8oszurj2pxLTISAmh1BCAGYKDCjr86P1m08SFM-UjAcDrxBK8HcaNZ5F-INVxVi2-yRp2S5pK_xqMqLM6KzBrLIES0aH2WAtusXbp51gz1v25lCIkTGyIHnEzo_hpBZ-yTjzNfaEx3cZ_Nqu7LRwDH5txXTh2c7F8z54RiLY8uMWIMNiv_27AQrVR7m4rzkNayKBZQ0RzosL7-LXU_nRcToQWf00xVDRkcyt-xyurmb5mot7K9TGbPTgzTJQ8I"
         }
       ],
       "dnsEntries": {
@@ -3227,8 +3240,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;jane@triauthdemo.org;https://example.com/;v1;1777454675000;;;B9Z6yIy29TNAu7A4m3bp-Ikekak-yL7kHRU4eVPsYwxQP82OF5BwuvaMDC4hTTUPkvsHbPm1-qyTBzF-cyyZfw|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BDSYmcXGycTYl-WqveS--Fl4Gvueoc65000fvLlGK-biLcV8JGmQ3otRclKqfJyKlQ37FcqvfJQZKVceJ2AwsYY.0dv-aERigRNrf2jAzR8L1OZhsrzngjRjf4Cs7L2IKHSM1v0s7OE6LyTPT0MreA7xXH8K9G9nCA4achFweZzMN9fn-uN9gjL8s1xf05yyVAOCqoVKL-FGDE_lIFhdlXyQiBUSNtUqOOPbISgc4bZ3s6jmikKUJ2wJ0Ul7cmzkB7dboLClTYBlsYFU8n6rKTkp3CF3Rx1c-2ZuU3Xl482IWuyjJA7ZkqNvTYaR_okExjrP6zCN3Uh321fKPr3JD8g"
         }
       ],
       "dnsEntries": {
@@ -3255,8 +3268,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;jane@triauthdemo.org;https://example.com/;v1;1777454675000;;;B9Z6yIy29TNAu7A4m3bp-Ikekak-yL7kHRU4eVPsYwxQP82OF5BwuvaMDC4hTTUPkvsHbPm1-qyTBzF-cyyZfw|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BAjegKLP24SLdayqKbK847kOs_3R85Ec6xnxg9MTeyLqvSdjcPrF7Rinvx6_giJasJm2jeqkCRbSR4mPtPTduag.c4wC2LwSOmbcbggSnps7-xcJ9jGGpkNPNPgt0RISnaOBJ4dN0zrKLVkDDWLy0GFczT68k6_XP84yF2-WChESXA3jq1Wm31JDXFU24yiPKCM0g78xoaClNmw6ljGokGXGT4_NRMbHw9ZIpQHwQxie3gSnMg6k20F4NtJXzT2NA0CjSAmvlB3fmJwSnCvLqRiKikgbRhNVur2eUA5WMSLRn8hSCFzTzI1Jy1Vn4dRuBgUwTVf-I_0Hkf5a3kVV6ow"
         }
       ],
       "dnsEntries": {
@@ -3305,8 +3318,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;jane@triauthdemo.org;https://example.com/;v1;1777454675000;;;B9Z6yIy29TNAu7A4m3bp-Ikekak-yL7kHRU4eVPsYwxQP82OF5BwuvaMDC4hTTUPkvsHbPm1-qyTBzF-cyyZfw|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BOQcEWLxgdjuBQNfTW-GGQFq5CeUgpcoIQYeUiaI5SJ1DjFaBLIq557AYHVT5Yx74u_fA0rdauuP0McsXT6DJ20.K0sG-iWirYK8ae-HiCkDB2xVXeTij9EYU22tM75-gtlftgSq9g29Q7CaZR5tmc6LPfwo3FskU1CDs64T0jyP0WQKkx-u7oSqb0MUihRiwlUl2YzcB3QC9hG83dXh-zaDns2U29GGE1_1khB2osPf2O2Qv-gWvqMpwOjj5OInq9-FpXOPW7r-N33dAfyhkbAVaPmI2sI51krnH9ICeI59spc6_S9gS5BDir6_nLfegcNmTACNkVco5tTw_z4GLos"
         }
       ],
       "dnsEntries": {
@@ -3333,8 +3346,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;jane@triauthdemo.org;https://example.com/;v1;1777454675000;;;B9Z6yIy29TNAu7A4m3bp-Ikekak-yL7kHRU4eVPsYwxQP82OF5BwuvaMDC4hTTUPkvsHbPm1-qyTBzF-cyyZfw|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BKM8Unobo-iJRY-C30vWV2p6A2C81IubiztJXQiWr89dNBl_vq9LPsfT0LJM7kWRZXtb1nucjjYGB2k9M5u80Uc.ymNReQEzedzLY-bA0Vy0mdhaBtWGq_IF6cowSWrFIaJ32tF4jKNx9E5aEqZmnSTbduC_iz8wjJQ8k0lKV2lz2jjehlywKDmJpepCDN1CyrbYr9GZFQUVedjC3I5U8cPuJAi_51lzsGPoephiI5nLi9cwGAa3q-6blZUCVwGv6Wd4seCcaOXRVN-3fD46SuKGHZmJaImCNxJcFmT4vaaNqChNIMUjvVU-1RXFbG5t6TBvm3uuo3SaJ8BT6nw1rqU"
         }
       ],
       "dnsEntries": {
@@ -3361,8 +3374,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;jane_x@triauthdemo.org;https://example.com/;v1;1777454675000;;;AAAA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BKKsacCp9Nz31lJRMej203A6wJOANoqrq7k6G_T2cTM6ZaRKiEt8MOT3JRL3lFpKygdkF5zoE2oIfFfcVs21jC4.8J_K3sQ274TubmGL3PIy009ov_ro8U0XZuF9-L30ymwblkcLZes0s6U2SLsLWN-E6ETrPhStvr8B_nH7usUKMQ4V7XzRNNWvo46z13s17xpacz-b0YY-xyjNiSVcC7aKUCmhn9u6gRh-ho4E5HX-"
         }
       ],
       "expected": {
@@ -3377,8 +3390,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|",
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BDto84FNP6MEpBW_GddBAGemRc1jnfk3oaPh5d8HlNNT6_sBu7feTJik8RUPfPqK1940J0Lgqg6kouAW8qX6Mhg.Wckk8FC1bS9vkmgQ7Wh-19Azb5MUzp0oc6mNdvh9WKdk6hk36XIb_qnzNkf0uL_OtjcuXmlD5yseo_SjIZopqSe4nOJRAYNn55fpmClVVHeanpvoMVR3jiIkR6n5XH7fZDsEoqry1qo8bhCGGtgqHBeutXp1dE07XTW8V3IuFg0zIqRELkoNlWNXBwdZxo_lmEf3PaYT395HtgmNrIO03nEXu3VpT8kja9sb",
           "identifier": ""
         }
       ],
@@ -3394,8 +3407,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|",
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BGd6Ie6xbKtENanfiVh0KPyAtav9Rc8aSlwag9tONw1QOzvo_pdlg_TnnoDlMNYfJqihQf6G7RKYX5XpKcjABCw.E9kLDQAFXFGFu_2q9ggdy-si5BlPyOMfMl4ftWfXTaI4GNGdgMaEcYWlQeUziyRkqBmsi-qJ9AvxbDCeNAunJNKfYymbNBnfdGDm1r4nNWWa8zQqBZ8QjLnRdonxwQ7gbjl6ggIHHj0eShb1QU_v4JSyN6VnRhsLHOIQAmmcp85m18nMGnPCVOGBotGylAM4H2_4u-6TW0XvzL96ol4EWkuiuP-sU_v-TQ77",
           "callbackUrl": ""
         }
       ],
@@ -3411,8 +3424,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;BldfWScnDvvS3DAkoui0RznXdGpIbpdIhzsIx1QlTKSJowsgLXnaaTAZDmxF7iGSAhQljh0iAInF7AakoGNEcA|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BOFZ6eIxC5KtY-e5zSbFs_Wrw5OZCuR392o7StPrdc5Bo0yJUo6ODJtOQfSY-lC8g_Cs0QFeW6KakJ_7QT5dtjc.u_uFBhQ1OWGQ9dCbnNmkLRyzHwSjZY1PTpQolTa8Tix5KrGZxfMN02-ekxxZ6rSWOwmY5YMLFYb-j1ydY6r8i2awenzvUHdC47r8NH8cdDEjfK1mP17SorGZjd5Y61TIWJfXUcPeKGUxMcT_ddZOIQ6PjAtC3DMygGMhQ6vMiRQx61LaaOAkQbgoczdlAxvKGsPUL-aoUupvDssVD3uwDkvPazQziyjkWdds"
         }
       ],
       "dnsEntries": {
@@ -3462,8 +3475,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
-          "response": "|ping;john@triauthdemo.org;jane@triauthdemo.org;https://example.com/;v1;1777454675000;;;B9Z6yIy29TNAu7A4m3bp-Ikekak-yL7kHRU4eVPsYwxQP82OF5BwuvaMDC4hTTUPkvsHbPm1-qyTBzF-cyyZfw|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BIw7f3RqPu3dhhnyseuCGCzyRzGrbYUvCW1JoY0rl_zXRugh-AUscMcjl36T0PQwu0HzG3G9LCOVXRf8VivHyqc.pFE_MGFbBgWTO16AUNC7NR29X3FEcPP-QaMlFtxzoQc4U-L2JMZRSJCPMXljUdJMO5Qqzv0RWzclGlj3WVRx-hxA0ECRh5Zl2mWuuRfUSWEvhpvgifBBdUJX4dn1-FBV_qejkKbi4-n68PuC1kN1IDM5HpRps8EzG-yZWogG0n5SJbwIWieEg9KpiwUetSEe-5w2Hxc91AvvDzfVQ0G0JsrzTN2lwAVHeyMuK4AhyZpiqQetMQSPLKaXUU2bG3Y"
         }
       ],
       "dnsEntries": {
@@ -3516,8 +3529,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkI0UEFVWXFXREgzNXBOOHhGbU1vS2Z0ZnkxbXk2M3pMM3lBYWRRUHBST3JyWXp2YzViSGhnVEF6RlV4ZkRWR0FxMFBPZURFalU1U2I3OFQ1cjdZRjBRIn0.nOumtZled45-hiNRo_8fLsYr6OAHMwrW1zQJ3X1P5Gg",
-          "response": "BLzQroFiuRO1pkhYOE-SzUn5sBPhrI-TYy9XmADT__n957VEkehL9vXdCd0SQAdDBZYkU8X42Z62GWMAvrvjh-E.ixzfttzr5EWIsdJRsqvRzHLuwG03xEucZBFk0vLEsfv6Q-dVCsUNN7BQ5ImsrC48DoFGZ8Dn4VcbMj15VZkTSECtw9tA1WtFSosFQc6nXcamkvoCxwK1REpTcb8oBvY4D49xr4loYJFXVlEYT0TYGixUb9N9SlD8vW3iDdYI5lwRRsfHFGeFawke8yyH-sI1fV0e85JEgHiWKSx-MDP0F4amacGZT4DScv7a"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQk1MV2xqWXNpMmQyQ1BGVi1ZdDdzUldwWmV3a3BIRUV0TmRORkVZTlJsam5aU3h6UDBJVzlqT1Y5YWoydUZfemR0REhfSUxlNjU5VnRpeUxUbVA0c3ZnIn0.27TReWxFhYQNd6DgASrdYY_JvzZKWYC8268NQh7N7a8",
+          "response": "BJBqAwtV37Pyp1Fw0jqEnfnCm8iRWUFtPCFJzD3uh-E30gHrxU-RQlSDv3u9ZkGejcdbv-8PtEMfALhfE_sIIgc.SCk8gUX0LkpGiDpv-tuQNr5KU2YtzytJAQnR2pmRfOkmNHXZZSV6yGBv1u86DrJoWQpt_70gQ0avpqBGAQ6ONrI8Jb879BXR_y2wTmNBghFYZwz8KMIIM7783Ol7C10YOPGpItVV-Yl-VQ3pTBPuJb8lCL-CmMnH-yFgnQOijXZIv7L_CVhdb79LQmDFgwq66tqdUGei7yOuCiWKwa8e6T3nqL9wozlcPU1a"
         }
       ],
       "expected": {
@@ -3554,8 +3567,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkI0UEFVWXFXREgzNXBOOHhGbU1vS2Z0ZnkxbXk2M3pMM3lBYWRRUHBST3JyWXp2YzViSGhnVEF6RlV4ZkRWR0FxMFBPZURFalU1U2I3OFQ1cjdZRjBRIn0.nOumtZled45-hiNRo_8fLsYr6OAHMwrW1zQJ3X1P5Gg",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;G3h9mnKCwTWLJwD6k-DBhofWMZ-bcNtCHwRwZUrJNaXIJHCLAXHvB6RuqBYA65ut6AM6hNhBmzy3MnOL-0fW2A|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQk1MV2xqWXNpMmQyQ1BGVi1ZdDdzUldwWmV3a3BIRUV0TmRORkVZTlJsam5aU3h6UDBJVzlqT1Y5YWoydUZfemR0REhfSUxlNjU5VnRpeUxUbVA0c3ZnIn0.27TReWxFhYQNd6DgASrdYY_JvzZKWYC8268NQh7N7a8",
+          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;PsHd4hD3cIlLBNHySL_T5XKoRi1ARbs7If07RUayAcXlPJtBa2ksNhe7f0h18PobeiCOYr3lAeFL6bTwkcyHpg|"
         }
       ],
       "expected": {
@@ -3570,8 +3583,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkI0UEFVWXFXREgzNXBOOHhGbU1vS2Z0ZnkxbXk2M3pMM3lBYWRRUHBST3JyWXp2YzViSGhnVEF6RlV4ZkRWR0FxMFBPZURFalU1U2I3OFQ1cjdZRjBRIn0",
-          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;G3h9mnKCwTWLJwD6k-DBhofWMZ-bcNtCHwRwZUrJNaXIJHCLAXHvB6RuqBYA65ut6AM6hNhBmzy3MnOL-0fW2A|"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQk1MV2xqWXNpMmQyQ1BGVi1ZdDdzUldwWmV3a3BIRUV0TmRORkVZTlJsam5aU3h6UDBJVzlqT1Y5YWoydUZfemR0REhfSUxlNjU5VnRpeUxUbVA0c3ZnIn0",
+          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;PsHd4hD3cIlLBNHySL_T5XKoRi1ARbs7If07RUayAcXlPJtBa2ksNhe7f0h18PobeiCOYr3lAeFL6bTwkcyHpg|"
         }
       ],
       "expected": {
@@ -3586,8 +3599,24 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9.nOumtZled45-hiNRo_8fLsYr6OAHMwrW1zQJ3X1P5Gg",
-          "response": "BLzQroFiuRO1pkhYOE-SzUn5sBPhrI-TYy9XmADT__n957VEkehL9vXdCd0SQAdDBZYkU8X42Z62GWMAvrvjh-E.ixzfttzr5EWIsdJRsqvRzHLuwG03xEucZBFk0vLEsfv6Q-dVCsUNN7BQ5ImsrC48DoFGZ8Dn4VcbMj15VZkTSECtw9tA1WtFSosFQc6nXcamkvoCxwK1REpTcb8oBvY4D49xr4loYJFXVlEYT0TYGixUb9N9SlD8vW3iDdYI5lwRRsfHFGeFawke8yyH-sI1fV0e85JEgHiWKSx-MDP0F4amacGZT4DScv7a"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9.27TReWxFhYQNd6DgASrdYY_JvzZKWYC8268NQh7N7a8",
+          "response": "BJBqAwtV37Pyp1Fw0jqEnfnCm8iRWUFtPCFJzD3uh-E30gHrxU-RQlSDv3u9ZkGejcdbv-8PtEMfALhfE_sIIgc.SCk8gUX0LkpGiDpv-tuQNr5KU2YtzytJAQnR2pmRfOkmNHXZZSV6yGBv1u86DrJoWQpt_70gQ0avpqBGAQ6ONrI8Jb879BXR_y2wTmNBghFYZwz8KMIIM7783Ol7C10YOPGpItVV-Yl-VQ3pTBPuJb8lCL-CmMnH-yFgnQOijXZIv7L_CVhdb79LQmDFgwq66tqdUGei7yOuCiWKwa8e6T3nqL9wozlcPU1a"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 223,
+          "message": "Invalid challenge"
+        }
+      }
+    },
+    {
+      "name": "Stage 3 SEALED challenge without ek or decryption key returns 223, even with the plain envelope signed for it (every response is sealed)",
+      "call": "ping",
+      "args": [
+        {
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9",
+          "response": "|ping;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;TQP6W7BoCmNbHAoaPhkrUdPQ2bWRCSoQE_xtwsi5ozz5zcSwMvfYVmzN6L4VdXqi5OJZelPPE3fruqguNDamTQ|"
         }
       ],
       "expected": {
@@ -3602,8 +3631,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkI0UEFVWXFXREgzNXBOOHhGbU1vS2Z0ZnkxbXk2M3pMM3lBYWRRUHBST3JyWXp2YzViSGhnVEF6RlV4ZkRWR0FxMFBPZURFalU1U2I3OFQ1cjdZRjBRIn0.OumtZled45-hiNRo_8fLsYr6OAHMwrW1zQJ3X1P5Gg",
-          "response": "BLzQroFiuRO1pkhYOE-SzUn5sBPhrI-TYy9XmADT__n957VEkehL9vXdCd0SQAdDBZYkU8X42Z62GWMAvrvjh-E.ixzfttzr5EWIsdJRsqvRzHLuwG03xEucZBFk0vLEsfv6Q-dVCsUNN7BQ5ImsrC48DoFGZ8Dn4VcbMj15VZkTSECtw9tA1WtFSosFQc6nXcamkvoCxwK1REpTcb8oBvY4D49xr4loYJFXVlEYT0TYGixUb9N9SlD8vW3iDdYI5lwRRsfHFGeFawke8yyH-sI1fV0e85JEgHiWKSx-MDP0F4amacGZT4DScv7a"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQk1MV2xqWXNpMmQyQ1BGVi1ZdDdzUldwWmV3a3BIRUV0TmRORkVZTlJsam5aU3h6UDBJVzlqT1Y5YWoydUZfemR0REhfSUxlNjU5VnRpeUxUbVA0c3ZnIn0.7TReWxFhYQNd6DgASrdYY_JvzZKWYC8268NQh7N7a8",
+          "response": "BJBqAwtV37Pyp1Fw0jqEnfnCm8iRWUFtPCFJzD3uh-E30gHrxU-RQlSDv3u9ZkGejcdbv-8PtEMfALhfE_sIIgc.SCk8gUX0LkpGiDpv-tuQNr5KU2YtzytJAQnR2pmRfOkmNHXZZSV6yGBv1u86DrJoWQpt_70gQ0avpqBGAQ6ONrI8Jb879BXR_y2wTmNBghFYZwz8KMIIM7783Ol7C10YOPGpItVV-Yl-VQ3pTBPuJb8lCL-CmMnH-yFgnQOijXZIv7L_CVhdb79LQmDFgwq66tqdUGei7yOuCiWKwa8e6T3nqL9wozlcPU1a"
         }
       ],
       "expected": {
@@ -3618,8 +3647,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkgxR2dCV2VlbFFiTjVlSUpzZjFseFpYX3IwQU1hb3lFXzNFT0ZEN0ZmQTc0c2F5Ri1VUmYxS1VOa05UdTNDV1Rub3pUb1JsUUpoVzU4R0x5OGp0aC04In0.Qr1S6iCNP9dnRLrOKOO_3LIR4cC9_i3js2eKB_G3Eg4",
-          "response": "BLzQroFiuRO1pkhYOE-SzUn5sBPhrI-TYy9XmADT__n957VEkehL9vXdCd0SQAdDBZYkU8X42Z62GWMAvrvjh-E.ixzfttzr5EWIsdJRsqvRzHLuwG03xEucZBFk0vLEsfv6Q-dVCsUNN7BQ5ImsrC48DoFGZ8Dn4VcbMj15VZkTSECtw9tA1WtFSosFQc6nXcamkvoCxwK1REpTcb8oBvY4D49xr4loYJFXVlEYT0TYGixUb9N9SlD8vW3iDdYI5lwRRsfHFGeFawke8yyH-sI1fV0e85JEgHiWKSx-MDP0F4amacGZT4DScv7a"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkFzWHJMMEoyUlNVZlhHY1NJUzZNZ1c2M3FLcjZVSWtQZlQ5dGpQZFpLV0tTRjliVjFUNThxbk5OVUV6TlNSZDVJek82TkZ4cUs0WWFGWlM5NVRnb2FJIn0.qWHSRHskfb2L0sIBY-D408PDAUmcp9VzmFC6GFwXmS8",
+          "response": "BJBqAwtV37Pyp1Fw0jqEnfnCm8iRWUFtPCFJzD3uh-E30gHrxU-RQlSDv3u9ZkGejcdbv-8PtEMfALhfE_sIIgc.SCk8gUX0LkpGiDpv-tuQNr5KU2YtzytJAQnR2pmRfOkmNHXZZSV6yGBv1u86DrJoWQpt_70gQ0avpqBGAQ6ONrI8Jb879BXR_y2wTmNBghFYZwz8KMIIM7783Ol7C10YOPGpItVV-Yl-VQ3pTBPuJb8lCL-CmMnH-yFgnQOijXZIv7L_CVhdb79LQmDFgwq66tqdUGei7yOuCiWKwa8e6T3nqL9wozlcPU1a"
         }
       ],
       "expected": {
@@ -3634,8 +3663,8 @@
       "call": "ping",
       "args": [
         {
-          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkI0UEFVWXFXREgzNXBOOHhGbU1vS2Z0ZnkxbXk2M3pMM3lBYWRRUHBST3JyWXp2YzViSGhnVEF6RlV4ZkRWR0FxMFBPZURFalU1U2I3OFQ1cjdZRjBRIn0.nOumtZled45-hiNRo_8fLsYr6OAHMwrW1zQJ3X1P5Gg",
-          "response": "BLzQroFiuRO1pkhYOE-SzUn5sBPhrI-TYy9XmADT__n957VEkehL9vXdCd0SQAdDBZYkU8X42Z62GWMAvrvjh-E.ixzfttzr5EWIsdJRsqvRzHLuwG03xEucZBFk0vLEsfv6Q-dVCsUNN7BQ5ImsrC48DoFGZ8Dn4VcbMj15VZkTSECtw9tA1WtFSosFQc6nXcamkvoCxwK1REpTcb8oBvY4D49xr4loYJFXVlEYT0TYGixUb9N9SlD8vW3iDdYI5lwRRsfHFGeFawke8yyH-sI1fV0e85JEgHiWKSx-MDP0F4amacGZT4DAcv7a"
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQk1MV2xqWXNpMmQyQ1BGVi1ZdDdzUldwWmV3a3BIRUV0TmRORkVZTlJsam5aU3h6UDBJVzlqT1Y5YWoydUZfemR0REhfSUxlNjU5VnRpeUxUbVA0c3ZnIn0.27TReWxFhYQNd6DgASrdYY_JvzZKWYC8268NQh7N7a8",
+          "response": "BJBqAwtV37Pyp1Fw0jqEnfnCm8iRWUFtPCFJzD3uh-E30gHrxU-RQlSDv3u9ZkGejcdbv-8PtEMfALhfE_sIIgc.SCk8gUX0LkpGiDpv-tuQNr5KU2YtzytJAQnR2pmRfOkmNHXZZSV6yGBv1u86DrJoWQpt_70gQ0avpqBGAQ6ONrI8Jb879BXR_y2wTmNBghFYZwz8KMIIM7783Ol7C10YOPGpItVV-Yl-VQ3pTBPuJb8lCL-CmMnH-yFgnQOijXZIv7L_CVhdb79LQmDFgwq66tqdUGei7yOuCiWKwa8e6T3nqL9wozlAPU1a"
         }
       ],
       "expected": {

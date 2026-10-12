@@ -721,7 +721,7 @@ export class Helpers {
    * Computes the HMAC-SHA-256 of a message under a key.
    *
    * Keys the private-mode identity-domain derivation (`Triauth.IdentityDomain.deriveFullLabel`) and
-   * binds the redirect token of the challenge-response flows to the challenge.
+   * binds the challenge of a flow that follows a sign-in to its session key.
    *
    * @param key {Uint8Array} - The key bytes.
    * @param message {Uint8Array} - The message bytes.
