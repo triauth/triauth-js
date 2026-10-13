@@ -88,9 +88,10 @@ report — only after eyeballing it; the `git diff` of the suite is the final re
   base64url (public keys, deviceTag).
 - **Stage-1 keys are masked**: stage 1 mints a fresh key pair for every challenge, so a successful
   Stage-1 `expected` carries placeholders. `challenge` is `<c>.DK`, `<c>` decodes to JSON with
-  `"ek":"EK"`, and the `redirectUrl` of ping, sign, stamp and attest ends in `token=:HMAC`. The
-  runner checks the key pair, and the HMAC under the case's `sessionKey`, then masks them (rule in
-  the `test/test_json.js` header).
+  `"ek":"EK"`, and the `redirectUrl` of ping, sign, stamp and attest ends in
+  `skid=<skid>&request=REQUEST`. The runner checks the key pair, the `skid` of the case's
+  `sessionKey`, and that the request opens under that key to the challenge, then masks them (rule
+  in the `test/test_json.js` header).
 - **Every Stage 3 case is sealed**: as an application stores it, the challenge is
   `<challenge>.<decryptionKey>` and the response is sealed to the challenge's `ek` (a `false`
   denial stays plain). The suites use one fixed key pair, `SEAL` in `_capture_common.mjs`, so

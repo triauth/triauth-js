@@ -1,6 +1,6 @@
 {
   "title": "sign",
-  "description": "Comprehensive, branch-complete coverage of Triauth.sign. Stage 1 (request): dispatch/arg guards, identifier/callbackUrl/ext/sessionKey validation, the SIGN-DISTINCT message (227) and attachments (228) validation done in onChallenge, DNS configuration (301/302) and DNS failure (110), and deterministic challenge + /sign.html redirect building (with msg + attachments baked in, and the session key HMAC). Stage 3 (verify): challenge/response validation, dispatch constraints (401/403), signature-envelope parse failures (225), generic verification failures (401), the IdentityKeys add/verify branches reached via the verify path, the 30min signTimeout window (402), metadata parse rejections (225), and the heart of sign — attachment matching (signedMetadata.attachments must pass validateAttachments AND match the challenge by name+sha256) plus the {signed:true, result, verificationResult} body. For sign, the crypto signature is over the msg string and signedMetadata is part of the signed payload; crypto-bearing fixtures were minted by test/fixtures/json/_capture_sign.mjs (WebCrypto ECDSA is non-deterministic to mint, deterministic to verify). A final Ed25519 section covers the type=ed25519 and type=webauthn-ed25519 verifier backends (positives plus crypto/key-material/uv-taint negatives). PRIVATE-mode cases cover stage-1 issue without the existence pre-check and stage-3 verification with the lookup code in signed-metadata (the ~lookupCode-suffixed deviceTag in verificationResult).",
+  "description": "Comprehensive, branch-complete coverage of Triauth.sign. Stage 1 (request): dispatch/arg guards, identifier/callbackUrl/ext/sessionKey validation, the SIGN-DISTINCT message (227) and attachments (228) validation done in onChallenge, DNS configuration (301/302) and DNS failure (110), and deterministic challenge + /sign.html redirect building (with msg + attachments baked in, and the request sealed under the session key). Stage 3 (verify): challenge/response validation, dispatch constraints (401/403), signature-envelope parse failures (225), generic verification failures (401), the IdentityKeys add/verify branches reached via the verify path, the 30min signTimeout window (402), metadata parse rejections (225), and the heart of sign — attachment matching (signedMetadata.attachments must pass validateAttachments AND match the challenge by name+sha256) plus the {signed:true, result, verificationResult} body. For sign, the crypto signature is over the msg string and signedMetadata is part of the signed payload; crypto-bearing fixtures were minted by test/fixtures/json/_capture_sign.mjs (WebCrypto ECDSA is non-deterministic to mint, deterministic to verify). A final Ed25519 section covers the type=ed25519 and type=webauthn-ed25519 verifier backends (positives plus crypto/key-material/uv-taint negatives). PRIVATE-mode cases cover stage-1 issue without the existence pre-check and stage-3 verification with the lookup code in signed-metadata (the ~lookupCode-suffixed deviceTag in verificationResult).",
   "dnsEntries": {
     "triauthdemo.org": {
       "TXT": [
@@ -820,7 +820,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOlt7Im5hbWUiOiJMaWNlbnNlLnR4dCIsInNvdXJjZVVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vbGljZW5zZS50eHQ_WC1BbXotU2lnbmF0dXJlPWFiYyIsInNoYTI1NiI6ImQ4YTZjYzMxYWJjMTZiNjc0OGM3YTIxZjIxNjExZjVhMWVjMzNmNjdkMjJjYTIzZDdkYTFjMTliOTU0OTZiZWUifV19.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOlt7Im5hbWUiOiJMaWNlbnNlLnR4dCIsInNvdXJjZVVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vbGljZW5zZS50eHQ_WC1BbXotU2lnbmF0dXJlPWFiYyIsInNoYTI1NiI6ImQ4YTZjYzMxYWJjMTZiNjc0OGM3YTIxZjIxNjExZjVhMWVjMzNmNjdkMjJjYTIzZDdkYTFjMTliOTU0OTZiZWUifV19&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -844,7 +844,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOlt7Im5hbWUiOiJMaWNlbnNlLnR4dCIsInNvdXJjZVVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vbGljZW5zZS50eHQjdjIiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn1dfQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOlt7Im5hbWUiOiJMaWNlbnNlLnR4dCIsInNvdXJjZVVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vbGljZW5zZS50eHQjdjIiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn1dfQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -893,7 +893,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOlt7Im5hbWUiOiJMaWNlbnNlLnR4dCIsInNvdXJjZVVybCI6Imh0dHA6Ly9pbnNlY3VyZS5leGFtcGxlL2YudHh0Iiwic2hhMjU2IjoiZDhhNmNjMzFhYmMxNmI2NzQ4YzdhMjFmMjE2MTFmNWExZWMzM2Y2N2QyMmNhMjNkN2RhMWMxOWI5NTQ5NmJlZSJ9XX0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOlt7Im5hbWUiOiJMaWNlbnNlLnR4dCIsInNvdXJjZVVybCI6Imh0dHA6Ly9pbnNlY3VyZS5leGFtcGxlL2YudHh0Iiwic2hhMjU2IjoiZDhhNmNjMzFhYmMxNmI2NzQ4YzdhMjFmMjE2MTFmNWExZWMzM2Y2N2QyMmNhMjNkN2RhMWMxOWI5NTQ5NmJlZSJ9XX0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -917,7 +917,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHA6Ly8xMC4wLjAuNTo4MDgwL2NiIiwidHlwZSI6InNpZ24iLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiUGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgVGVybXMgb2YgU2VydmljZSIsImF0dGFjaG1lbnRzIjpbeyJuYW1lIjoiTGljZW5zZS50eHQiLCJzb3VyY2VVcmwiOiJodHRwOi8vMTAuMC4wLjU6ODA4MC9saWNlbnNlLnR4dCIsInNoYTI1NiI6ImQ4YTZjYzMxYWJjMTZiNjc0OGM3YTIxZjIxNjExZjVhMWVjMzNmNjdkMjJjYTIzZDdkYTFjMTliOTU0OTZiZWUifV19.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHA6Ly8xMC4wLjAuNTo4MDgwL2NiIiwidHlwZSI6InNpZ24iLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiUGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgVGVybXMgb2YgU2VydmljZSIsImF0dGFjaG1lbnRzIjpbeyJuYW1lIjoiTGljZW5zZS50eHQiLCJzb3VyY2VVcmwiOiJodHRwOi8vMTAuMC4wLjU6ODA4MC9saWNlbnNlLnR4dCIsInNoYTI1NiI6ImQ4YTZjYzMxYWJjMTZiNjc0OGM3YTIxZjIxNjExZjVhMWVjMzNmNjdkMjJjYTIzZDdkYTFjMTliOTU0OTZiZWUifV19&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -941,7 +941,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHA6Ly8xMC4wLjAuNTo4MDgwL2NiIiwidHlwZSI6InNpZ24iLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiUGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgVGVybXMgb2YgU2VydmljZSIsImF0dGFjaG1lbnRzIjpbeyJuYW1lIjoiTGljZW5zZS50eHQiLCJzb3VyY2VVcmwiOiJodHRwOi8vMTkyLjE2OC4wLjk5L2YudHh0Iiwic2hhMjU2IjoiZDhhNmNjMzFhYmMxNmI2NzQ4YzdhMjFmMjE2MTFmNWExZWMzM2Y2N2QyMmNhMjNkN2RhMWMxOWI5NTQ5NmJlZSJ9XX0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHA6Ly8xMC4wLjAuNTo4MDgwL2NiIiwidHlwZSI6InNpZ24iLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiUGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgVGVybXMgb2YgU2VydmljZSIsImF0dGFjaG1lbnRzIjpbeyJuYW1lIjoiTGljZW5zZS50eHQiLCJzb3VyY2VVcmwiOiJodHRwOi8vMTkyLjE2OC4wLjk5L2YudHh0Iiwic2hhMjU2IjoiZDhhNmNjMzFhYmMxNmI2NzQ4YzdhMjFmMjE2MTFmNWExZWMzM2Y2N2QyMmNhMjNkN2RhMWMxOWI5NTQ5NmJlZSJ9XX0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -965,7 +965,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHA6Ly8xMC4wLjAuNTo4MDgwL2NiIiwidHlwZSI6InNpZ24iLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiUGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgVGVybXMgb2YgU2VydmljZSIsImF0dGFjaG1lbnRzIjpbeyJuYW1lIjoiTGljZW5zZS50eHQiLCJzb3VyY2VVcmwiOiJodHRwczovL2Nkbi5leGFtcGxlLm5ldC9saWNlbnNlLnR4dCIsInNoYTI1NiI6ImQ4YTZjYzMxYWJjMTZiNjc0OGM3YTIxZjIxNjExZjVhMWVjMzNmNjdkMjJjYTIzZDdkYTFjMTliOTU0OTZiZWUifV19.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHA6Ly8xMC4wLjAuNTo4MDgwL2NiIiwidHlwZSI6InNpZ24iLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiUGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgVGVybXMgb2YgU2VydmljZSIsImF0dGFjaG1lbnRzIjpbeyJuYW1lIjoiTGljZW5zZS50eHQiLCJzb3VyY2VVcmwiOiJodHRwczovL2Nkbi5leGFtcGxlLm5ldC9saWNlbnNlLnR4dCIsInNoYTI1NiI6ImQ4YTZjYzMxYWJjMTZiNjc0OGM3YTIxZjIxNjExZjVhMWVjMzNmNjdkMjJjYTIzZDdkYTFjMTliOTU0OTZiZWUifV19&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -989,7 +989,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOlt7Im5hbWUiOiJMaWNlbnNlLnR4dCIsInNvdXJjZVVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vbGljZW5zZS50eHQ_dj0xO3NpZz1hYmMiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn1dfQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOlt7Im5hbWUiOiJMaWNlbnNlLnR4dCIsInNvdXJjZVVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vbGljZW5zZS50eHQ_dj0xO3NpZz1hYmMiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn1dfQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1212,7 +1212,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSIsImF0dGFjaG1lbnRzIjpbXX0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSIsImF0dGFjaG1lbnRzIjpbXX0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1281,11 +1281,11 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOlt7Im5hbWUiOiJmMCIsInNvdXJjZVVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vZjAudHh0Iiwic2hhMjU2IjoiZDhhNmNjMzFhYmMxNmI2NzQ4YzdhMjFmMjE2MTFmNWExZWMzM2Y2N2QyMmNhMjNkN2RhMWMxOWI5NTQ5NmJlZSJ9LHsibmFtZSI6ImYxIiwic291cmNlVXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9mMS50eHQiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn0seyJuYW1lIjoiZjIiLCJzb3VyY2VVcmwiOiJodHRwczovL2V4YW1wbGUuY29tL2YyLnR4dCIsInNoYTI1NiI6ImQ4YTZjYzMxYWJjMTZiNjc0OGM3YTIxZjIxNjExZjVhMWVjMzNmNjdkMjJjYTIzZDdkYTFjMTliOTU0OTZiZWUifSx7Im5hbWUiOiJmMyIsInNvdXJjZVVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vZjMudHh0Iiwic2hhMjU2IjoiZDhhNmNjMzFhYmMxNmI2NzQ4YzdhMjFmMjE2MTFmNWExZWMzM2Y2N2QyMmNhMjNkN2RhMWMxOWI5NTQ5NmJlZSJ9LHsibmFtZSI6ImY0Iiwic291cmNlVXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9mNC50eHQiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn0seyJuYW1lIjoiZjUiLCJzb3VyY2VVcmwiOiJodHRwczovL2V4YW1wbGUuY29tL2Y1LnR4dCIsInNoYTI1NiI6ImQ4YTZjYzMxYWJjMTZiNjc0OGM3YTIxZjIxNjExZjVhMWVjMzNmNjdkMjJjYTIzZDdkYTFjMTliOTU0OTZiZWUifSx7Im5hbWUiOiJmNiIsInNvdXJjZVVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vZjYudHh0Iiwic2hhMjU2IjoiZDhhNmNjMzFhYmMxNmI2NzQ4YzdhMjFmMjE2MTFmNWExZWMzM2Y2N2QyMmNhMjNkN2RhMWMxOWI5NTQ5NmJlZSJ9LHsibmFtZSI6ImY3Iiwic291cmNlVXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9mNy50eHQiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn0seyJuYW1lIjoiZjgiLCJzb3VyY2VVcmwiOiJodHRwczovL2V4YW1wbGUuY29tL2Y4LnR4dCIsInNoYTI1NiI6ImQ4YTZjYzMxYWJjMTZiNjc0OGM3YTIxZjIxNjExZjVhMWVjMzNmNjdkMjJjYTIzZDdkYTFjMTliOTU0OTZiZWUifSx7Im5hbWUiOiJmOSIsInNvdXJjZVVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vZjkudHh0Iiwic2hhMjU2IjoiZDhhNmNjMzFhYmMxNmI2NzQ4YzdhMjFmMjE2MTFmNWExZWMzM2Y2N2QyMmNhMjNkN2RhMWMxOWI5NTQ5NmJlZSJ9XX0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOlt7Im5hbWUiOiJmMCIsInNvdXJjZVVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vZjAudHh0Iiwic2hhMjU2IjoiZDhhNmNjMzFhYmMxNmI2NzQ4YzdhMjFmMjE2MTFmNWExZWMzM2Y2N2QyMmNhMjNkN2RhMWMxOWI5NTQ5NmJlZSJ9LHsibmFtZSI6ImYxIiwic291cmNlVXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9mMS50eHQiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn0seyJuYW1lIjoiZjIiLCJzb3VyY2VVcmwiOiJodHRwczovL2V4YW1wbGUuY29tL2YyLnR4dCIsInNoYTI1NiI6ImQ4YTZjYzMxYWJjMTZiNjc0OGM3YTIxZjIxNjExZjVhMWVjMzNmNjdkMjJjYTIzZDdkYTFjMTliOTU0OTZiZWUifSx7Im5hbWUiOiJmMyIsInNvdXJjZVVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vZjMudHh0Iiwic2hhMjU2IjoiZDhhNmNjMzFhYmMxNmI2NzQ4YzdhMjFmMjE2MTFmNWExZWMzM2Y2N2QyMmNhMjNkN2RhMWMxOWI5NTQ5NmJlZSJ9LHsibmFtZSI6ImY0Iiwic291cmNlVXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9mNC50eHQiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn0seyJuYW1lIjoiZjUiLCJzb3VyY2VVcmwiOiJodHRwczovL2V4YW1wbGUuY29tL2Y1LnR4dCIsInNoYTI1NiI6ImQ4YTZjYzMxYWJjMTZiNjc0OGM3YTIxZjIxNjExZjVhMWVjMzNmNjdkMjJjYTIzZDdkYTFjMTliOTU0OTZiZWUifSx7Im5hbWUiOiJmNiIsInNvdXJjZVVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vZjYudHh0Iiwic2hhMjU2IjoiZDhhNmNjMzFhYmMxNmI2NzQ4YzdhMjFmMjE2MTFmNWExZWMzM2Y2N2QyMmNhMjNkN2RhMWMxOWI5NTQ5NmJlZSJ9LHsibmFtZSI6ImY3Iiwic291cmNlVXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9mNy50eHQiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn0seyJuYW1lIjoiZjgiLCJzb3VyY2VVcmwiOiJodHRwczovL2V4YW1wbGUuY29tL2Y4LnR4dCIsInNoYTI1NiI6ImQ4YTZjYzMxYWJjMTZiNjc0OGM3YTIxZjIxNjExZjVhMWVjMzNmNjdkMjJjYTIzZDdkYTFjMTliOTU0OTZiZWUifSx7Im5hbWUiOiJmOSIsInNvdXJjZVVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vZjkudHh0Iiwic2hhMjU2IjoiZDhhNmNjMzFhYmMxNmI2NzQ4YzdhMjFmMjE2MTFmNWExZWMzM2Y2N2QyMmNhMjNkN2RhMWMxOWI5NTQ5NmJlZSJ9XX0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
-      "name": "Stage 1 session key with every base64url character class (A-Z, a-z, 0-9, - and _) is accepted and keys the hmac",
+      "name": "Stage 1 session key with every base64url character class (A-Z, a-z, 0-9, - and _) is accepted and seals the request",
       "call": "sign",
       "args": [
         {
@@ -1298,7 +1298,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOltdfQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOltdfQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=nqoVywc3Hk9z1hDAfbDbQg&request=REQUEST"
       }
     },
     {
@@ -1397,7 +1397,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJnaG9zdEB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiUGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgVGVybXMgb2YgU2VydmljZSIsImF0dGFjaG1lbnRzIjpbXX0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJnaG9zdEB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiUGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgVGVybXMgb2YgU2VydmljZSIsImF0dGFjaG1lbnRzIjpbXX0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1443,7 +1443,7 @@
       },
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQGhhc2hlZC50cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiUGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgVGVybXMgb2YgU2VydmljZSIsImF0dGFjaG1lbnRzIjpbXX0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQGhhc2hlZC50cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiUGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgVGVybXMgb2YgU2VydmljZSIsImF0dGFjaG1lbnRzIjpbXX0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1489,7 +1489,7 @@
       },
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOltdfQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOltdfQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1506,7 +1506,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOltdfQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOltdfQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1523,7 +1523,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiLQn9GA0LjQstC10YIsINC80LjRgCIsImF0dGFjaG1lbnRzIjpbXX0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiLQn9GA0LjQstC10YIsINC80LjRgCIsImF0dGFjaG1lbnRzIjpbXX0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1547,7 +1547,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOlt7Im5hbWUiOiJMaWNlbnNlLnR4dCIsInNvdXJjZVVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vbGljZW5zZS50eHQiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn1dfQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOlt7Im5hbWUiOiJMaWNlbnNlLnR4dCIsInNvdXJjZVVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vbGljZW5zZS50eHQiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn1dfQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1576,11 +1576,11 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOlt7Im5hbWUiOiJMaWNlbnNlLnR4dCIsInNvdXJjZVVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vbGljZW5zZS50eHQiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn0seyJuYW1lIjoiVGVybXMucGRmIiwic291cmNlVXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS90ZXJtcy5wZGYiLCJzaGEyNTYiOiJlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1In1dfQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOlt7Im5hbWUiOiJMaWNlbnNlLnR4dCIsInNvdXJjZVVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vbGljZW5zZS50eHQiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn0seyJuYW1lIjoiVGVybXMucGRmIiwic291cmNlVXJsIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS90ZXJtcy5wZGYiLCJzaGEyNTYiOiJlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1In1dfQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
-      "name": "Stage 1 session key produces a redirectUrl with a &token= param carrying an empty issuer and the hmac",
+      "name": "Stage 1 session key produces a redirectUrl with skid and the sealed request",
       "call": "sign",
       "args": [
         {
@@ -1593,11 +1593,11 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOltdfQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOltdfQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
-      "name": "Stage 1 session key + ext together: challenge bakes the ext, redirectUrl carries the hmac",
+      "name": "Stage 1 session key + ext together: challenge bakes the ext, redirectUrl has the sealed request",
       "call": "sign",
       "args": [
         {
@@ -1613,7 +1613,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsiY2FsbGJhY2tNZXRob2QiOiJQT1NUIn0sInR5cGUiOiJzaWduIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6IlBsZWFzZSByZWFkIGFuZCBhY2NlcHQgdGhlIFRlcm1zIG9mIFNlcnZpY2UiLCJhdHRhY2htZW50cyI6W119.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsiY2FsbGJhY2tNZXRob2QiOiJQT1NUIn0sInR5cGUiOiJzaWduIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6IlBsZWFzZSByZWFkIGFuZCBhY2NlcHQgdGhlIFRlcm1zIG9mIFNlcnZpY2UiLCJhdHRhY2htZW50cyI6W119&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1655,7 +1655,7 @@
       },
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOltdfQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOltdfQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1678,7 +1678,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsiY2FsbGJhY2tNZXRob2QiOiJQT1NUIiwibmVzdGVkIjp7ImZvbyI6ImJhciJ9fSwidHlwZSI6InNpZ24iLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiUGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgVGVybXMgb2YgU2VydmljZSIsImF0dGFjaG1lbnRzIjpbXX0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsiY2FsbGJhY2tNZXRob2QiOiJQT1NUIiwibmVzdGVkIjp7ImZvbyI6ImJhciJ9fSwidHlwZSI6InNpZ24iLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiUGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgVGVybXMgb2YgU2VydmljZSIsImF0dGFjaG1lbnRzIjpbXX0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1695,7 +1695,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJtdWx0aUB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiUGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgVGVybXMgb2YgU2VydmljZSIsImF0dGFjaG1lbnRzIjpbXX0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJtdWx0aUB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiUGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgVGVybXMgb2YgU2VydmljZSIsImF0dGFjaG1lbnRzIjpbXX0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1712,7 +1712,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJub2tleXNAdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6IlBsZWFzZSByZWFkIGFuZCBhY2NlcHQgdGhlIFRlcm1zIG9mIFNlcnZpY2UiLCJhdHRhY2htZW50cyI6W119.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJub2tleXNAdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6IlBsZWFzZSByZWFkIGFuZCBhY2NlcHQgdGhlIFRlcm1zIG9mIFNlcnZpY2UiLCJhdHRhY2htZW50cyI6W119&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1729,7 +1729,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHByaXZhdGUudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6IlBsZWFzZSByZWFkIGFuZCBhY2NlcHQgdGhlIFRlcm1zIG9mIFNlcnZpY2UiLCJhdHRhY2htZW50cyI6W119.DK",
-        "redirectUrl": "https://auth.private.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHByaXZhdGUudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6IlBsZWFzZSByZWFkIGFuZCBhY2NlcHQgdGhlIFRlcm1zIG9mIFNlcnZpY2UiLCJhdHRhY2htZW50cyI6W119&token=:HMAC"
+        "redirectUrl": "https://auth.private.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1746,7 +1746,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHA6Ly9sb2NhbGhvc3Q6MzAwMC9jYiIsInR5cGUiOiJzaWduIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6IlBsZWFzZSByZWFkIGFuZCBhY2NlcHQgdGhlIFRlcm1zIG9mIFNlcnZpY2UiLCJhdHRhY2htZW50cyI6W119.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHA6Ly9sb2NhbGhvc3Q6MzAwMC9jYiIsInR5cGUiOiJzaWduIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6IlBsZWFzZSByZWFkIGFuZCBhY2NlcHQgdGhlIFRlcm1zIG9mIFNlcnZpY2UiLCJhdHRhY2htZW50cyI6W119&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1764,7 +1764,7 @@
       "currentTime": 1800000000000,
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxODAwMDAwMDAwMDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOltdfQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxODAwMDAwMDAwMDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOltdfQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -5083,7 +5083,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2I7c2lkPTEiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOltdfQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2I7c2lkPTEiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJQbGVhc2UgcmVhZCBhbmQgYWNjZXB0IHRoZSBUZXJtcyBvZiBTZXJ2aWNlIiwiYXR0YWNobWVudHMiOltdfQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {

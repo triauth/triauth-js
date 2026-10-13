@@ -1,6 +1,6 @@
 {
   "title": "stamp",
-  "description": "Comprehensive, branch-complete coverage of Triauth.stamp. Stage 1 (request): dispatch/arg guards, identifier/callbackUrl/ext/sessionKey validation, the STAMP-DISTINCT message (227) validation done in onChallenge and the STAMP-DISTINCT rejection of any attachments option (102), DNS configuration (301/302) and DNS failure (110), and deterministic challenge + /stamp.html redirect building (msg baked in, NO attachments, plus the session key HMAC). Stage 3 (verify): challenge/response validation, dispatch constraints (401/403), signature-envelope parse failures (225), generic verification failures (401), the IdentityKeys add/verify branches (incl. the WebAuthn backend) reached via the verify path, the 15s stampTimeout window (402), metadata parse rejections (225), and the STAMP-DISTINCT attachment rejections — a challenge carrying attachments (102) and a verified stamp whose signedMetadata carries attachments (401) — plus the {stamped:true, result, verificationResult} body with an empty signedMetadata. A final SECURITY-PROPERTIES section pins the documented replay contract: the challenge nonce is NOT bound to the signature (a stamp verifies against a different-nonce challenge), via binds to the callback BASE directory (a sibling callback accepts the same stamp), and a captured stamp stays replayable only within stampTimeout + 2*maximalAllowedClientClockDrift (~45s). For stamp, the crypto signature is over the msg string and signedMetadata is part of the signed payload; crypto-bearing fixtures were minted by test/fixtures/json/_capture_stamp.mjs (WebCrypto ECDSA is non-deterministic to mint, deterministic to verify). A final Ed25519 section covers the type=ed25519 and type=webauthn-ed25519 verifier backends (positives plus crypto/key-material/uv-taint negatives). PRIVATE-mode cases cover stage-1 issue without the existence pre-check, stage-3 verification with the lookup code in signed-metadata (the ~lookupCode-suffixed deviceTag in verificationResult), and the attachments-membership rejection riding alongside a lookup code.",
+  "description": "Comprehensive, branch-complete coverage of Triauth.stamp. Stage 1 (request): dispatch/arg guards, identifier/callbackUrl/ext/sessionKey validation, the STAMP-DISTINCT message (227) validation done in onChallenge and the STAMP-DISTINCT rejection of any attachments option (102), DNS configuration (301/302) and DNS failure (110), and deterministic challenge + /stamp.html redirect building (msg baked in, NO attachments, plus the request sealed under the session key). Stage 3 (verify): challenge/response validation, dispatch constraints (401/403), signature-envelope parse failures (225), generic verification failures (401), the IdentityKeys add/verify branches (incl. the WebAuthn backend) reached via the verify path, the 15s stampTimeout window (402), metadata parse rejections (225), and the STAMP-DISTINCT attachment rejections — a challenge carrying attachments (102) and a verified stamp whose signedMetadata carries attachments (401) — plus the {stamped:true, result, verificationResult} body with an empty signedMetadata. A final SECURITY-PROPERTIES section pins the documented replay contract: the challenge nonce is NOT bound to the signature (a stamp verifies against a different-nonce challenge), via binds to the callback BASE directory (a sibling callback accepts the same stamp), and a captured stamp stays replayable only within stampTimeout + 2*maximalAllowedClientClockDrift (~45s). For stamp, the crypto signature is over the msg string and signedMetadata is part of the signed payload; crypto-bearing fixtures were minted by test/fixtures/json/_capture_stamp.mjs (WebCrypto ECDSA is non-deterministic to mint, deterministic to verify). A final Ed25519 section covers the type=ed25519 and type=webauthn-ed25519 verifier backends (positives plus crypto/key-material/uv-taint negatives). PRIVATE-mode cases cover stage-1 issue without the existence pre-check, stage-3 verification with the lookup code in signed-metadata (the ~lookupCode-suffixed deviceTag in verificationResult), and the attachments-membership rejection riding alongside a lookup code.",
   "dnsEntries": {
     "triauthdemo.org": {
       "TXT": [
@@ -816,7 +816,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiZ2hvc3RAdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiZ2hvc3RAdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -862,7 +862,7 @@
       },
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkBoYXNoZWQudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkBoYXNoZWQudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -908,7 +908,7 @@
       },
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -925,11 +925,11 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
-      "name": "Stage 1 session key produces a redirectUrl with a &token= param carrying an empty issuer and the hmac",
+      "name": "Stage 1 session key produces a redirectUrl with skid and the sealed request",
       "call": "stamp",
       "args": [
         {
@@ -942,11 +942,11 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
-      "name": "Stage 1 session key + ext together: challenge bakes the ext, redirectUrl carries the hmac",
+      "name": "Stage 1 session key + ext together: challenge bakes the ext, redirectUrl has the sealed request",
       "call": "stamp",
       "args": [
         {
@@ -962,7 +962,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsiY2FsbGJhY2tNZXRob2QiOiJQT1NUIn0sInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsiY2FsbGJhY2tNZXRob2QiOiJQT1NUIn0sInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1004,7 +1004,7 @@
       },
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1027,7 +1027,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsiY2FsbGJhY2tNZXRob2QiOiJQT1NUIiwibmVzdGVkIjp7ImZvbyI6ImJhciJ9fSwidHlwZSI6InN0YW1wIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsiY2FsbGJhY2tNZXRob2QiOiJQT1NUIiwibmVzdGVkIjp7ImZvbyI6ImJhciJ9fSwidHlwZSI6InN0YW1wIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1044,7 +1044,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoibXVsdGlAdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoibXVsdGlAdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1061,7 +1061,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoibm9rZXlzQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoibm9rZXlzQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1078,7 +1078,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkBwcml2YXRlLnRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ.DK",
-        "redirectUrl": "https://auth.private.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkBwcml2YXRlLnRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ&token=:HMAC"
+        "redirectUrl": "https://auth.private.triauthdemo.org/stamp.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1095,7 +1095,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHA6Ly9sb2NhbGhvc3Q6MzAwMC9jYiIsInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHA6Ly9sb2NhbGhvc3Q6MzAwMC9jYiIsInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsiLCJtc2ciOiJleGFtcGxlLWRhdGEtaW4tdGV4dHVhbC1mb3JtYXQifQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1112,7 +1112,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHA6Ly8xMC4wLjAuNTo4MDgwL2NiIiwidHlwZSI6InN0YW1wIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHA6Ly8xMC4wLjAuNTo4MDgwL2NiIiwidHlwZSI6InN0YW1wIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -1130,7 +1130,7 @@
       "currentTime": 1800000000000,
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTgwMDAwMDAwMDAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTgwMDAwMDAwMDAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -4441,7 +4441,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2I7c2lkPTEiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2I7c2lkPTEiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIiwibXNnIjoiZXhhbXBsZS1kYXRhLWluLXRleHR1YWwtZm9ybWF0In0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/stamp.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {

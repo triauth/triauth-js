@@ -677,8 +677,8 @@ const tests = [
   s1('Stage 1 ATTEST-DISTINCT: deterministic challenge bakes the attestations object, redirect uses /attest.html', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND }),
   s1('Stage 1 empty attestations {} is valid and builds a challenge with attest:{}', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_EMPTY }, { random: RAND }),
   s1('Stage 1 multiple attestation IDs are all baked into the challenge', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_TWO }, { random: RAND }),
-  s1("Stage 1 session key produces a redirectUrl with a &token= param carrying an empty issuer and the hmac", { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY }, { random: RAND }),
-  s1('Stage 1 session key + ext together: challenge bakes the ext, redirectUrl carries the hmac', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY, ext: { callbackMethod: 'POST' } }, { random: RAND }),
+  s1("Stage 1 session key produces a redirectUrl with skid and the sealed request", { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY }, { random: RAND }),
+  s1('Stage 1 session key + ext together: challenge bakes the ext, redirectUrl has the sealed request', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY, ext: { callbackMethod: 'POST' } }, { random: RAND }),
   s1("Stage 1 omitting the session key returns 226 - the flows that follow a sign-in require it at issue (src/challenge_response_flow.js)", {"identifier":ID,"callbackUrl":CB,"attestations":{"not-a-robot":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}}, { random: RAND }),
   s1('Stage 1 endpoint record with a __proto__ option is parsed safely (option dropped) and still builds a challenge', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'triauthdemo.org': { TXT: ['triauth auth.triauthdemo.org __proto__=evil mode=public'] } } }),
   s1('Stage 1 challenge bakes in the ext object', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT, ext: { callbackMethod: 'POST', nested: { foo: 'bar' } } }, { random: RAND }),
@@ -1092,7 +1092,7 @@ const suite = {
     'Comprehensive, branch-complete coverage of Triauth.attest. Stage 1 (request): dispatch/arg guards, ' +
     'identifier/callbackUrl/ext/sessionKey validation, the ATTEST-DISTINCT attestations (229) validation done ' +
     'in onChallenge, DNS configuration (301/302) and DNS failure (110), and deterministic challenge + ' +
-    '/attest.html redirect building (with the attestations object baked in, and the session key HMAC). Stage 3 ' +
+    '/attest.html redirect building (with the attestations object baked in, and the request sealed under the session key). Stage 3 ' +
     '(verify): challenge/response validation, the onResponse attest re-validation (229), dispatch ' +
     'constraints (401/403), signature-envelope parse failures (225), generic verification failures (401), ' +
     'the IdentityKeys add/verify branches and WebAuthn verifier reached via the verify path, the 15min ' +

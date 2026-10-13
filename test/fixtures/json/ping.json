@@ -1,6 +1,6 @@
 {
   "title": "ping",
-  "description": "Comprehensive coverage of Triauth.ping. Stage 1 (request): dispatch/arg guards, identifier/callbackUrl/ext validation, the session key + HMAC path (authenticate() rejects sessionKey with 102), DNS configuration (301), and deterministic challenge + ping.html redirect building. Stage 3 (verify): challenge/response validation, dispatch constraints, signature-envelope parse failures (225), generic verification failures (401), the tighter pingTimeout expiry window (402), and the success body. Pins ping's distinct result shape ({pinged, issuedAt, signedAt, verifiedAt, expires, secure, identifier, identityDomain, lookupCode, actor, actorIdentityDomain, actorLookupCode, groups, deviceName, deviceTag, keys} — no publicProfile, no ext) and that signedMetadata.ext is ignored. Crypto-bearing Stage 3 fixtures were minted by test/fixtures/json/_capture_ping.mjs (WebCrypto ECDSA is non-deterministic to mint, deterministic to verify). A final Ed25519 section covers the type=ed25519 verifier backend (positive plus crypto/key-material/uv-taint negatives). Stage 1 resolves the endpoint record only - identity existence is settled on the signed response, so no stage-1 case yields 302. A PRIVATE MODE section covers mode=private: stage-1 issue over an unreadable identity, stage-3 verification with the lookup code in signed-metadata and the ~lookupCode-suffixed deviceTag, and the commitment-mismatch rejection.",
+  "description": "Comprehensive coverage of Triauth.ping. Stage 1 (request): dispatch/arg guards, identifier/callbackUrl/ext validation, the session key routing and request sealing (authenticate() rejects sessionKey with 102), DNS configuration (301), and deterministic challenge + ping.html redirect building. Stage 3 (verify): challenge/response validation, dispatch constraints, signature-envelope parse failures (225), generic verification failures (401), the tighter pingTimeout expiry window (402), and the success body. Pins ping's distinct result shape ({pinged, issuedAt, signedAt, verifiedAt, expires, secure, identifier, identityDomain, lookupCode, actor, actorIdentityDomain, actorLookupCode, groups, deviceName, deviceTag, keys} — no publicProfile, no ext) and that signedMetadata.ext is ignored. Crypto-bearing Stage 3 fixtures were minted by test/fixtures/json/_capture_ping.mjs (WebCrypto ECDSA is non-deterministic to mint, deterministic to verify). A final Ed25519 section covers the type=ed25519 verifier backend (positive plus crypto/key-material/uv-taint negatives). Stage 1 resolves the endpoint record only - identity existence is settled on the signed response, so no stage-1 case yields 302. A PRIVATE MODE section covers mode=private: stage-1 issue over an unreadable identity, stage-3 verification with the lookup code in signed-metadata and the ~lookupCode-suffixed deviceTag, and the commitment-mismatch rejection.",
   "dnsEntries": {
     "triauthdemo.org": {
       "TXT": [
@@ -661,7 +661,7 @@
       },
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJ1c2VyQG5vbW9kZS5leGFtcGxlIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9.DK",
-        "redirectUrl": "https://auth.nomode.example/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJ1c2VyQG5vbW9kZS5leGFtcGxlIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9&token=:HMAC"
+        "redirectUrl": "https://auth.nomode.example/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -677,7 +677,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJnaG9zdEB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIn0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJnaG9zdEB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIn0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -721,7 +721,7 @@
       },
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQGhhc2hlZC50cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIn0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQGhhc2hlZC50cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIn0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -737,11 +737,11 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
-      "name": "Stage 1 PING-DISTINCT session key produces a redirectUrl with a &token= param carrying an empty issuer and the hmac (authenticate() would 102 on sessionKey)",
+      "name": "Stage 1 PING-DISTINCT session key produces a redirectUrl with skid and the sealed request (authenticate() would 102 on sessionKey)",
       "call": "ping",
       "args": [
         {
@@ -753,11 +753,11 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
-      "name": "Stage 1 session key + ext together: challenge bakes the ext, redirectUrl carries the hmac",
+      "name": "Stage 1 session key + ext together: challenge bakes the ext, redirectUrl has the sealed request",
       "call": "ping",
       "args": [
         {
@@ -772,7 +772,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsiY2FsbGJhY2tNZXRob2QiOiJQT1NUIn0sInR5cGUiOiJwaW5nIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsiY2FsbGJhY2tNZXRob2QiOiJQT1NUIn0sInR5cGUiOiJwaW5nIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -805,7 +805,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHA6Ly9sb2NhbGhvc3Q6MzAwMC9jYiIsInR5cGUiOiJwaW5nIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHA6Ly9sb2NhbGhvc3Q6MzAwMC9jYiIsInR5cGUiOiJwaW5nIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -821,7 +821,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHA6Ly8xMC4wLjAuNTo4MDgwL2NiIiwidHlwZSI6InBpbmciLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIn0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHA6Ly8xMC4wLjAuNTo4MDgwL2NiIiwidHlwZSI6InBpbmciLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIn0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -837,7 +837,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vMTkyLjE2OC4wLjE0L2NiIiwidHlwZSI6InBpbmciLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIn0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vMTkyLjE2OC4wLjE0L2NiIiwidHlwZSI6InBpbmciLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIn0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -853,7 +853,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb206ODAvY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb206ODAvY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -869,7 +869,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2I_YT0xO2I9MiIsInR5cGUiOiJwaW5nIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2I_YT0xO2I9MiIsInR5cGUiOiJwaW5nIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -885,7 +885,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2I_dXNlcj1PJ0JyaWVuIiwidHlwZSI6InBpbmciLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIn0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2I_dXNlcj1PJ0JyaWVuIiwidHlwZSI6InBpbmciLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIn0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -902,7 +902,7 @@
       "currentTime": 1800000000000,
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxODAwMDAwMDAwMDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxODAwMDAwMDAwMDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -924,7 +924,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsiY2FsbGJhY2tNZXRob2QiOiJQT1NUIiwibmVzdGVkIjp7ImZvbyI6ImJhciJ9fSwidHlwZSI6InBpbmciLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIn0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJleHQiOnsiY2FsbGJhY2tNZXRob2QiOiJQT1NUIiwibmVzdGVkIjp7ImZvbyI6ImJhciJ9fSwidHlwZSI6InBpbmciLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIn0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -940,7 +940,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJtdWx0aUB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIn0.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJtdWx0aUB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkVLIn0&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -956,7 +956,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJub2tleXNAdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJub2tleXNAdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -972,7 +972,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHByaXZhdGUudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9.DK",
-        "redirectUrl": "https://auth.private.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHByaXZhdGUudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9&token=:HMAC"
+        "redirectUrl": "https://auth.private.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -991,11 +991,11 @@
       },
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHByaXZhdGUudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9.DK",
-        "redirectUrl": "https://auth.private.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHByaXZhdGUudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9&token=:HMAC"
+        "redirectUrl": "https://auth.private.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
-      "name": "Stage 1 PRIVATE: a session key keys the hmac for a private-mode identity, with an empty issuer in the token param",
+      "name": "Stage 1 PRIVATE: a session key seals the request for a private-mode identity",
       "call": "ping",
       "args": [
         {
@@ -1007,7 +1007,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHByaXZhdGUudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9.DK",
-        "redirectUrl": "https://auth.private.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHByaXZhdGUudHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJFSyJ9&token=:HMAC"
+        "redirectUrl": "https://auth.private.triauthdemo.org/ping.html#?skid=nqoVywc3Hk9z1hDAfbDbQg&request=REQUEST"
       }
     },
     {
@@ -2820,7 +2820,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2I7c2lkPTEiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2I7c2lkPTEiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
       }
     },
     {
@@ -2965,7 +2965,7 @@
       }
     },
     {
-      "name": "Stage 1 session key with every base64url character class (A-Z, a-z, 0-9, - and _) is accepted and keys the hmac",
+      "name": "Stage 1 session key with every base64url character class (A-Z, a-z, 0-9, - and _) is accepted and seals the request",
       "call": "ping",
       "args": [
         {
@@ -2977,11 +2977,11 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?skid=nqoVywc3Hk9z1hDAfbDbQg&request=REQUEST"
       }
     },
     {
-      "name": "Stage 1 SECURITY: the session key never appears in the redirect - only the hmac over the challenge does",
+      "name": "Stage 1 SECURITY: the session key never appears in the redirect - only its skid and the sealed request do",
       "call": "ping",
       "args": [
         {
@@ -2993,7 +2993,116 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ.DK",
-        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ&token=:HMAC"
+        "redirectUrl": "https://auth.triauthdemo.org/ping.html#?skid=pi-wZYhIJoM7EVtGDd8acw&request=REQUEST"
+      }
+    },
+    {
+      "name": "Stage 1 delegated session key `<domain>:<key>` sends the sealed request to the authenticator of that domain",
+      "call": "ping",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "callbackUrl": "https://example.com/cb",
+          "sessionKey": "delegate.example:59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
+        }
+      ],
+      "random": "00112233445566778899aabbccddeeff00112233",
+      "dnsEntries": {
+        "delegate.example": {
+          "TXT": [
+            "triauth auth.delegate.example mode=public"
+          ]
+        }
+      },
+      "expected": {
+        "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiRUsifQ.DK",
+        "redirectUrl": "https://auth.delegate.example/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=REQUEST"
+      }
+    },
+    {
+      "name": "Stage 1 delegated session key whose domain has no triauth endpoint returns 301",
+      "call": "ping",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "callbackUrl": "https://example.com/cb",
+          "sessionKey": "unconfigured.example:59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
+        }
+      ],
+      "random": "00112233445566778899aabbccddeeff00112233",
+      "expected": {
+        "error": {
+          "code": 301,
+          "message": "Domain is not configured for triauth"
+        }
+      }
+    },
+    {
+      "name": "Stage 1 session key with an uppercase domain returns 226",
+      "call": "ping",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "callbackUrl": "https://example.com/cb",
+          "sessionKey": "Delegate.Example:59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 226,
+          "message": "Invalid session key"
+        }
+      }
+    },
+    {
+      "name": "Stage 1 session key whose part before the colon is not a domain name returns 226",
+      "call": "ping",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "callbackUrl": "https://example.com/cb",
+          "sessionKey": "not_a_domain:59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 226,
+          "message": "Invalid session key"
+        }
+      }
+    },
+    {
+      "name": "Stage 1 session key with an empty domain before the colon returns 226",
+      "call": "ping",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "callbackUrl": "https://example.com/cb",
+          "sessionKey": ":59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 226,
+          "message": "Invalid session key"
+        }
+      }
+    },
+    {
+      "name": "Stage 1 session key with two colons returns 226",
+      "call": "ping",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "callbackUrl": "https://example.com/cb",
+          "sessionKey": "a.example:b.example:59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 226,
+          "message": "Invalid session key"
+        }
       }
     },
     {

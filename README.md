@@ -496,7 +496,7 @@ When authentication is successful, following properties are included in the auth
 | `deviceName`          | `string`  | Contains a user-given, public name of the device that was used for authentication, as read from the DNS key records. Its value is informational only, and `deviceTag` should be used to uniquely identify devices. Example: `'mylaptop'`.                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `deviceTag`           | `string`  | Contains a string (up to 255 ASCII characters) that uniquely identifies a device, lookup code (if used), and delegation (when `actor` is present), that was used for authentication. A change in the `deviceTag` may be used to identify a situation when user is logging in from a different or new device. You can use the value of `deviceTag` with the `Triauth.check` function to determine if keys are still present in the DNS and the device and/or associated session may remain authenticated. Examples: `'VpGPcGr5psnmgaq4mPxY5tZ4Adxa5V2Vh1GFVRfQFmk'` (direct authentication), `'VpGPcGr5psnmgaq4mPxY5tZ4Adxa5V2Vh1GFVRfQFmk~K7QJ3FB9M2WZX0C4'` (private-mode authentication). |
 | `keys`                | `array`   | Contains an array of objects, each representing a public key as read from identity records in the DNS, that was taken into account during authentication. Example: `[{value: '…', options: {…}, verified: true}]`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `sessionKey`          | `string`  | A secret of this sign-in, in 43 base64url characters, that only your application and the user's authenticator know. Pass it to `Triauth.ping`, `Triauth.sign`, `Triauth.stamp` and `Triauth.attest`. Store it with the user's server-side or encrypted session, and keep it out of logs.                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `sessionKey`          | `string`  | A secret of this sign-in, in 43 base64url characters, that only your application and the user's authenticator know. Pass it to `Triauth.ping`, `Triauth.sign`, `Triauth.stamp` and `Triauth.attest`. Store it with the user's server-side or encrypted session, and keep it out of logs. After a delegated sign-in, it starts with the actor's domain and a colon.                                                                                                                                                                                                                                                                                                                          |
 | `ext`                 | `object`  | Contains additional data related to the requested [triauth protocol extensions](#protocol-extensions), or `{}` when none was returned. Example: `{permissions:{ping:true, stamp:false}}`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 [Back to TOC](#table-of-contents)
@@ -630,7 +630,7 @@ await Triauth.ping(
 //
 // {
 //   challenge: 'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2FsbGJhY2siLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoicWFvU1JnZlVnREpwZG5LX1FnQTd4SG9ZIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjEsImVrIjoiQkVoLTJGR0JOUkUyUGZvSTVsWjh4eU9KX2IzaTlaRVFadGtQOGJVajJ6VWljWDdsaTdqalBvYzVmUnczUlZKb2tjb1BZdVRLdGdGaVVENlR1LURrM3I0In0.urITupCNu0ZNV4CF692qaZs6UaBb5LNov-Z9hhB5ArU', 
-//   redirectUrl: 'https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2FsbGJhY2siLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoicWFvU1JnZlVnREpwZG5LX1FnQTd4SG9ZIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjEsImVrIjoiQkVoLTJGR0JOUkUyUGZvSTVsWjh4eU9KX2IzaTlaRVFadGtQOGJVajJ6VWljWDdsaTdqalBvYzVmUnczUlZKb2tjb1BZdVRLdGdGaVVENlR1LURrM3I0In0&token=:ZbSji2Nxd6l7JT9ivBNF0bOztdzNh2jm3iaoyEiH9bQ'
+//   redirectUrl: 'https://auth.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=aTO6cylS_52etdEH.hAskvAG-kqxradXNXvr3S4yxpgI3c6EdBOWOnN3UP4CjEfhkyQ1vbcYTmYQ_L3UOtIm6VwPYczazFTW7G7mXByWzAITIVkTRaQHlwyOj9CkPiOP278pc8pQdjPsCKmVHEPSqfwYlnUvNOOp_dsVRgb1zKT2QEkWFnCAH1CUvxDb4bpYqQ_YFa-q48WjkC9cDXRSKRgpN51iwPGV-koSmoIwgYLghNpUC4Cvx72ctYq1tLyP6jrXa3dS8VrSZgy5D4EFwYx22VHg1LloHgDc730QN560wpD7yGL8ylk0eENLml357QTLextpeqZ4Q_MG6JEg0fsN1XdNduNlsiQd_GfTiVwLnaXh3'
 // }
 //
 ```
@@ -941,7 +941,7 @@ await Triauth.attest(
     sessionKey: '59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8'
   }
 );
-// {challenge: 'eyJjYn…l19fX0.PEq5CslSnTExe9xko1O5B-K9T4wBse5XtyClYb8WxJM', redirectUrl: 'https://auth.triauthdemo.org/attest.html#?challenge=eyJjYn…l19fX0&token=:8LvHcbpz8mDJgDSl-CJtL3T28uAZCKTY8FbAduvVkYU'}
+// {challenge: 'eyJjYn…l19fX0.PEq5CslSnTExe9xko1O5B-K9T4wBse5XtyClYb8WxJM', redirectUrl: 'https://auth.triauthdemo.org/attest.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=…'}
 ```
 
 </details>
@@ -1178,7 +1178,7 @@ await Triauth.sign(
 );
 // {
 //   "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzaWduIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJLRXZCSVBLZFRLX1JNYldFUkZVVFpBcUkiLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MSwiZWsiOiJCTEYxdEVWQkVZMGpBZ3lFcGM0MUJSdTRHS2loaTVneDhyalFmY2Q3UnFOUGFUd1kyeG1zYkNSZ0YxNkN5VWJuRk5XUFREZndkMV9XTVlEWldRdWFOblkiLCJtc2ciOiJUbyBjb250aW51ZSwgcGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgYXR0YWNoZWQgTGljZW5zZSIsImF0dGFjaG1lbnRzIjpbeyJuYW1lIjoiTGljZW5zZSIsInNvdXJjZVVybCI6Imh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9zcGR4L2xpY2Vuc2UtbGlzdC1kYXRhL3JlZnMvaGVhZHMvbWFpbi90ZXh0L0FHUEwtMy4wLW9yLWxhdGVyLnR4dCIsInNoYTI1NiI6ImQ4YTZjYzMxYWJjMTZiNjc0OGM3YTIxZjIxNjExZjVhMWVjMzNmNjdkMjJjYTIzZDdkYTFjMTliOTU0OTZiZWUifV19.zN__zhGHx9hT7gakwy1WZ33JRURklZVmS-crUohEchE", 
-//   "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzaWduIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJLRXZCSVBLZFRLX1JNYldFUkZVVFpBcUkiLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MSwiZWsiOiJCTEYxdEVWQkVZMGpBZ3lFcGM0MUJSdTRHS2loaTVneDhyalFmY2Q3UnFOUGFUd1kyeG1zYkNSZ0YxNkN5VWJuRk5XUFREZndkMV9XTVlEWldRdWFOblkiLCJtc2ciOiJUbyBjb250aW51ZSwgcGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgYXR0YWNoZWQgTGljZW5zZSIsImF0dGFjaG1lbnRzIjpbeyJuYW1lIjoiTGljZW5zZSIsInNvdXJjZVVybCI6Imh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9zcGR4L2xpY2Vuc2UtbGlzdC1kYXRhL3JlZnMvaGVhZHMvbWFpbi90ZXh0L0FHUEwtMy4wLW9yLWxhdGVyLnR4dCIsInNoYTI1NiI6ImQ4YTZjYzMxYWJjMTZiNjc0OGM3YTIxZjIxNjExZjVhMWVjMzNmNjdkMjJjYTIzZDdkYTFjMTliOTU0OTZiZWUifV19&token=:SaSUxguCDRD21A3DfqwHhUDpuT5QuD6aTnv_PfxYEDs"
+//   "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=23luwOGXdIM6JX8f._EkvQKPuF6kR2v-ur9aIU1QkqCDURnpq-_GThw669vCmekrNYmLC6ZaVuqHLy3i77tFqNUed5hlm-Yk1KLkyroMGnQQl5_jS7CPrwTthn0MjrHrf0hBcVBdeD_3mGTm-wFDjXS6qpgZO9721poQnV3Cj-a6rxQXyX6o1tOD8_JdiEql23uFQ8axvbnpFVP7w-QLj9IuNU6jeM2hOGNrS-n6TKR11iQ40bfyERFWNtQNgrDTh1A_fnnxv_YPTTBdnzgFiDe09M0h93ZACRVJGLWNGj4dx4xsa5l08cC0-6a1BwuShxbMtoWROFLky0vUNkbAseko-4xKvuIIXAu5AmPDTXfLpiormgzmGK72f0aokY1YUUy0VzGIsTDdjCxqPJTgrDlt4g1uJu60yfSCPdHOWubbRj5eMdhTW3p6LzOWIDZPDpSeC141v9eX7wbTB_KIJiJwCvHD1dbq3fTaTM0z313WzT8VXKc5RPtaIWz8J1L7KiZcH2NjjyqFRJ1jYHPj2g8JPiPo5wohmcuPqC98l7cBPK_GI0PXEuuWvuEqk9uDXtufhBHwu2wLOx-n2n9ktLHnE1Bgw5qkYn6-YJD5NJ1YCjljc4_Une_smlyXL6-cDm-dD3ugp1rw1SbVv_f5m8uQUvkHxkxKXrSqSmljxFsG4g9kbf3myh39d5iODAxuwzLcGdOAXWHmIS9Hmkx2rLytc-v8emjPu9Ktb5iD0yZtKAX4-3eWBHzBgPr3wbA"
 // }
 ```
 
@@ -1369,7 +1369,7 @@ await Triauth.stamp(
 //
 // {
 //   challenge: 'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoic1ZoVXRZOXQzMEVDQjJUR0t2WTktZXpBIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjEsImVrIjoiQkdpOE1kZG11ZnFQdGNncEdwZFFvNDMzSTdxVzVHUm1uU0NmOGZaLVJHclppNng1ZHJNWkZIa3dQZXRkemFyZ21MQ2VvVU9HaF80dXJ6RWt6T3RKU0NrIiwibXNnIjoibG9naW4tbm9uY2U6NGYyZDljNzE1YjZlNGEzYyJ9.osPmHctBwGQUdU346YuJtHPJ-hh01Hia9bxCFZtYhNs', 
-//   redirectUrl: 'https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoic1ZoVXRZOXQzMEVDQjJUR0t2WTktZXpBIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjEsImVrIjoiQkdpOE1kZG11ZnFQdGNncEdwZFFvNDMzSTdxVzVHUm1uU0NmOGZaLVJHclppNng1ZHJNWkZIa3dQZXRkemFyZ21MQ2VvVU9HaF80dXJ6RWt6T3RKU0NrIiwibXNnIjoibG9naW4tbm9uY2U6NGYyZDljNzE1YjZlNGEzYyJ9&token=:HMC19UcdnPVTUa7s726fJCbQ8csa-9-eBq82HsoqAeQ'
+//   redirectUrl: 'https://auth.triauthdemo.org/stamp.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=qKIqh6XTsNbjhjis.huEd1iwa_Xd1q1OhHA7bUmFhfjxCtTEEoPs3l8JSkxJXMrIzBEbjk58CA24JnV6O6LIJ35YTzf3cfjBfBiZyjLdHRbHlpbanM-VTF0Utke_G6Y2Ol3onMk4vmWn40GN6XhyEYRitzXJfCKawNGjhjBoif6r5niNFsOh1f-RCVauYVKUpvSOoVPztSSwYAwtRs9FohwIBG48FpB6kI5xKQLtFJZbhBze0L02gWSwnXwQr5hMh4jOMPV9po7HZUfA1mmRgBkZPhUBSYknBBKYTa1qFadizopi9a9_M7UH1kNTWWEyIXxXt_ibIXhSu1n5-yxVwx2r-M-q7BnH0Nu-V5MDqCnE9fxJ19KoBjj1zpMfZMbx6b2T_zQ7ULPmmZrQKWZYlIDx_XY4f15M_AyZD72i5Awi9JA'
 // }
 //
 ```
@@ -1709,46 +1709,46 @@ The result object has the following properties:
 Some API methods return error information in the `error:{code, message}` format. At the moment, the following error codes are implemented,
 and may be used to provide custom or localized versions of the error message if needed:
 
-| Error Code | Meaning                                                                                                                | Default Message                                                       |
-|------------|------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------|
-| **1xx**    | **Internal and generic errors**                                                                                        |                                                                       |
-| 100        | Internal error, logged at `error` level. May be a defect in triauth-js - if it happens, please report it.              | "Internal error"                                                      |
-| 101        | Invalid or missing method arguments. For example `challenge` was passed but `response` not.                            | "Invalid or missing function arguments"                               |
-| 102        | Unrecognized option and/or argument passed to the function. Check for spelling mistakes.                               | "Unrecognized function argument"                                      |
-| 103        | Unrecognized key in the `config` override (or a misspelled global `Triauth.config` key). Check for spelling mistakes.  | "Unrecognized configuration key"                                      |
-| 110        | DNS resolution failed - check resolver configuration and Internet connectivity                                         | "DNS resolution failed, try again later"                              |
-| **2xx**    | **Validation errors**                                                                                                  |                                                                       |
-| *21x*      | *identifier validation errors*                                                                                         |                                                                       |
-| 210        |                                                                                                                        | "Identifier is invalid"                                               |
-| 211        |                                                                                                                        | "Identifier must not be empty"                                        |
-| 212        |                                                                                                                        | "Identifier is too long"                                              |
-| 213        |                                                                                                                        | "Identifier must be provided in lowercase"                            |
-| 214        |                                                                                                                        | "Identifier must include one @ sign"                                  |
-| 215        |                                                                                                                        | "Identifier contains invalid username"                                |
-| 216        |                                                                                                                        | "Identifier contains invalid domain name"                             |
-| *22x*      | *Other function parameter validation errors*                                                                           |                                                                       |
-| 221        |                                                                                                                        | "Invalid callbackUrl"                                                 |
-| 222        |                                                                                                                        | "Invalid ext"                                                         |
-| 223        |                                                                                                                        | "Invalid challenge"                                                   |
-| 224        |                                                                                                                        | "Invalid response"                                                    |
-| 225        |                                                                                                                        | "Invalid signature"                                                   |
-| 226        |                                                                                                                        | "Invalid session key"                                                 |
-| 227        |                                                                                                                        | "Invalid message"                                                     |
-| 228        |                                                                                                                        | "Invalid attachments"                                                 |
-| 229        |                                                                                                                        | "Invalid attestations"                                                |
-| *26x*      | *device name validation errors*                                                                                        |                                                                       |
-| 260        |                                                                                                                        | "Device name is invalid"                                              |
-| 261        |                                                                                                                        | "Device name must not be empty"                                       |
-| 262        |                                                                                                                        | "Device name is too long"                                             |
-| 263        |                                                                                                                        | "Device name must be provided in lowercase"                           |
-| 264        |                                                                                                                        | "Device name must include only letters, numbers, and hyphens"         |
-| **3xx**    | **Identity errors**                                                                                                    |                                                                       |
-| 301        | Authentication endpoint for the given identifier is not configured.                                                    | "Domain is not configured for triauth"                                |
-| **4xx**    | **Authentication errors**                                                                                              |                                                                       |
-| 401        | Failed authentication attempt (e.g., the received signature is invalid).                                               | "Your identity could not be verified"                                 |
-| 402        | Authentication request has expired (e.g., the user took too long to approve it).                                       | "Authentication request has expired, please try again"                |
-| 403        | Request has been denied (e.g., user clicked on the "Deny" button, or the session key lacks the permission).            | "Request has been denied"                                             |
-| 404        | DNSSEC was required via `config.requireSecure`, but the verified response was not DNSSEC-secure (`secure !== true`).   | "Your domain does not support DNSSEC, which is required to continue." |
+| Error Code | Meaning                                                                                                                                           | Default Message                                                       |
+|------------|---------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------|
+| **1xx**    | **Internal and generic errors**                                                                                                                   |                                                                       |
+| 100        | Internal error, logged at `error` level. May be a defect in triauth-js - if it happens, please report it.                                         | "Internal error"                                                      |
+| 101        | Invalid or missing method arguments. For example `challenge` was passed but `response` not.                                                       | "Invalid or missing function arguments"                               |
+| 102        | Unrecognized option and/or argument passed to the function. Check for spelling mistakes.                                                          | "Unrecognized function argument"                                      |
+| 103        | Unrecognized key in the `config` override (or a misspelled global `Triauth.config` key). Check for spelling mistakes.                             | "Unrecognized configuration key"                                      |
+| 110        | DNS resolution failed - check resolver configuration and Internet connectivity                                                                    | "DNS resolution failed, try again later"                              |
+| **2xx**    | **Validation errors**                                                                                                                             |                                                                       |
+| *21x*      | *identifier validation errors*                                                                                                                    |                                                                       |
+| 210        |                                                                                                                                                   | "Identifier is invalid"                                               |
+| 211        |                                                                                                                                                   | "Identifier must not be empty"                                        |
+| 212        |                                                                                                                                                   | "Identifier is too long"                                              |
+| 213        |                                                                                                                                                   | "Identifier must be provided in lowercase"                            |
+| 214        |                                                                                                                                                   | "Identifier must include one @ sign"                                  |
+| 215        |                                                                                                                                                   | "Identifier contains invalid username"                                |
+| 216        |                                                                                                                                                   | "Identifier contains invalid domain name"                             |
+| *22x*      | *Other function parameter validation errors*                                                                                                      |                                                                       |
+| 221        |                                                                                                                                                   | "Invalid callbackUrl"                                                 |
+| 222        |                                                                                                                                                   | "Invalid ext"                                                         |
+| 223        |                                                                                                                                                   | "Invalid challenge"                                                   |
+| 224        |                                                                                                                                                   | "Invalid response"                                                    |
+| 225        |                                                                                                                                                   | "Invalid signature"                                                   |
+| 226        |                                                                                                                                                   | "Invalid session key"                                                 |
+| 227        |                                                                                                                                                   | "Invalid message"                                                     |
+| 228        |                                                                                                                                                   | "Invalid attachments"                                                 |
+| 229        |                                                                                                                                                   | "Invalid attestations"                                                |
+| *26x*      | *device name validation errors*                                                                                                                   |                                                                       |
+| 260        |                                                                                                                                                   | "Device name is invalid"                                              |
+| 261        |                                                                                                                                                   | "Device name must not be empty"                                       |
+| 262        |                                                                                                                                                   | "Device name is too long"                                             |
+| 263        |                                                                                                                                                   | "Device name must be provided in lowercase"                           |
+| 264        |                                                                                                                                                   | "Device name must include only letters, numbers, and hyphens"         |
+| **3xx**    | **Identity errors**                                                                                                                               |                                                                       |
+| 301        | Authentication endpoint for the given identifier is not configured.                                                                               | "Domain is not configured for triauth"                                |
+| **4xx**    | **Authentication errors**                                                                                                                         |                                                                       |
+| 401        | Failed authentication attempt (e.g., the received signature is invalid).                                                                          | "Your identity could not be verified"                                 |
+| 402        | Authentication request has expired (e.g., the user took too long to approve it).                                                                  | "Authentication request has expired, please try again"                |
+| 403        | Request has been denied (e.g., user clicked the "Deny" button, or the session key lacks the permission or is for another identifier or base URL). | "Request has been denied"                                             |
+| 404        | DNSSEC was required via `config.requireSecure`, but the verified response was not DNSSEC-secure (`secure !== true`).                              | "Your domain does not support DNSSEC, which is required to continue." |
 
 [Back to TOC](#table-of-contents)
 
@@ -1952,10 +1952,10 @@ A per-call `{cache: false}` option fully bypasses the cache (if CachingResolver 
 
 ### Randomness
 
-The triauth-js library generates cryptographic nonces for every challenge it builds. By default, randomness is obtained from `crypto.getRandomValues` of the Web Crypto API, which is suitable for production use.
-The key pair that encrypts each response comes from `crypto.subtle.generateKey` and does not use `randomSource`.
+The triauth-js library generates cryptographic nonces for every challenge it builds. 
+By default, randomness is obtained from `crypto.getRandomValues` of the Web Crypto API, which is suitable for production use.
 
-If you wish to supply your own source - for example a hardware-backed RNG, a system entropy pool wrapper, or a deterministic byte stream for tests and cross-language conformance fixtures - set `Triauth.config.randomSource` to a function with the same shape as `crypto.getRandomValues`: it receives a `Uint8Array` and must fill it in place with random bytes.
+If you wish to supply your own source - for example a hardware-backed RNG, a system entropy pool wrapper, or a deterministic byte stream for tests - set `Triauth.config.randomSource` to a function that receives a `Uint8Array` and must fill it in place with random bytes.
 
 ```javascript
 Triauth.config.randomSource = (buf) => {
@@ -1970,6 +1970,11 @@ Setting `Triauth.config.randomSource = null` (the default) restores `crypto.getR
 > A predictable `randomSource` undermines the unforgeability of challenges. Override the default only with a source you trust to provide cryptographic-quality entropy. The deterministic-bytes use case is intended for tests, not production.
 
 ## Privacy Considerations
+
+### Requests to the authenticator
+
+A sign-in request has no session key yet, so its challenge, with the identifier, is readable in the redirect URL.
+Some frameworks may log redirect URLs, so filter the redirect to the authenticator from your logs if you need to.
 
 ### Identifier enumeration and private mode
 
@@ -2034,6 +2039,9 @@ DNS queries for identity records and authentication endpoints.
 * **Treat `deviceTag`, `lookupCode`, and `actorLookupCode` like the identifier.** 
   Under `mode=private` the `deviceTag` carries a lookup code, which lets anyone who also knows the identifier read the identity's records, but not authenticate as it. For delegated authentication it also carries the actor's identifier. 
   Do not display it, except to the user it belongs to.
+
+* Count a ping or a stamp that does not return within your time limit, for example 30 seconds, as a failure, and sign the user out.
+  The authenticator does not answer a request that it cannot open, for example after the user made it forget your website.
 
 * It is good practice to store the `deviceTag` and the `sessionKey` with the server-side, or encrypted cookie based user session, and to periodically call the `Triauth.check` or `Triauth.ping` to re-authenticate the user.
 

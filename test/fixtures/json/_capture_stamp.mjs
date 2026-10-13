@@ -541,8 +541,8 @@ const tests = [
   // Stage 1 — success (challenge + stamp.html redirectUrl). All deterministic via fixed nonce + clock.
   // ===================================================================================
   s1('Stage 1 STAMP-DISTINCT: deterministic challenge bakes msg (NO attachments), redirect uses /stamp.html', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG }, { random: RAND }),
-  s1("Stage 1 session key produces a redirectUrl with a &token= param carrying an empty issuer and the hmac", { identifier: ID, callbackUrl: CB, message: MSG, sessionKey: SESSION_KEY }, { random: RAND }),
-  s1('Stage 1 session key + ext together: challenge bakes the ext, redirectUrl carries the hmac', { identifier: ID, callbackUrl: CB, message: MSG, sessionKey: SESSION_KEY, ext: { callbackMethod: 'POST' } }, { random: RAND }),
+  s1("Stage 1 session key produces a redirectUrl with skid and the sealed request", { identifier: ID, callbackUrl: CB, message: MSG, sessionKey: SESSION_KEY }, { random: RAND }),
+  s1('Stage 1 session key + ext together: challenge bakes the ext, redirectUrl has the sealed request', { identifier: ID, callbackUrl: CB, message: MSG, sessionKey: SESSION_KEY, ext: { callbackMethod: 'POST' } }, { random: RAND }),
   s1("Stage 1 omitting the session key returns 226 - the flows that follow a sign-in require it at issue (src/challenge_response_flow.js)", {"identifier":ID,"callbackUrl":CB,"message":"example-data-in-textual-format"}, { random: RAND }),
   s1('Stage 1 endpoint record with a __proto__ option is parsed safely (option dropped) and still builds a challenge', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG }, { random: RAND, dnsEntries: { 'triauthdemo.org': { TXT: ['triauth auth.triauthdemo.org __proto__=evil mode=public'] } } }),
   s1('Stage 1 challenge bakes in the ext object', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, ext: { callbackMethod: 'POST', nested: { foo: 'bar' } } }, { random: RAND }),
@@ -889,7 +889,7 @@ const suite = {
     'identifier/callbackUrl/ext/sessionKey validation, the STAMP-DISTINCT message (227) validation done in ' +
     'onChallenge and the STAMP-DISTINCT rejection of any attachments option (102), DNS configuration ' +
     '(301/302) and DNS failure (110), and deterministic challenge + /stamp.html redirect building (msg ' +
-    'baked in, NO attachments, plus the session key HMAC). Stage 3 (verify): challenge/response validation, ' +
+    'baked in, NO attachments, plus the request sealed under the session key). Stage 3 (verify): challenge/response validation, ' +
     'dispatch constraints (401/403), signature-envelope parse failures (225), generic verification ' +
     'failures (401), the IdentityKeys add/verify branches (incl. the WebAuthn backend) reached via the ' +
     'verify path, the 15s stampTimeout window (402), metadata parse rejections (225), and the ' +

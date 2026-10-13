@@ -36,10 +36,10 @@ describe('Attestation API', () => {
         assert.deepEqual(challengeRequest.data.attest, attestations);
       });
 
-      it('includes the HMAC of the challenge under the session key in redirectUrl', async () => {
+      it('seals the challenge into redirectUrl under the session key, next to its skid', async () => {
         const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations, sessionKey}));
-        assert(attestRes.redirectUrl.indexOf('token=:') >= 0);
-        assert(attestRes.redirectUrl.indexOf('hmac=') < 0);
+        assert(attestRes.redirectUrl.includes('#?skid=') && attestRes.redirectUrl.includes('&request='));
+        assert(!attestRes.redirectUrl.includes('challenge=') && !attestRes.redirectUrl.includes('token='));
       });
 
       it('rejects a request without a session key with 226 - attest follows a sign-in', async () => {
@@ -73,7 +73,8 @@ describe('Attestation API', () => {
       });
 
       it('returns {error:{code:226}} for invalid session keys', async () => {
-        const invalidSessionKeys = ['short', 123, '', 'A'.repeat(42), 'A'.repeat(44), ':' + 'a'.repeat(16), 'A'.repeat(42) + '+', 'A'.repeat(42) + 'B'];
+        const invalidSessionKeys = ['short', 123, '', 'A'.repeat(42), 'A'.repeat(44), ':' + 'a'.repeat(16), 'A'.repeat(42) + '+', 'A'.repeat(42) + 'B',
+          ':' + 'A'.repeat(43), 'Issuer.Example:' + 'A'.repeat(43), 'not_a_domain:' + 'A'.repeat(43), 'a.example:b.example:' + 'A'.repeat(43)];
         for (const invalidSessionKey of invalidSessionKeys) {
           const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations, sessionKey: invalidSessionKey}));
           assert(!attestRes?.attested);

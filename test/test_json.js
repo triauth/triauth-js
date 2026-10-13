@@ -47,9 +47,9 @@
 //     key pair for every challenge. The stored challenge is `<c>.<decryptionKey>`, and `<c>` carries `"ek":"<87 chars>"`.
 //     The runner checks that a value sealed to `ek` opens with the decryption key, replaces the decryption key with
 //     `DK`, base64url-decodes `<c>`, replaces the `ek` value with `EK` in the JSON text, and re-encodes it, in
-//     `challenge` and in the `redirectUrl` fragment. When the fragment has `token=<issuer>:<hmac>`, the runner checks
-//     that `hmac` is the base64url HMAC-SHA256 of the bytes of `<c>`, keyed by the bytes of the `sessionKey` argument
-//     (base64url-decoded), and replaces it with `HMAC`. Ports apply the same rule.
+//     `challenge` and in the `redirectUrl` fragment. When the fragment has `request=<nonce>.<ciphertext>`, the runner
+//     checks that `skid` is the session key ID of the `sessionKey` argument (its key after any `<domain>:`), and that
+//     the request opens under that key to `<c>`. Then it replaces the request with `REQUEST`. Ports apply the same rule.
 //
 // Record mode:
 //   Run with RECORD=1 (e.g., `RECORD=1 npm run test:json`) to capture actual output and
@@ -120,7 +120,7 @@ function makeRandomSource(hex, testName) {
 }
 
 // Stage 1 mints a fresh key pair for every challenge, so a stage-1 result carries random values: the `ek` inside the
-// challenge, the decryption key after the challenge's `.`, and the HMAC over the challenge. The runner checks
+// challenge, the decryption key after the challenge's `.`, and the sealed request of a flow that follows a sign-in. The runner checks
 // each one, then puts a fixed placeholder in its place (EK, DK, HMAC) before comparing.
 async function maskStage1(result, options) {
   if (!result || typeof result.challenge !== 'string' || typeof result.redirectUrl !== 'string') {
@@ -139,14 +139,14 @@ async function maskStage1(result, options) {
   const masked = Triauth.Helpers.stringToBase64Url(json.replace(`"ek":"${ek}"`, '"ek":"EK"'));
   let redirectUrl = result.redirectUrl.replace(`challenge=${challenge}`, `challenge=${masked}`);
 
-  // The HMAC binds the challenge to the holder of the session key
-  const tokenParam = (redirectUrl.match(/[#?&]token=([^&]*)/) || [])[1];
-  if (tokenParam !== undefined) {
-    const [issuer, hmac] = tokenParam.split(':');
-    const hmacKey = Triauth.Helpers.base64UrlToUint8(options.sessionKey);
-    const expectedHmac = Triauth.Helpers.arrayBufferToBase64Url(await Triauth.Helpers.hmacSha256(hmacKey, Triauth.Helpers.base64UrlToUint8(challenge)));
-    assert.equal(hmac, expectedHmac, 'the HMAC covers the challenge');
-    redirectUrl = redirectUrl.replace(`token=${tokenParam}`, `token=${issuer}:HMAC`);
+  // A request that follows a sign-in has the challenge sealed under the session key, next to the key's skid
+  const request = (redirectUrl.match(/[#?&]request=([^&]*)/) || [])[1];
+  if (request !== undefined) {
+    const sessionKey = options.sessionKey.split(':').pop();
+    const skid = (redirectUrl.match(/[#?&]skid=([^&]*)/) || [])[1];
+    assert.equal(skid, await Triauth.RequestCipher.skid(sessionKey), 'skid identifies the session key');
+    assert.equal(await Triauth.RequestCipher.open(sessionKey, request), challenge, 'the request opens to the challenge');
+    redirectUrl = redirectUrl.replace(`request=${request}`, 'request=REQUEST');
   }
 
   return {...result, challenge: masked + '.DK', redirectUrl};

@@ -996,10 +996,10 @@ describe('Authentication API', () => {
         assert(typeof pingRes.redirectUrl === 'string' && pingRes.redirectUrl.length > 0);
       });
 
-      it('includes the HMAC of the challenge under the session key in redirectUrl', async () => {
+      it('seals the challenge into redirectUrl under the session key, next to its skid', async () => {
         const pingRes = (await Triauth.ping({identifier, callbackUrl, sessionKey}));
-        assert(pingRes.redirectUrl.indexOf('token=:') >= 0);
-        assert(pingRes.redirectUrl.indexOf('hmac=') < 0);
+        assert(pingRes.redirectUrl.includes('#?skid=') && pingRes.redirectUrl.includes('&request='));
+        assert(!pingRes.redirectUrl.includes('challenge=') && !pingRes.redirectUrl.includes('token='));
       });
 
       it('rejects a request without a session key with 226 - ping follows a sign-in', async () => {
@@ -1060,7 +1060,8 @@ describe('Authentication API', () => {
       });
 
       it('returns {error:{code:226}} for invalid session keys', async () => {
-        const invalidSessionKeys = ['short', 123, '', 'A'.repeat(42), 'A'.repeat(44), ':' + 'a'.repeat(16), 'A'.repeat(42) + '+', 'A'.repeat(42) + 'B'];
+        const invalidSessionKeys = ['short', 123, '', 'A'.repeat(42), 'A'.repeat(44), ':' + 'a'.repeat(16), 'A'.repeat(42) + '+', 'A'.repeat(42) + 'B',
+          ':' + 'A'.repeat(43), 'Issuer.Example:' + 'A'.repeat(43), 'not_a_domain:' + 'A'.repeat(43), 'a.example:b.example:' + 'A'.repeat(43)];
         for (const invalidSessionKey of invalidSessionKeys) {
           const pingRes = (await Triauth.ping({identifier, callbackUrl, sessionKey: invalidSessionKey}));
           assert(!pingRes?.pinged);
@@ -1078,18 +1079,11 @@ describe('Authentication API', () => {
       });
     });
 
-    describe('session key hmac keying', () => {
+    describe('session key routing and request sealing', () => {
 
-      // The redirectUrl carries the HMAC of the challenge after an empty issuer and a ':' separator. The HMAC is keyed
-      // by the 32 bytes of the session key, which never travel.
-      const expectedHmac = async (sessionKey, challenge) => {
-        const key = await crypto.subtle.importKey(
-          'raw', Triauth.Helpers.base64UrlToUint8(sessionKey), {name: 'HMAC', hash: 'SHA-256'}, false, ['sign']
-        );
-        return Triauth.Helpers.arrayBufferToBase64Url(
-          await crypto.subtle.sign('HMAC', key, Triauth.Helpers.base64UrlToUint8(AuthenticatorStub.publicChallenge(challenge)))
-        );
-      };
+      // The redirect fragment is `skid=<skid>&request=<iv>.<ciphertext>`. The request opens under the session key
+      // to the challenge, and the session key itself never travels.
+      const fragment = (redirectUrl) => new URLSearchParams(redirectUrl.split('#?')[1]);
 
       const keyRecord = {value: 'key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8', ttl: 1800, dnssec: true};
       const resolver = (grant = 'include actor@issuer.example scope=any') => new DnsResolverStub({
@@ -1100,21 +1094,19 @@ describe('Authentication API', () => {
       const callbackUrl = 'https://example.com/';
       const sessionKey = AuthenticatorStub.SESSION_KEY;
 
-      const tokenParam = (redirectUrl) => redirectUrl.match(/[#&?]token=([^&]*)/)[1];
-
-      it('keys the redirectUrl hmac with the 32 bytes of the session key', async () => {
+      it("seals the challenge under the session key, and sends it to the identity's own endpoint", async () => {
         const pingRes = await Triauth.ping({identifier: 'john@example.org', callbackUrl, sessionKey}, {resolver: resolver()});
 
         assert(pingRes.redirectUrl.startsWith('https://local-auth.example.org/ping.html#?'));
-        assert.equal(tokenParam(pingRes.redirectUrl), ':' + await expectedHmac(sessionKey, pingRes.challenge));
+        assert.equal(fragment(pingRes.redirectUrl).get('skid'), await Triauth.RequestCipher.skid(sessionKey));
+        assert.equal(await Triauth.RequestCipher.open(sessionKey, fragment(pingRes.redirectUrl).get('request')), AuthenticatorStub.publicChallenge(pingRes.challenge));
       });
 
-      it("sends the HMAC to the identity's own endpoint with an empty issuer, also when an include grant names another domain", async () => {
-        const pingRes = await Triauth.ping({identifier: 'john@example.org', callbackUrl, sessionKey}, {resolver: resolver()});
+      it('sends a delegated session key `<domain>:<key>` to the authenticator of that domain', async () => {
+        const pingRes = await Triauth.ping({identifier: 'john@example.org', callbackUrl, sessionKey: 'issuer.example:' + sessionKey}, {resolver: resolver()});
 
-        assert(pingRes.redirectUrl.startsWith('https://local-auth.example.org/ping.html#?'),
-          'the redirect always targets the identity\'s endpoint');
-        assert.equal(tokenParam(pingRes.redirectUrl).split(':')[0], '');
+        assert(pingRes.redirectUrl.startsWith('https://remote-auth.issuer.example/ping.html#?'));
+        assert.equal(await Triauth.RequestCipher.open(sessionKey, fragment(pingRes.redirectUrl).get('request')), AuthenticatorStub.publicChallenge(pingRes.challenge));
       });
 
       it('rejects (226) a session key in the `issuer:secret` form of a token', async () => {

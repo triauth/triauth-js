@@ -530,7 +530,7 @@ const tests = [
   s1('Stage 1 more than attachmentsCount (10) attachments return 228', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, attachments: Array.from({ length: 11 }, (_, i) => ({ name: `f${i}`, sourceUrl: `https://example.com/f${i}.txt`, sha256: ATT.sha256 })) }),
   s1('Stage 1 message of exactly 2048 bytes (the cap) builds a challenge — strict-greater boundary, companion of the over-length 227 case', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: 'a'.repeat(2048) }, { random: RAND }),
   s1('Stage 1 exactly attachmentsCount (10) attachments build a challenge — boundary companion of the over-count 228 case', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, attachments: Array.from({ length: 10 }, (_, i) => ({ name: `f${i}`, sourceUrl: `https://example.com/f${i}.txt`, sha256: ATT.sha256 })) }, { random: RAND }),
-  s1('Stage 1 session key with every base64url character class (A-Z, a-z, 0-9, - and _) is accepted and keys the hmac', { identifier: ID, callbackUrl: CB, sessionKey: SK_ALPHABET, message: MSG }, { random: RAND }),
+  s1('Stage 1 session key with every base64url character class (A-Z, a-z, 0-9, - and _) is accepted and seals the request', { identifier: ID, callbackUrl: CB, sessionKey: SK_ALPHABET, message: MSG }, { random: RAND }),
   s1('Stage 1 session key of 256 characters returns 226', { identifier: ID, callbackUrl: CB, sessionKey: 'A'.repeat(256), message: MSG }),
 
   // ===================================================================================
@@ -553,8 +553,8 @@ const tests = [
   s1('Stage 1 message with non-Latin (Cyrillic) letters builds a challenge (msg is UTF-8 encoded into the base64url challenge; the btoa-era code returned 100)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: 'Привет, мир' }, { random: RAND }),
   s1('Stage 1 challenge bakes the attachments array', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, attachments: [ATT] }, { random: RAND }),
   s1('Stage 1 two attachments are baked into the challenge', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, attachments: [ATT, ATT2] }, { random: RAND }),
-  s1("Stage 1 session key produces a redirectUrl with a &token= param carrying an empty issuer and the hmac", { identifier: ID, callbackUrl: CB, message: MSG, sessionKey: SESSION_KEY }, { random: RAND }),
-  s1('Stage 1 session key + ext together: challenge bakes the ext, redirectUrl carries the hmac', { identifier: ID, callbackUrl: CB, message: MSG, sessionKey: SESSION_KEY, ext: { callbackMethod: 'POST' } }, { random: RAND }),
+  s1("Stage 1 session key produces a redirectUrl with skid and the sealed request", { identifier: ID, callbackUrl: CB, message: MSG, sessionKey: SESSION_KEY }, { random: RAND }),
+  s1('Stage 1 session key + ext together: challenge bakes the ext, redirectUrl has the sealed request', { identifier: ID, callbackUrl: CB, message: MSG, sessionKey: SESSION_KEY, ext: { callbackMethod: 'POST' } }, { random: RAND }),
   s1("Stage 1 omitting the session key returns 226 - the flows that follow a sign-in require it at issue (src/challenge_response_flow.js)", {"identifier":ID,"callbackUrl":CB,"message":"Please read and accept the Terms of Service"}, { random: RAND }),
   s1('Stage 1 endpoint record with a __proto__ option is parsed safely (option dropped) and still builds a challenge', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG }, { random: RAND, dnsEntries: { 'triauthdemo.org': { TXT: ['triauth auth.triauthdemo.org __proto__=evil mode=public'] } } }),
   s1('Stage 1 challenge bakes in the ext object', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, ext: { callbackMethod: 'POST', nested: { foo: 'bar' } } }, { random: RAND }),
@@ -880,7 +880,7 @@ const suite = {
     'Comprehensive, branch-complete coverage of Triauth.sign. Stage 1 (request): dispatch/arg guards, ' +
     'identifier/callbackUrl/ext/sessionKey validation, the SIGN-DISTINCT message (227) and attachments (228) ' +
     'validation done in onChallenge, DNS configuration (301/302) and DNS failure (110), and deterministic ' +
-    'challenge + /sign.html redirect building (with msg + attachments baked in, and the session key HMAC). ' +
+    'challenge + /sign.html redirect building (with msg + attachments baked in, and the request sealed under the session key). ' +
     'Stage 3 (verify): challenge/response validation, dispatch constraints (401/403), signature-envelope ' +
     'parse failures (225), generic verification failures (401), the IdentityKeys add/verify branches reached ' +
     "via the verify path, the 30min signTimeout window (402), metadata parse rejections (225), and the heart " +

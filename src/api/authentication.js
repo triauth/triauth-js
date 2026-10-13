@@ -192,7 +192,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  *   - `deviceName` (string): User-given, public name of the device that was used for authentication, as read from the DNS key records (e.g., `"mylaptop"`).
  *   - `deviceTag` (string): Unique identifier of the device (and, for delegated authentication, the delegation) used; under `mode=private` it also carries the lookup code. Store it verbatim and pass it to `Triauth.check`.
  *   - `keys` (array): Public keys that were considered and/or used during verification.
- *   - `sessionKey` (string): A secret of this sign-in, in 43 base64url characters, that only your application and the user's authenticator know. Pass it to `Triauth.ping`, `Triauth.sign`, `Triauth.stamp` and `Triauth.attest`. Store it with the user's server-side or encrypted session, and keep it out of logs.
+ *   - `sessionKey` (string): A secret of this sign-in, in 43 base64url characters, that only your application and the user's authenticator know. Pass it to `Triauth.ping`, `Triauth.sign`, `Triauth.stamp` and `Triauth.attest`. Store it with the user's server-side or encrypted session, and keep it out of logs. After a delegated sign-in, it starts with the actor's domain and a colon.
  *   - `ext` (object): Data returned by the authenticator application for the requested protocol extensions. Always present - `{}` when no extension data was returned (a malformed `ext` is discarded with a logged warning and also yields `{}`).
  * - `{error: {code: number, message: string}}`: Returned during stage 1 or stage 3 when authentication fails, includes an error object with code and message.
  */
@@ -245,7 +245,7 @@ export const authenticate = async(options, config = {}) => {
       deviceName: sig.deviceName,
       deviceTag: sig.deviceTag,
       keys: sig.keys,
-      sessionKey,
+      sessionKey: sig.actor ? sig.actor.split('@')[1] + ':' + sessionKey : sessionKey, // A delegated session is at the authenticator of the actor's domain, so its key starts with that domain
       ext: receivedExtValid ? receivedExt : {}
     });
   };
@@ -489,7 +489,7 @@ export const check = async (options, config = {}) => {
  * //
  * // {
  * //   challenge: 'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2FsbGJhY2siLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoicWFvU1JnZlVnREpwZG5LX1FnQTd4SG9ZIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjEsImVrIjoiQkVoLTJGR0JOUkUyUGZvSTVsWjh4eU9KX2IzaTlaRVFadGtQOGJVajJ6VWljWDdsaTdqalBvYzVmUnczUlZKb2tjb1BZdVRLdGdGaVVENlR1LURrM3I0In0.urITupCNu0ZNV4CF692qaZs6UaBb5LNov-Z9hhB5ArU',
- * //   redirectUrl: 'https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2FsbGJhY2siLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoicWFvU1JnZlVnREpwZG5LX1FnQTd4SG9ZIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjEsImVrIjoiQkVoLTJGR0JOUkUyUGZvSTVsWjh4eU9KX2IzaTlaRVFadGtQOGJVajJ6VWljWDdsaTdqalBvYzVmUnczUlZKb2tjb1BZdVRLdGdGaVVENlR1LURrM3I0In0&token=:ZbSji2Nxd6l7JT9ivBNF0bOztdzNh2jm3iaoyEiH9bQ'
+ * //   redirectUrl: 'https://auth.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=aTO6cylS_52etdEH.hAskvAG-kqxradXNXvr3S4yxpgI3c6EdBOWOnN3UP4CjEfhkyQ1vbcYTmYQ_L3UOtIm6VwPYczazFTW7G7mXByWzAITIVkTRaQHlwyOj9CkPiOP278pc8pQdjPsCKmVHEPSqfwYlnUvNOOp_dsVRgb1zKT2QEkWFnCAH1CUvxDb4bpYqQ_YFa-q48WjkC9cDXRSKRgpN51iwPGV-koSmoIwgYLghNpUC4Cvx72ctYq1tLyP6jrXa3dS8VrSZgy5D4EFwYx22VHg1LloHgDc730QN560wpD7yGL8ylk0eENLml357QTLextpeqZ4Q_MG6JEg0fsN1XdNduNlsiQd_GfTiVwLnaXh3'
  * // }
  * //
  * ```

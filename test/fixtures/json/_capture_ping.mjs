@@ -335,8 +335,8 @@ const tests = [
   // Stage 1 — success (challenge + redirectUrl). All deterministic via fixed nonce + clock.
   // ===================================================================================
   s1('Stage 1 deterministic challenge + ping.html redirectUrl for a fixed nonce and clock', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY }, { random: RAND }),
-  s1("Stage 1 PING-DISTINCT session key produces a redirectUrl with a &token= param carrying an empty issuer and the hmac (authenticate() would 102 on sessionKey)", { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY }, { random: RAND }),
-  s1('Stage 1 session key + ext together: challenge bakes the ext, redirectUrl carries the hmac', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, ext: { callbackMethod: 'POST' } }, { random: RAND }),
+  s1("Stage 1 PING-DISTINCT session key produces a redirectUrl with skid and the sealed request (authenticate() would 102 on sessionKey)", { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY }, { random: RAND }),
+  s1('Stage 1 session key + ext together: challenge bakes the ext, redirectUrl has the sealed request', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, ext: { callbackMethod: 'POST' } }, { random: RAND }),
   s1("Stage 1 omitting the session key returns 226 - the flows that follow a sign-in require it at issue (src/challenge_response_flow.js)", {"identifier":ID,"callbackUrl":CB}, { random: RAND }),
   s1('Stage 1 localhost http callbackUrl is accepted and builds a challenge', { identifier: ID, callbackUrl: 'http://localhost:3000/cb', sessionKey: SESSION_KEY }, { random: RAND }),
   s1('Stage 1 plain-http callbackUrl on a LAN IPv4-literal host (http://10.0.0.5:8080/cb) builds a challenge — self-hosted deployments run on transport the envelope does not depend on', { identifier: ID, callbackUrl: LAN_CB, sessionKey: SESSION_KEY }, { random: RAND }),
@@ -356,7 +356,7 @@ const tests = [
   // ===================================================================================
   s1('Stage 1 PRIVATE: a private-mode endpoint builds a challenge without resolving the identity', { identifier: PRIVATE.john.identifier, callbackUrl: CB, sessionKey: SESSION_KEY }, { random: RAND }),
   s1('Stage 1 PRIVATE SECURITY: no identity records published at all still builds a challenge - secrecy means a server cannot pre-confirm existence, so stage 1 never leaks it', { identifier: PRIVATE.john.identifier, callbackUrl: CB, sessionKey: SESSION_KEY }, { random: RAND, dnsEntries: { [PRIVATE.john.identityDomain]: null } }),
-  s1("Stage 1 PRIVATE: a session key keys the hmac for a private-mode identity, with an empty issuer in the token param", { identifier: PRIVATE.john.identifier, callbackUrl: CB, sessionKey: SK_ALPHABET }, { random: RAND }),
+  s1("Stage 1 PRIVATE: a session key seals the request for a private-mode identity", { identifier: PRIVATE.john.identifier, callbackUrl: CB, sessionKey: SK_ALPHABET }, { random: RAND }),
 
   // ===================================================================================
   // Stage 3 — challenge (223) & response (224) validation
@@ -508,15 +508,21 @@ const tests = [
       }
     } }),
 
-  // --- session key structure and the redirect's token param ----------------------------
-  // The session key only ever keys the HMAC and never travels. The redirect always targets
-  // the identity's own endpoint, and its token param carries an empty issuer before the HMAC.
+  // --- session key structure, routing and the sealed request ---------------------------
+  // The session key never travels. The request has its skid and the challenge sealed under
+  // it. A delegated key `<domain>:<key>` goes to the authenticator of that domain.
   s1('Stage 1 session key in standard base64 (with /) returns 226 - a session key is base64url', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY.slice(0, 42) + '/' }),
   s1('Stage 1 session key with base64 padding (44 characters ending in =) returns 226', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY + '=' }),
   s1('Stage 1 session key in the issuer:secret form of a token returns 226', { identifier: ID, callbackUrl: CB, sessionKey: ':aaaaaaaaaaaaaaaa' }),
   s1('Stage 1 empty session key returns 226', { identifier: ID, callbackUrl: CB, sessionKey: '' }),
-  s1("Stage 1 session key with every base64url character class (A-Z, a-z, 0-9, - and _) is accepted and keys the hmac", { identifier: ID, callbackUrl: CB, sessionKey: SK_ALPHABET }, { random: RAND }),
-  s1('Stage 1 SECURITY: the session key never appears in the redirect - only the hmac over the challenge does', { identifier: ID, callbackUrl: CB, sessionKey: SK_VISIBLE }, { random: RAND }),
+  s1("Stage 1 session key with every base64url character class (A-Z, a-z, 0-9, - and _) is accepted and seals the request", { identifier: ID, callbackUrl: CB, sessionKey: SK_ALPHABET }, { random: RAND }),
+  s1('Stage 1 SECURITY: the session key never appears in the redirect - only its skid and the sealed request do', { identifier: ID, callbackUrl: CB, sessionKey: SK_VISIBLE }, { random: RAND }),
+  s1('Stage 1 delegated session key `<domain>:<key>` sends the sealed request to the authenticator of that domain', { identifier: ID, callbackUrl: CB, sessionKey: 'delegate.example:' + SESSION_KEY }, { random: RAND, dnsEntries: { 'delegate.example': { TXT: ['triauth auth.delegate.example mode=public'] } } }),
+  s1('Stage 1 delegated session key whose domain has no triauth endpoint returns 301', { identifier: ID, callbackUrl: CB, sessionKey: 'unconfigured.example:' + SESSION_KEY }, { random: RAND }),
+  s1('Stage 1 session key with an uppercase domain returns 226', { identifier: ID, callbackUrl: CB, sessionKey: 'Delegate.Example:' + SESSION_KEY }),
+  s1('Stage 1 session key whose part before the colon is not a domain name returns 226', { identifier: ID, callbackUrl: CB, sessionKey: 'not_a_domain:' + SESSION_KEY }),
+  s1('Stage 1 session key with an empty domain before the colon returns 226', { identifier: ID, callbackUrl: CB, sessionKey: ':' + SESSION_KEY }),
+  s1('Stage 1 session key with two colons returns 226', { identifier: ID, callbackUrl: CB, sessionKey: 'a.example:b.example:' + SESSION_KEY }),
   s1("Stage 1 null session key returns 226 - null counts as a missing session key", { identifier: ID, callbackUrl: CB, sessionKey: null }),
 
   // --- delegated ping (include grants) ---------------------------------------------------
@@ -563,7 +569,7 @@ await sealStage3(tests);
 const suite = {
   title: 'ping',
   description:
-    'Comprehensive coverage of Triauth.ping. Stage 1 (request): dispatch/arg guards, identifier/callbackUrl/ext validation, the session key + HMAC path (authenticate() rejects sessionKey with 102), DNS configuration (301), and deterministic challenge + ping.html redirect building. Stage 3 (verify): challenge/response validation, dispatch constraints, signature-envelope parse failures (225), generic verification failures (401), the tighter pingTimeout expiry window (402), and the success body. Pins ping\'s distinct result shape ({pinged, issuedAt, signedAt, verifiedAt, expires, secure, identifier, identityDomain, lookupCode, actor, actorIdentityDomain, actorLookupCode, groups, deviceName, deviceTag, keys} — no publicProfile, no ext) and that signedMetadata.ext is ignored. Crypto-bearing Stage 3 fixtures were minted by test/fixtures/json/_capture_ping.mjs (WebCrypto ECDSA is non-deterministic to mint, deterministic to verify). A final Ed25519 section covers the type=ed25519 verifier backend (positive plus crypto/key-material/uv-taint negatives).' +
+    'Comprehensive coverage of Triauth.ping. Stage 1 (request): dispatch/arg guards, identifier/callbackUrl/ext validation, the session key routing and request sealing (authenticate() rejects sessionKey with 102), DNS configuration (301), and deterministic challenge + ping.html redirect building. Stage 3 (verify): challenge/response validation, dispatch constraints, signature-envelope parse failures (225), generic verification failures (401), the tighter pingTimeout expiry window (402), and the success body. Pins ping\'s distinct result shape ({pinged, issuedAt, signedAt, verifiedAt, expires, secure, identifier, identityDomain, lookupCode, actor, actorIdentityDomain, actorLookupCode, groups, deviceName, deviceTag, keys} — no publicProfile, no ext) and that signedMetadata.ext is ignored. Crypto-bearing Stage 3 fixtures were minted by test/fixtures/json/_capture_ping.mjs (WebCrypto ECDSA is non-deterministic to mint, deterministic to verify). A final Ed25519 section covers the type=ed25519 verifier backend (positive plus crypto/key-material/uv-taint negatives).' +
     ' Stage 1 resolves the endpoint record only - identity existence is settled on the signed response, so no stage-1 case yields 302. A PRIVATE MODE section covers mode=private: stage-1 issue over an unreadable identity, stage-3 verification with the lookup code in signed-metadata and the ~lookupCode-suffixed deviceTag, and the commitment-mismatch rejection.',
   dnsEntries,
   currentTime: T,

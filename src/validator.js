@@ -410,20 +410,27 @@ export class Validator {
    * Validates the `sessionKey` that gates stage 1 of {@link Triauth.ping}, {@link Triauth.sign}, {@link Triauth.stamp}, and {@link Triauth.attest}.
    *
    * A session key is the `sessionKey` of a {@link Triauth.authenticate} result, 32 bytes in 43 base64url characters.
-   * Its bytes key the HMAC that binds the challenge to the holder of the session key.
+   * After a delegated sign-in it is `<domain>:<key>`, with the lowercase domain name of the actor.
    *
    * @param sessionKey {String} - Session key that should be validated.
    *
    * @returns {{valid: boolean, errors: Array<{code: number, message: string}>}}
    */
   static validateSessionKey(sessionKey) {
-    if (typeof sessionKey !== 'string' || sessionKey.length !== 43 || !Helpers.isBase64UrlString(sessionKey)) {
+    const parts = typeof sessionKey === 'string' ? sessionKey.split(':') : [];
+    const [domain, key] = parts.length === 2 ? parts : [null, parts[0]];
+
+    if (
+      parts.length < 1 || parts.length > 2 ||
+      (domain !== null && !(Helpers.isDomainName(domain) && domain === domain.toLowerCase())) ||
+      key.length !== 43 || !Helpers.isBase64UrlString(key)
+    ) {
       return this.#expandResult([226]);
     }
 
     // The canonical base64url of 32 bytes has no data in the unused bits of its last character
     try {
-      Helpers.base64UrlToUint8(sessionKey);
+      Helpers.base64UrlToUint8(key);
     } catch {
       return this.#expandResult([226]);
     }

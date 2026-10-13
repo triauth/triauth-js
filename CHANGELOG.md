@@ -4,22 +4,18 @@
 
 ### Added
 
-- Encrypted responses. Each challenge includes a new P-256 public key (`ek`), and the authenticator encrypts its response to that key with HPKE (RFC 9180). Stage 3 decrypts the response with the private key in the stored `challenge`.
-- A `sessionKey` in every `Triauth.authenticate` result. Your application and the authenticator derive it from the encrypted response.
-- The `ext.permissions` extension. A sign-in asks with `{permissions:{ping:true, stamp:true}}`, and the result shows the decision in `ext.permissions`.
+- Encrypted responses. Every challenge carries a P-256 public key (`ek`), the authenticator encrypts its response to it with HPKE (RFC 9180), and stage 3 decrypts it with the key kept in the stored `challenge`, which stage 1 now returns as `<challenge>.<key>`. Sign-ins need an authenticator that encrypts responses.
+- A `sessionKey` in every `Triauth.authenticate` result, derived by both sides from the encrypted response. `Triauth.ping`, `sign`, `stamp` and `attest` take it in place of a `token`, and their requests travel encrypted under it as `skid` and `request`. After a delegated sign-in it starts with the actor's domain, and the requests go to the actor's authenticator.
+- The `ext.permissions` extension, `{permissions:{ping:true, stamp:true}}`. Ping and stamp need their permission. Sign and attest need none, because the user approves each request.
 
 ### Changed
 
 - The default `callbackMethod` is now `GET`.
-- Stage 1 returns the `challenge` as `<challenge>.<key>`, which is longer than before.
-- Sign-ins need an authenticator that encrypts responses.
-- `Triauth.ping`, `Triauth.sign`, `Triauth.stamp` and `Triauth.attest` take the `sessionKey` of a sign-in instead of a `token`.
-- Ping and stamp need their permission. Sign and attest need no permission, because the user approves each request.
 
 ### Removed
 
-- Mentions of the `privateProfile` extension. The Triauth Authenticator no longer keeps a private profile, and it ignores a request for one.
-- The `pingToken`, `signToken`, `stampToken` and `attestToken` extensions.
+- The `pingToken`, `signToken`, `stampToken` and `attestToken` extensions, replaced by `ext.permissions`.
+- The `privateProfile` extension. The Triauth Authenticator no longer keeps a private profile and ignores a request for one.
 
 ## [1.0.0-beta.1] - initial public beta
 

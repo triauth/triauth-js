@@ -23,6 +23,8 @@ import { Identity } from './identity.js';
 import { Challenge } from './challenge.js';
 import { Response } from './response.js';
 import { ResponseCipher } from './response_cipher.js';
+import { RequestCipher } from './request_cipher.js';
+import { AuthenticationEndpoint } from './authentication_endpoint.js';
 import { KNOWN_CONFIG_KEYS } from './config.js';
 
 /**
@@ -148,9 +150,11 @@ export class ChallengeResponseFlow {
           throw new TriauthError(challengeError.code, challengeError.message);
         }
 
-        const authenticationEndpoint = identity.authenticationEndpoint;
+        // A delegated session key is `<domain>:<key>`, and its session is at the authenticator of that domain
+        const [sessionKeyDomain, sessionKeySecret] = sessionKey?.includes(':') ? sessionKey.split(':') : ['', sessionKey];
+        const authenticationEndpoint = sessionKeyDomain ? new AuthenticationEndpoint(sessionKeyDomain, config) : identity.authenticationEndpoint;
 
-        // Check if authentication endpoint has been configured for the given identifier's domain name
+        // Check if authentication endpoint has been configured for the domain name
         if (!(await authenticationEndpoint.resolve())) {
           throw new TriauthError(301, 'Domain is not configured for triauth');
         }
@@ -158,17 +162,11 @@ export class ChallengeResponseFlow {
         // Enforce config.requireSecure if set
         ChallengeResponseFlow.assertSecure(authenticationEndpoint.secure, config);
 
-        const redirectUrlParams = {challenge:challengeString};
-
-        // The HMAC of the challenge under the session key proves to the authenticator that the request comes from the
-        // site that holds the key. The empty part before `:` keeps the `<issuer>:<hmac>` form that authenticators parse.
-        if (sessionKey) {
-          const challengeHMAC = Helpers.arrayBufferToBase64Url(
-            await Helpers.hmacSha256(Helpers.base64UrlToUint8(sessionKey), Helpers.base64UrlToUint8(challengeString))
-          );
-
-          redirectUrlParams.token = ':' + challengeHMAC;
-        }
+        // A request that follows a sign-in travels sealed under the session key, with `skid` to find the key.
+        // A sign-in has no session key yet, so its challenge travels readable.
+        const redirectUrlParams = sessionKey
+          ? {skid: await RequestCipher.skid(sessionKeySecret), request: await RequestCipher.seal(sessionKeySecret, challengeString)}
+          : {challenge: challengeString};
 
         const redirectUrl = authenticationEndpoint.urlFor(type, redirectUrlParams);
         const redirectUrlString = redirectUrl.toString();

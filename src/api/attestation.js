@@ -105,7 +105,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  *     sessionKey: '59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8'
  *   }
  * );
- * // {challenge: 'eyJjYn…l19fX0.PEq5CslSnTExe9xko1O5B-K9T4wBse5XtyClYb8WxJM', redirectUrl: 'https://auth.triauthdemo.org/attest.html#?challenge=eyJjYn…l19fX0&token=:8LvHcbpz8mDJgDSl-CJtL3T28uAZCKTY8FbAduvVkYU'}
+ * // {challenge: 'eyJjYn…l19fX0.PEq5CslSnTExe9xko1O5B-K9T4wBse5XtyClYb8WxJM', redirectUrl: 'https://auth.triauthdemo.org/attest.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=…'}
  * ```
  *
  * **2. Redirect**

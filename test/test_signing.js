@@ -54,10 +54,10 @@ describe('Signing API', () => {
         assert.equal(challengeRequest.data.msg, message);
       });
 
-      it('includes the HMAC of the challenge under the session key in redirectUrl', async () => {
+      it('seals the challenge into redirectUrl under the session key, next to its skid', async () => {
         const signRes = (await Triauth.sign({identifier, callbackUrl, message, sessionKey}));
-        assert(signRes.redirectUrl.indexOf('token=:') >= 0);
-        assert(signRes.redirectUrl.indexOf('hmac=') < 0);
+        assert(signRes.redirectUrl.includes('#?skid=') && signRes.redirectUrl.includes('&request='));
+        assert(!signRes.redirectUrl.includes('challenge=') && !signRes.redirectUrl.includes('token='));
       });
 
       it('rejects a request without a session key with 226 - sign follows a sign-in', async () => {
@@ -176,7 +176,8 @@ describe('Signing API', () => {
       });
 
       it('returns {error:{code:226}} for invalid session keys', async () => {
-        const invalidSessionKeys = ['short', 123, '', 'A'.repeat(42), 'A'.repeat(44), ':' + 'a'.repeat(16), 'A'.repeat(42) + '+', 'A'.repeat(42) + 'B'];
+        const invalidSessionKeys = ['short', 123, '', 'A'.repeat(42), 'A'.repeat(44), ':' + 'a'.repeat(16), 'A'.repeat(42) + '+', 'A'.repeat(42) + 'B',
+          ':' + 'A'.repeat(43), 'Issuer.Example:' + 'A'.repeat(43), 'not_a_domain:' + 'A'.repeat(43), 'a.example:b.example:' + 'A'.repeat(43)];
         for (const invalidSessionKey of invalidSessionKeys) {
           const signRes = (await Triauth.sign({identifier, callbackUrl, message, sessionKey: invalidSessionKey}));
           assert(!signRes?.signed);
@@ -604,10 +605,10 @@ describe('Signing API', () => {
         assert.equal(challengeRequest.data.msg, message);
       });
 
-      it('includes the HMAC of the challenge under the session key in redirectUrl', async () => {
+      it('seals the challenge into redirectUrl under the session key, next to its skid', async () => {
         const stampRes = (await Triauth.stamp({identifier, callbackUrl, message, sessionKey}));
-        assert(stampRes.redirectUrl.indexOf('token=:') >= 0);
-        assert(stampRes.redirectUrl.indexOf('hmac=') < 0);
+        assert(stampRes.redirectUrl.includes('#?skid=') && stampRes.redirectUrl.includes('&request='));
+        assert(!stampRes.redirectUrl.includes('challenge=') && !stampRes.redirectUrl.includes('token='));
       });
 
       it('rejects a request without a session key with 226 - stamp follows a sign-in', async () => {
@@ -636,7 +637,8 @@ describe('Signing API', () => {
       });
 
       it('returns {error:{code:226}} for invalid session keys', async () => {
-        const invalidSessionKeys = ['short', 123, '', 'A'.repeat(42), 'A'.repeat(44), ':' + 'a'.repeat(16), 'A'.repeat(42) + '+', 'A'.repeat(42) + 'B'];
+        const invalidSessionKeys = ['short', 123, '', 'A'.repeat(42), 'A'.repeat(44), ':' + 'a'.repeat(16), 'A'.repeat(42) + '+', 'A'.repeat(42) + 'B',
+          ':' + 'A'.repeat(43), 'Issuer.Example:' + 'A'.repeat(43), 'not_a_domain:' + 'A'.repeat(43), 'a.example:b.example:' + 'A'.repeat(43)];
         for (const invalidSessionKey of invalidSessionKeys) {
           const stampRes = (await Triauth.stamp({identifier, callbackUrl, message, sessionKey: invalidSessionKey}));
           assert(!stampRes?.stamped);
