@@ -18,3 +18,11 @@ updates:
     groups:
       dev-dependencies:
         patterns: ["*"]
+    ignore:
+      # TypeScript 7 types JSDoc `@param {object}` strictly; moving needs a
+      # source-wide annotation pass, so majors arrive by hand.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      # mocha 12 needs Node 20.19+, while this package supports Node 18.
+      - dependency-name: mocha
+        update-types: ["version-update:semver-major"]
