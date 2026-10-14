@@ -181,14 +181,8 @@ const _perform = async(type, options = {}, config = {}) => {
  * > inside the `message` itself and reject reused nonces.
  *
  * > [!NOTE]
- * > **To use this function you must request and obtain a special `signToken`**<br/>
- * > To do so, provide the `ext:{signToken:true}` parameter to the `Triauth.authenticate` function during the initial call (i.e., when building the challenge),
- * > and, given that the user agrees and/or authenticator supports it, in the authentication result you will receive `ext.signToken` property (string).
- * > You should keep the `signToken` value private, and pass it as a `token` parameter in the initial call to the `sign` method.
- * > The token is issued by the authenticator on the device that signed in, and only that device honors it.
- * > A user with several devices holds a different token on each.
- * >
- * > Also, the `callbackUrl` used in this method must have the **same base URL** (its origin plus the path up to and including the last `/`) as the `callbackUrl` from the initial `Triauth.authenticate` call.
+ * > **Use the same base callbackUrl as for authentication**<br/>
+ * > The `callbackUrl` used in this method must have the **same base URL** (its origin plus the path up to and including the last `/`) as the `callbackUrl` from the initial `Triauth.authenticate` call.
  * > For example, if `callbackUrl` used for authentication was `https://example.com/dir1/callback`, the `callbackUrl` used in this method
  * > must sit in that same `https://example.com/dir1/` base directory — only the final path segment may differ, e.g., `https://example.com/dir1/this-callback` (a deeper path such as `https://example.com/dir1/dir2/this-callback` does **not** match the base URL, and the request will be rejected).
  *
@@ -200,7 +194,7 @@ const _perform = async(type, options = {}, config = {}) => {
  * a `callbackUrl` option set to the URL under which your application expects to receive a response (string),
  * a `message` (string) option set to a human-readable text message to be signed,
  * an optional `attachments` (array) option listing additional file attachments to be covered by the signature,
- * a `token` (string) option set to the `signToken` previously obtained via `ext.signToken` from a `Triauth.authenticate` call,
+ * a `sessionKey` (string) option set to the `sessionKey` of a `Triauth.authenticate` result,
  * and an optional `ext` option (object) listing the [protocol extensions](#protocol-extensions) that you wish to use.
  *
  * > [!NOTE]
@@ -229,7 +223,7 @@ const _perform = async(type, options = {}, config = {}) => {
  *
  * ```javascript
  *
- * let result = await Triauth.sign({identifier, callbackUrl, message, attachments, token, ext});
+ * let result = await Triauth.sign({identifier, callbackUrl, message, attachments, sessionKey, ext});
  * // returns {challenge, redirectUrl} the challenge should be remembered, and user redirected to the redirectUrl
  * // returns {error} on error
  *
@@ -250,12 +244,12 @@ const _perform = async(type, options = {}, config = {}) => {
  *         sha256: 'd8a6cc31abc16b6748c7a21f21611f5a1ec33f67d22ca23d7da1c19b95496bee'
  *       }
  *     ],
- *     token: ':icP7sOAmpY_W1ODqjLgG6y-G'
+ *     sessionKey: '59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8'
  *   }
  * );
  * // {
- * //   "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzaWduIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJLRXZCSVBLZFRLX1JNYldFUkZVVFpBcUkiLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MSwibXNnIjoiVG8gY29udGludWUsIHBsZWFzZSByZWFkIGFuZCBhY2NlcHQgdGhlIGF0dGFjaGVkIExpY2Vuc2UiLCJhdHRhY2htZW50cyI6W3sibmFtZSI6IkxpY2Vuc2UiLCJzb3VyY2VVcmwiOiJodHRwczovL3Jhdy5naXRodWJ1c2VyY29udGVudC5jb20vc3BkeC9saWNlbnNlLWxpc3QtZGF0YS9yZWZzL2hlYWRzL21haW4vdGV4dC9BR1BMLTMuMC1vci1sYXRlci50eHQiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn1dfQ",
- * //   "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzaWduIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJLRXZCSVBLZFRLX1JNYldFUkZVVFpBcUkiLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MSwibXNnIjoiVG8gY29udGludWUsIHBsZWFzZSByZWFkIGFuZCBhY2NlcHQgdGhlIGF0dGFjaGVkIExpY2Vuc2UiLCJhdHRhY2htZW50cyI6W3sibmFtZSI6IkxpY2Vuc2UiLCJzb3VyY2VVcmwiOiJodHRwczovL3Jhdy5naXRodWJ1c2VyY29udGVudC5jb20vc3BkeC9saWNlbnNlLWxpc3QtZGF0YS9yZWZzL2hlYWRzL21haW4vdGV4dC9BR1BMLTMuMC1vci1sYXRlci50eHQiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn1dfQ&token=:rZCy5mqxuP2Oru3AWovmMd7ym4oqyx7sBV033WcLlNk"
+ * //   "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzaWduIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJLRXZCSVBLZFRLX1JNYldFUkZVVFpBcUkiLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MSwiZWsiOiJCTEYxdEVWQkVZMGpBZ3lFcGM0MUJSdTRHS2loaTVneDhyalFmY2Q3UnFOUGFUd1kyeG1zYkNSZ0YxNkN5VWJuRk5XUFREZndkMV9XTVlEWldRdWFOblkiLCJtc2ciOiJUbyBjb250aW51ZSwgcGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgYXR0YWNoZWQgTGljZW5zZSIsImF0dGFjaG1lbnRzIjpbeyJuYW1lIjoiTGljZW5zZSIsInNvdXJjZVVybCI6Imh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9zcGR4L2xpY2Vuc2UtbGlzdC1kYXRhL3JlZnMvaGVhZHMvbWFpbi90ZXh0L0FHUEwtMy4wLW9yLWxhdGVyLnR4dCIsInNoYTI1NiI6ImQ4YTZjYzMxYWJjMTZiNjc0OGM3YTIxZjIxNjExZjVhMWVjMzNmNjdkMjJjYTIzZDdkYTFjMTliOTU0OTZiZWUifV19.zN__zhGHx9hT7gakwy1WZ33JRURklZVmS-crUohEchE",
+ * //   "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=23luwOGXdIM6JX8f._EkvQKPuF6kR2v-ur9aIU1QkqCDURnpq-_GThw669vCmekrNYmLC6ZaVuqHLy3i77tFqNUed5hlm-Yk1KLkyroMGnQQl5_jS7CPrwTthn0MjrHrf0hBcVBdeD_3mGTm-wFDjXS6qpgZO9721poQnV3Cj-a6rxQXyX6o1tOD8_JdiEql23uFQ8axvbnpFVP7w-QLj9IuNU6jeM2hOGNrS-n6TKR11iQ40bfyERFWNtQNgrDTh1A_fnnxv_YPTTBdnzgFiDe09M0h93ZACRVJGLWNGj4dx4xsa5l08cC0-6a1BwuShxbMtoWROFLky0vUNkbAseko-4xKvuIIXAu5AmPDTXfLpiormgzmGK72f0aokY1YUUy0VzGIsTDdjCxqPJTgrDlt4g1uJu60yfSCPdHOWubbRj5eMdhTW3p6LzOWIDZPDpSeC141v9eX7wbTB_KIJiJwCvHD1dbq3fTaTM0z313WzT8VXKc5RPtaIWz8J1L7KiZcH2NjjyqFRJ1jYHPj2g8JPiPo5wohmcuPqC98l7cBPK_GI0PXEuuWvuEqk9uDXtufhBHwu2wLOx-n2n9ktLHnE1Bgw5qkYn6-YJD5NJ1YCjljc4_Une_smlyXL6-cDm-dD3ugp1rw1SbVv_f5m8uQUvkHxkxKXrSqSmljxFsG4g9kbf3myh39d5iODAxuwzLcGdOAXWHmIS9Hmkx2rLytc-v8emjPu9Ktb5iD0yZtKAX4-3eWBHzBgPr3wbA"
  * // }
  * ```
  *
@@ -289,8 +283,8 @@ const _perform = async(type, options = {}, config = {}) => {
  * ```javascript
  * await Triauth.sign(
  *   {
- *    challenge:'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzaWduIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJLRXZCSVBLZFRLX1JNYldFUkZVVFpBcUkiLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MSwibXNnIjoiVG8gY29udGludWUsIHBsZWFzZSByZWFkIGFuZCBhY2NlcHQgdGhlIGF0dGFjaGVkIExpY2Vuc2UiLCJhdHRhY2htZW50cyI6W3sibmFtZSI6IkxpY2Vuc2UiLCJzb3VyY2VVcmwiOiJodHRwczovL3Jhdy5naXRodWJ1c2VyY29udGVudC5jb20vc3BkeC9saWNlbnNlLWxpc3QtZGF0YS9yZWZzL2hlYWRzL21haW4vdGV4dC9BR1BMLTMuMC1vci1sYXRlci50eHQiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn1dfQ',
- *    response:'|sign;john@triauthdemo.org;;https://example.com/;v1;1787224774435;eyJhdHRhY2htZW50cyI6W3sibmFtZSI6IkxpY2Vuc2UiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn1dfQ;;pj0gdEVQ3JBYh08jknFpY45WX462AUb1z78mINHewl1NXWzU5_g9ibD3-ffbdH9SIGtQTtcHQrsa3Ivt1wg1sg|'
+ *    challenge:'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzaWduIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJLRXZCSVBLZFRLX1JNYldFUkZVVFpBcUkiLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MSwiZWsiOiJCTEYxdEVWQkVZMGpBZ3lFcGM0MUJSdTRHS2loaTVneDhyalFmY2Q3UnFOUGFUd1kyeG1zYkNSZ0YxNkN5VWJuRk5XUFREZndkMV9XTVlEWldRdWFOblkiLCJtc2ciOiJUbyBjb250aW51ZSwgcGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgYXR0YWNoZWQgTGljZW5zZSIsImF0dGFjaG1lbnRzIjpbeyJuYW1lIjoiTGljZW5zZSIsInNvdXJjZVVybCI6Imh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9zcGR4L2xpY2Vuc2UtbGlzdC1kYXRhL3JlZnMvaGVhZHMvbWFpbi90ZXh0L0FHUEwtMy4wLW9yLWxhdGVyLnR4dCIsInNoYTI1NiI6ImQ4YTZjYzMxYWJjMTZiNjc0OGM3YTIxZjIxNjExZjVhMWVjMzNmNjdkMjJjYTIzZDdkYTFjMTliOTU0OTZiZWUifV19.zN__zhGHx9hT7gakwy1WZ33JRURklZVmS-crUohEchE',
+ *    response:'BFUYnuW1tUiltgq1DQbLeqpZTNDwDJm89hxkfrBuuNNdTmmwoRYuR5dZeVdnrJWbcSiLfO2VPYuTw-mBq6EZi0c.HUJzImw0j-Uo629gvuIMb6ePe9G835vaz7bURvqz5ICtkxc9vP4sRRXTnkhpQl8lsVVX4aYs1ltz-eft2aqxyUwfaaPYRPhWGj3rwUdr9lXnT8qtSkyInacgxWWx8MCPoveO1GBBD2iIE4-o9vUEfPziEh9dz7bBf_1Y_xM_fFXHEXZaGz1CWBN42S24BnKuVUvcT1gGfJiSIDdoG8YdU6xUFWJwhxwZupQbjIbfGuXrwXVrVejuE3_sgIy7pQ2SyLgSQcoBw329vTJns0b5QcjyRojzc9dS1iWeQWj_3TjF7nQh8F9sHWVqvdc0YCDncrcR_z-uTjDhgzShnhevHXukgQ_-Dze4kOd1wgUiwfEEIQvclIyVkSyrEcMt9bIUkmhb5Su5eicMnzdEZIvLMJQ7gssUxPE8B7_DXKZgMEnH'
  *   }
  * );
  * //
@@ -362,7 +356,7 @@ const _perform = async(type, options = {}, config = {}) => {
  * @param [options.callbackUrl] {string} - (stage 1) an application provided URL to which the user's web browser should be redirected with the response
  * @param [options.message] {string} - (stage 1) a human-readable text message to be signed
  * @param [options.attachments] {Array<{name: string, sourceUrl: string, sha256: string}>} - (stage 1) optional list of at most 10 attachments to be covered by the signature; `name` must be unique within the list and `sha256` a lowercase hex digest
- * @param [options.token] {string} - (stage 1, required) the `signToken` previously obtained via `ext.signToken` from a `Triauth.authenticate` call; a stage-1 request without it returns error 226
+ * @param [options.sessionKey] {string} - (stage 1, required) the `sessionKey` of a `Triauth.authenticate` result; a stage-1 request without a valid session key returns error 226
  * @param [options.ext] {object} - (stage 1) an optional object of protocol extensions to use (e.g., `{callbackMethod:'GET'}`)
  *
  * @param [options.challenge] {string} - (stage 3) a challenge as it was returned by the method after stage 1 call
@@ -394,14 +388,9 @@ export const sign = async(options = {}, config = {}) => {
  * > need replay protection must include a fresh, verifier-chosen nonce inside `message` itself.
  *
  * > [!NOTE]
- * > **To use this function you must request and obtain a special `stampToken`**<br/>
- * > To do so, provide the `ext:{stampToken:true}` parameter to the `Triauth.authenticate` function during the initial call (i.e., when building the challenge),
- * > and, given that the user agrees and/or authenticator supports it, in the authentication result you will receive `ext.stampToken` property (string).
- * > You should keep the `stampToken` value private, and pass it as a `token` parameter in the initial call to the `stamp` method.
- * > The token is issued by the authenticator on the device that signed in, and only that device honors it.
- * > The authenticator keeps its copy in that browser's storage, and the next sign-in on that device, approved or denied, replaces or removes it.
- * > Store the token in the session that the sign-in created, next to the `challenge` and `deviceTag`, not on the user's account, and pass that session's token.
- * > A user with several devices holds a different token on each.
+ * > **Get the `stamp` permission and use the same base callbackUrl as for authentication**<br/>
+ * > To get the permission, provide the `ext:{permissions:{stamp:true}}` parameter to the `Triauth.authenticate` function during the initial call (i.e., when building the challenge).
+ * > The authentication result shows the decision in `ext.permissions`. You can use `stamp` only when the authenticator responds with `ext.permissions?.stamp === true`.
  * >
  * > Also, the `callbackUrl` used in this method must have the **same base URL** (its origin plus the path up to and including the last `/`) as the `callbackUrl` from the initial `Triauth.authenticate` call.
  * > For example, if `callbackUrl` used for authentication was `https://example.com/dir1/callback`, the `callbackUrl` used in this method
@@ -414,7 +403,7 @@ export const sign = async(options = {}, config = {}) => {
  * At first, you need to call the `Triauth.stamp` method with the `identifier` option set to the user provided personal identifier (lowercase string),
  * a `callbackUrl` option set to the URL under which your application expects to receive a response (string),
  * a `message` (string) option set to a text message to be stamped,
- * a `token` (string) option set to the `stampToken` previously obtained via `ext.stampToken` from a `Triauth.authenticate` call,
+ * a `sessionKey` (string) option set to the `sessionKey` of a `Triauth.authenticate` result,
  * and an optional `ext` option (object) listing the [protocol extensions](#protocol-extensions) that you wish to use.
  *
  * > [!NOTE]
@@ -430,7 +419,7 @@ export const sign = async(options = {}, config = {}) => {
  *
  * ```javascript
  *
- * let result = await Triauth.stamp({identifier, callbackUrl, message, token, ext});
+ * let result = await Triauth.stamp({identifier, callbackUrl, message, sessionKey, ext});
  * // returns {challenge, redirectUrl} the challenge should be remembered, and user redirected to the redirectUrl
  * // returns {error} on error
  *
@@ -444,20 +433,20 @@ export const sign = async(options = {}, config = {}) => {
  *     identifier:'john@triauthdemo.org',
  *     callbackUrl:'https://example.com/triauth-callback',
  *     message: 'login-nonce:4f2d9c715b6e4a3c', // a fresh, single-use nonce from your server, when the stamp gates anything
- *     token:':uXyqjnczCcq1xStskY7xN6-Q'
+ *     sessionKey:'59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8'
  *   }
  * );
  * //
  * // {
- * //   challenge: 'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoic1ZoVXRZOXQzMEVDQjJUR0t2WTktZXpBIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjEsIm1zZyI6ImxvZ2luLW5vbmNlOjRmMmQ5YzcxNWI2ZTRhM2MifQ',
- * //   redirectUrl: 'https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoic1ZoVXRZOXQzMEVDQjJUR0t2WTktZXpBIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjEsIm1zZyI6ImxvZ2luLW5vbmNlOjRmMmQ5YzcxNWI2ZTRhM2MifQ&token=:dIsLLvqBmQO_DS2o_HhLM5LRJk8hHdbr938NmJnif64'
+ * //   challenge: 'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoic1ZoVXRZOXQzMEVDQjJUR0t2WTktZXpBIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjEsImVrIjoiQkdpOE1kZG11ZnFQdGNncEdwZFFvNDMzSTdxVzVHUm1uU0NmOGZaLVJHclppNng1ZHJNWkZIa3dQZXRkemFyZ21MQ2VvVU9HaF80dXJ6RWt6T3RKU0NrIiwibXNnIjoibG9naW4tbm9uY2U6NGYyZDljNzE1YjZlNGEzYyJ9.osPmHctBwGQUdU346YuJtHPJ-hh01Hia9bxCFZtYhNs',
+ * //   redirectUrl: 'https://auth.triauthdemo.org/stamp.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=qKIqh6XTsNbjhjis.huEd1iwa_Xd1q1OhHA7bUmFhfjxCtTEEoPs3l8JSkxJXMrIzBEbjk58CA24JnV6O6LIJ35YTzf3cfjBfBiZyjLdHRbHlpbanM-VTF0Utke_G6Y2Ol3onMk4vmWn40GN6XhyEYRitzXJfCKawNGjhjBoif6r5niNFsOh1f-RCVauYVKUpvSOoVPztSSwYAwtRs9FohwIBG48FpB6kI5xKQLtFJZbhBze0L02gWSwnXwQr5hMh4jOMPV9po7HZUfA1mmRgBkZPhUBSYknBBKYTa1qFadizopi9a9_M7UH1kNTWWEyIXxXt_ibIXhSu1n5-yxVwx2r-M-q7BnH0Nu-V5MDqCnE9fxJ19KoBjj1zpMfZMbx6b2T_zQ7ULPmmZrQKWZYlIDx_XY4f15M_AyZD72i5Awi9JA'
  * // }
  * //
  * ```
  *
  * **2. Redirect**
  *
- * Once the user's web browser is redirected to the `redirectUrl`, and assuming that the `token` is valid, the Triauth Authenticator web application will immediately respond with the stamp to the `callbackUrl`.
+ * Once the user's web browser is redirected to the `redirectUrl`, the Triauth Authenticator web application immediately responds with the stamp to the `callbackUrl`. This needs a valid session key with the `stamp` permission.
  *
  * **3. Verify**
  *
@@ -482,8 +471,8 @@ export const sign = async(options = {}, config = {}) => {
  * ```javascript
  * await Triauth.stamp(
  *   {
- *    challenge:'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoic1ZoVXRZOXQzMEVDQjJUR0t2WTktZXpBIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjEsIm1zZyI6ImxvZ2luLW5vbmNlOjRmMmQ5YzcxNWI2ZTRhM2MifQ',
- *    response:'|stamp;john@triauthdemo.org;;https://example.com/;v1;1787224751380;;;0lWRFGKZsAC18au2DqtYEavf7zXDkCQH0fTOqwB2QeWsKhSkm29NY0mz1r6VckOVL2utg3wp1QMnySEO56zupg|'
+ *    challenge:'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoic1ZoVXRZOXQzMEVDQjJUR0t2WTktZXpBIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjEsImVrIjoiQkdpOE1kZG11ZnFQdGNncEdwZFFvNDMzSTdxVzVHUm1uU0NmOGZaLVJHclppNng1ZHJNWkZIa3dQZXRkemFyZ21MQ2VvVU9HaF80dXJ6RWt6T3RKU0NrIiwibXNnIjoibG9naW4tbm9uY2U6NGYyZDljNzE1YjZlNGEzYyJ9.osPmHctBwGQUdU346YuJtHPJ-hh01Hia9bxCFZtYhNs',
+ *    response:'BFpQrxQ6mXjTWkiCFbd1d1QmQdwwdTT56QAffbbiQf_in1BW_nwpZcWqOHgVOV_FnGZuUlFc0bKEZiUBp-SQW2g.dWHtvEeGPf217Qg3SoQ5BBFrytjc5IumJZDwPmGvd4n04pwr7BD8sQQFCGM6WTwc0zu1_nIy9v6_rG4oqtEVyAzVrG7Siepi6AIBwiLgQQqdjcFBX3LNH-Xh6xD_XBOyM4P9QSDJjicL5dg-KUg3P2XXp8J4Tke6F2QK1WyepNxfIY-wi6HeKmsVqTbUYjzj_tJs23jdDv7Ik_7m5CCYkZtq0Xxj8NZSU1BmEw'
  *   }
  * );
  *
@@ -545,7 +534,7 @@ export const sign = async(options = {}, config = {}) => {
  * @param [options.identifier] {string} - (stage 1) the user provided identifier
  * @param [options.callbackUrl] {string} - (stage 1) an application provided URL to which the user's web browser should be redirected with the response
  * @param [options.message] {string} - (stage 1) a text message to be stamped
- * @param [options.token] {string} - (stage 1, required) the `stampToken` previously obtained via `ext.stampToken` from a `Triauth.authenticate` call; a stage-1 request without it returns error 226
+ * @param [options.sessionKey] {string} - (stage 1, required) the `sessionKey` of a `Triauth.authenticate` result whose `ext.permissions.stamp` is `true`; a stage-1 request without a valid session key returns error 226
  * @param [options.ext] {object} - (stage 1) an optional object of protocol extensions to use (e.g., `{callbackMethod:'GET'}`)
  *
  * @param [options.challenge] {string} - (stage 3) a challenge as it was returned by the method after stage 1 call

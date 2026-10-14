@@ -1,4 +1,5 @@
 import SignerStub from './stubs/signer.js';
+import AuthenticatorStub from './stubs/authenticator.js';
 import DnsResolverStub from './stubs/dns_resolver.js';
 import identities from './fixtures/identities.json' with { type: 'json' };
 import identifiersFixture from './fixtures/identifiers.json' with { type: 'json' };
@@ -34,17 +35,17 @@ describe('Authentication API', () => {
 
       it('encodes the identifier and callbackUrl in the challenge', async () => {
         const authRes = (await Triauth.authenticate({identifier, callbackUrl}));
-        const challengeRequest = Triauth.Challenge.fromString(authRes.challenge);
+        const challengeRequest = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(authRes.challenge));
 
         assert.equal(challengeRequest.data.identifier, identifier);
         assert.equal(challengeRequest.data.cburl, callbackUrl);
       });
 
       it('accepts optional ext hash and encodes it in the challenge', async () => {
-        const authRes = (await Triauth.authenticate({identifier, callbackUrl, ext:{'signToken':true}}));
-        const challengeRequest = Triauth.Challenge.fromString(authRes.challenge);
+        const authRes = (await Triauth.authenticate({identifier, callbackUrl, ext:{permissions:{ping:true}}}));
+        const challengeRequest = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(authRes.challenge));
 
-        assert.equal(challengeRequest.data.ext?.signToken, true);
+        assert.equal(challengeRequest.data.ext?.permissions?.ping, true);
       });
 
       it('accepts ext values with non-latin-1 characters and encodes them in the challenge', async () => {
@@ -53,7 +54,7 @@ describe('Authentication API', () => {
         const authRes = (await Triauth.authenticate({identifier, callbackUrl, ext}));
 
         assert(!authRes.error, JSON.stringify(authRes.error));
-        const challengeRequest = Triauth.Challenge.fromString(authRes.challenge);
+        const challengeRequest = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(authRes.challenge));
         assert.equal(challengeRequest.data.ext?.note, ext.note);
       });
 
@@ -71,7 +72,7 @@ describe('Authentication API', () => {
         const authRes = (await Triauth.authenticate({identifier, callbackUrl, ext: {manifest}}));
 
         assert(!authRes.error, JSON.stringify(authRes.error));
-        const challengeRequest = Triauth.Challenge.fromString(authRes.challenge);
+        const challengeRequest = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(authRes.challenge));
         assert.deepStrictEqual(challengeRequest.data.ext?.manifest, manifest);
       });
 
@@ -144,15 +145,17 @@ describe('Authentication API', () => {
         assert.equal(authRes.error.code, 110);
       });
 
-      it('rejects the `token` option for the auth flow (only allowed for ping/attest/sign/stamp)', async () => {
-        const authRes = await Triauth.authenticate({
-          identifier: 'john@triauthdemo.org',
-          callbackUrl: 'https://example.com/',
-          token: 'some-token-value'
-        });
+      it('rejects the `sessionKey` option for the auth flow (only allowed for ping/attest/sign/stamp), and the `token` option', async () => {
+        for (const option of [{sessionKey: AuthenticatorStub.SESSION_KEY}, {token: ':' + 'a'.repeat(16)}]) {
+          const authRes = await Triauth.authenticate({
+            identifier: 'john@triauthdemo.org',
+            callbackUrl: 'https://example.com/',
+            ...option
+          });
 
-        assert(!authRes.authenticated);
-        assert.equal(authRes.error.code, 102, '`token` for auth must surface as Unrecognized function argument');
+          assert(!authRes.authenticated);
+          assert.equal(authRes.error.code, 102, `${Object.keys(option)[0]} for auth must surface as Unrecognized function argument`);
+        }
       });
     });
 
@@ -169,11 +172,11 @@ describe('Authentication API', () => {
               'auth',
               identity.identifier, '',
               'https://example.com/',
-              challenge
+              AuthenticatorStub.publicChallenge(challenge)
               );
 
             // Valid signatures should authenticate
-            let authRes = (await Triauth.authenticate({challenge, response:signature}));
+            let authRes = (await Triauth.authenticate({challenge, response: await AuthenticatorStub.seal(challenge, signature)}));
 
             assert.equal(authRes.authenticated, true);
 
@@ -201,7 +204,7 @@ describe('Authentication API', () => {
             assert(authRes.issuedAt <= authRes.signedAt && authRes.signedAt <= authRes.verifiedAt);
 
             // Invalid signature should not authenticate
-            authRes = (await Triauth.authenticate({challenge, response:signature.replace('@', '@a')}));
+            authRes = (await Triauth.authenticate({challenge, response: await AuthenticatorStub.seal(challenge, signature.replace('@', '@a'))}));
             assert(!authRes.authenticated, 'invalid signatures must not be authenticated');
             assert(!authRes.identifier);
           }
@@ -221,12 +224,12 @@ describe('Authentication API', () => {
               'auth',
               identity.identifier, '',
               'https://example.com/',
-              challenge,
+              AuthenticatorStub.publicChallenge(challenge),
               signedData,
               unsignedData
             );
 
-            const authRes = (await Triauth.authenticate({challenge, response}));
+            const authRes = (await Triauth.authenticate({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
 
             assert.equal(authRes.authenticated, true);
             assert.equal(authRes.identifier, identity.identifier);
@@ -251,11 +254,11 @@ describe('Authentication API', () => {
           'auth',
           identity.identifier, '',
           'https://example.com/',
-          challenge,
+          AuthenticatorStub.publicChallenge(challenge),
           signedData
         );
 
-        const authRes = (await Triauth.authenticate({challenge, response}));
+        const authRes = (await Triauth.authenticate({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
 
         assert.equal(authRes.authenticated, true);
         assert.deepEqual(authRes.ext, signedData.ext);
@@ -286,10 +289,10 @@ describe('Authentication API', () => {
             'auth',
             identity.identifier, '',
             'https://example.com/',
-            challenge
+            AuthenticatorStub.publicChallenge(challenge)
           );
 
-          const authRes = await Triauth.authenticate({challenge, response}, {resolver});
+          const authRes = await Triauth.authenticate({challenge, response: await AuthenticatorStub.seal(challenge, response)}, {resolver});
 
           assert.equal(authRes.authenticated, true, `authentication must succeed for endpoint dnssec:${endpointDnssec}`);
           assert.equal(authRes.secure, expectedSecure, `endpoint dnssec:${endpointDnssec} must yield secure:${expectedSecure}`);
@@ -318,16 +321,16 @@ describe('Authentication API', () => {
             'auth',
             identity.identifier, '',
             'https://example.com/',
-            challenge
+            AuthenticatorStub.publicChallenge(challenge)
           );
 
           // Default (requireSecure off): authenticates regardless of `secure`.
-          const authDefault = await Triauth.authenticate({challenge, response}, {resolver});
+          const authDefault = await Triauth.authenticate({challenge, response: await AuthenticatorStub.seal(challenge, response)}, {resolver});
           assert.equal(authDefault.authenticated, true, `default config must authenticate (secure:${secure})`);
           assert.equal(authDefault.secure, secure);
 
           // requireSecure on: a DNSSEC-secure result still authenticates; a non-secure one is rejected with 404.
-          const authStrict = await Triauth.authenticate({challenge, response}, {resolver, requireSecure: true});
+          const authStrict = await Triauth.authenticate({challenge, response: await AuthenticatorStub.seal(challenge, response)}, {resolver, requireSecure: true});
           if (secure) {
             assert.equal(authStrict.authenticated, true, 'DNSSEC-secure result must still authenticate under requireSecure');
             assert.equal(authStrict.secure, true);
@@ -360,10 +363,10 @@ describe('Authentication API', () => {
           'auth',
           identifier, '',
           callbackUrl,
-          challenge
+          AuthenticatorStub.publicChallenge(challenge)
         );
 
-        const authRes = await Triauth.authenticate({challenge, response}, {resolver});
+        const authRes = await Triauth.authenticate({challenge, response: await AuthenticatorStub.seal(challenge, response)}, {resolver});
 
         assert.equal(authRes.authenticated, true, 'authentication backed by an ed25519 key must succeed');
         assert.equal(authRes.identifier, identifier);
@@ -381,13 +384,13 @@ describe('Authentication API', () => {
           'auth',
           identifier, '',
           'https://example.com/',
-          challenge
+          AuthenticatorStub.publicChallenge(challenge)
         );
 
-        let authRes = (await Triauth.authenticate({identifier, challenge, response}));
+        let authRes = (await Triauth.authenticate({identifier, challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert.equal(authRes.authenticated, true);
 
-        authRes = (await Triauth.authenticate({identifier:'other-user@example.com', challenge, response}));
+        authRes = (await Triauth.authenticate({identifier:'other-user@example.com', challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!authRes?.authenticated);
       });
 
@@ -396,24 +399,24 @@ describe('Authentication API', () => {
         const device = identity.devices[0];
 
         const challenge = (await Triauth.authenticate({identifier:identity.identifier, callbackUrl:'https://example.com/'})).challenge;
-        const decodedChallenge = JSON.parse(Triauth.Helpers.base64UrlToString(challenge));
+        const decodedChallenge = JSON.parse(Triauth.Helpers.base64UrlToString(AuthenticatorStub.publicChallenge(challenge)));
 
         assert.equal(decodedChallenge.identifier, identity.identifier);
 
         // first identifier is valid (to check if this test is working correctly), the rest not
         for (const identifier of [identity.identifier, 'john@domain.invalid', 'john@triauth.org', 'not-existing@triauthdemo.org', '!', '']) {
           decodedChallenge.identifier = identifier;
-          const modifiedChallenge = Triauth.Helpers.stringToBase64Url(JSON.stringify(decodedChallenge));
+          const modifiedChallenge = AuthenticatorStub.reencode(challenge, decodedChallenge);
 
           const response = await Triauth.Signature.generate(
             SignerStub.signUsingDeviceKeys(device.keys),
             'auth',
             identifier, '',
             'https://example.com/',
-            challenge
+            AuthenticatorStub.publicChallenge(challenge)
           );
 
-          let authRes = (await Triauth.authenticate({challenge:modifiedChallenge, response}));
+          let authRes = (await Triauth.authenticate({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)}));
 
           assert.equal(!!authRes?.authenticated, identifier === identity.identifier);
         }
@@ -421,17 +424,17 @@ describe('Authentication API', () => {
 
       it('does not authenticate expired challenges', async () => {
         // challenge with iat set far in the past; built dynamically
-        const challenge = Triauth.Helpers.stringToBase64Url(JSON.stringify({
+        const challenge = await AuthenticatorStub.store({
           type: 'auth',
           identifier: 'john@triauthdemo.org',
           nonce: 'wtr6JVXFUZJBJULti3aYZo5A',
           iat: 1737711045465,
           ver: 1
-        }));
+        });
 
         const authRes = (await Triauth.authenticate({
           challenge,
-          response: '|auth;john@triauthdemo.org;-;v1;1775555621331;;;oDpTVMNwz9f0Qz16hF2lygsmT2FkiwNMM8e1jRyB-DO1FutX9kcsMCJUsvbfYJpjCgfFatCpNnNhxTlBmYCnqw|'
+          response: await AuthenticatorStub.seal(challenge, '|auth;john@triauthdemo.org;-;v1;1775555621331;;;oDpTVMNwz9f0Qz16hF2lygsmT2FkiwNMM8e1jRyB-DO1FutX9kcsMCJUsvbfYJpjCgfFatCpNnNhxTlBmYCnqw|')
         }));
 
         assert.equal(!!authRes?.authenticated, false);
@@ -440,17 +443,17 @@ describe('Authentication API', () => {
 
       it('does not authenticate challenges with issued at (iat) in future', async () => {
         // challenge with iat set far in the future; built dynamically
-        const challenge = Triauth.Helpers.stringToBase64Url(JSON.stringify({
+        const challenge = await AuthenticatorStub.store({
           type: 'auth',
           identifier: 'john@triauthdemo.org',
           nonce: 'wtr6JVXFUZJBJULti3aYZo5A',
           iat: 99999999999999,
           ver: 1
-        }));
+        });
 
         const authRes = (await Triauth.authenticate({
           challenge,
-          response: '|auth;john@triauthdemo.org;-;v1;1775555621331;;;oDpTVMNwz9f0Qz16hF2lygsmT2FkiwNMM8e1jRyB-DO1FutX9kcsMCJUsvbfYJpjCgfFatCpNnNhxTlBmYCnqw|'
+          response: await AuthenticatorStub.seal(challenge, '|auth;john@triauthdemo.org;-;v1;1775555621331;;;oDpTVMNwz9f0Qz16hF2lygsmT2FkiwNMM8e1jRyB-DO1FutX9kcsMCJUsvbfYJpjCgfFatCpNnNhxTlBmYCnqw|')
         }));
 
         assert.equal(!!authRes?.authenticated, false);
@@ -487,19 +490,19 @@ describe('Authentication API', () => {
         const callbackUrl = 'https://example.com/';
 
         const buildRes = await Triauth.authenticate({identifier: identity.identifier, callbackUrl});
-        const challengeObj = Triauth.Challenge.fromString(buildRes.challenge);
+        const challengeObj = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(buildRes.challenge));
         challengeObj.data.type = 'sign';  // tamper
-        const modifiedChallenge = Triauth.Helpers.stringToBase64Url(JSON.stringify(challengeObj.data));
+        const modifiedChallenge = AuthenticatorStub.reencode(buildRes.challenge, challengeObj.data);
 
         const response = await Triauth.Signature.generate(
           SignerStub.signUsingDeviceKeys(device.keys),
           'auth',
           identity.identifier, '',
           callbackUrl,
-          modifiedChallenge
+          AuthenticatorStub.publicChallenge(modifiedChallenge)
         );
 
-        const authRes = await Triauth.authenticate({challenge: modifiedChallenge, response});
+        const authRes = await Triauth.authenticate({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)});
         assert(!authRes.authenticated);
         assert.equal(authRes.error.code, 401);
       });
@@ -518,10 +521,10 @@ describe('Authentication API', () => {
           'sign',  // <-- envelope type mismatched with the flow
           identity.identifier, '',
           callbackUrl,
-          challenge
+          AuthenticatorStub.publicChallenge(challenge)
         );
 
-        const authRes = await Triauth.authenticate({challenge, response});
+        const authRes = await Triauth.authenticate({challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert(!authRes.authenticated);
         assert.equal(authRes.error.code, 401);
       });
@@ -537,15 +540,15 @@ describe('Authentication API', () => {
           'auth',
           identity.identifier, '',
           callbackUrl,
-          challenge
+          AuthenticatorStub.publicChallenge(challenge)
         );
 
         // Matching callbackUrl — succeeds
-        let authRes = await Triauth.authenticate({challenge, response, callbackUrl});
+        let authRes = await Triauth.authenticate({challenge, response: await AuthenticatorStub.seal(challenge, response), callbackUrl});
         assert.equal(authRes.authenticated, true);
 
         // Mismatching callbackUrl — fails with 401
-        authRes = await Triauth.authenticate({challenge, response, callbackUrl: 'https://other-domain.com/'});
+        authRes = await Triauth.authenticate({challenge, response: await AuthenticatorStub.seal(challenge, response), callbackUrl: 'https://other-domain.com/'});
         assert(!authRes.authenticated);
         assert.equal(authRes.error.code, 401);
       });
@@ -566,9 +569,9 @@ describe('Authentication API', () => {
           'auth',
           identity.identifier, '',
           'https://example.com/',
-          challenge
+          AuthenticatorStub.publicChallenge(challenge)
         );
-        let authRes = await Triauth.authenticate({challenge, response});
+        let authRes = await Triauth.authenticate({challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert.equal(authRes.authenticated, true, 'via prefixing cburl must authenticate');
 
         // A via on a different domain must fail
@@ -577,9 +580,9 @@ describe('Authentication API', () => {
           'auth',
           identity.identifier, '',
           'https://attacker.example/',
-          challenge
+          AuthenticatorStub.publicChallenge(challenge)
         );
-        authRes = await Triauth.authenticate({challenge, response});
+        authRes = await Triauth.authenticate({challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert(!authRes.authenticated, 'via not a prefix of cburl must NOT authenticate');
       });
 
@@ -592,27 +595,27 @@ describe('Authentication API', () => {
         const defaultTimeout = Triauth.config.authTimeout;
 
         const buildRes = await Triauth.authenticate({identifier: identity.identifier, callbackUrl});
-        const challengeObj = Triauth.Challenge.fromString(buildRes.challenge);
+        const challengeObj = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(buildRes.challenge));
         // Move iat 10 seconds past the default window
         challengeObj.data.iat = Date.now() - (defaultTimeout + 10e3);
-        const modifiedChallenge = Triauth.Helpers.stringToBase64Url(JSON.stringify(challengeObj.data));
+        const modifiedChallenge = AuthenticatorStub.reencode(buildRes.challenge, challengeObj.data);
 
         const response = await Triauth.Signature.generate(
           SignerStub.signUsingDeviceKeys(device.keys),
           'auth',
           identity.identifier, '',
           callbackUrl,
-          modifiedChallenge
+          AuthenticatorStub.publicChallenge(modifiedChallenge)
         );
 
         // Default config — should fail with 402 (expired)
-        let authRes = await Triauth.authenticate({challenge: modifiedChallenge, response});
+        let authRes = await Triauth.authenticate({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)});
         assert(!authRes.authenticated, 'default authTimeout must reject iat outside window');
         assert.equal(authRes.error.code, 402);
 
         // Override widens the window — should succeed
         authRes = await Triauth.authenticate(
-          {challenge: modifiedChallenge, response},
+          {challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)},
           {authTimeout: defaultTimeout * 2 + 60e3}
         );
         assert.equal(authRes.authenticated, true, 'per-call authTimeout override must accept iat within widened window');
@@ -632,13 +635,13 @@ describe('Authentication API', () => {
           'auth',
           identity.identifier, '',
           callbackUrl,
-          challenge
+          AuthenticatorStub.publicChallenge(challenge)
         );
 
-        const first = await Triauth.authenticate({challenge, response});
+        const first = await Triauth.authenticate({challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert.equal(first.authenticated, true);
 
-        const second = await Triauth.authenticate({challenge, response});
+        const second = await Triauth.authenticate({challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert.equal(second.authenticated, true, 'library does not track consumed challenges — caller must');
       });
 
@@ -657,7 +660,7 @@ describe('Authentication API', () => {
           'auth',
           identity.identifier, '',
           callbackUrl,
-          challenge
+          AuthenticatorStub.publicChallenge(challenge)
         );
 
         // Inject a tampered unsignedMetadata segment into the wire envelope
@@ -666,7 +669,7 @@ describe('Authentication API', () => {
         segments[7] = Triauth.Helpers.stringToBase64Url(JSON.stringify({tampered: 'evilValue'}));
         const tamperedResponse = '|' + segments.join(';') + '|';
 
-        const authRes = await Triauth.authenticate({challenge, response: tamperedResponse});
+        const authRes = await Triauth.authenticate({challenge, response: await AuthenticatorStub.seal(challenge, tamperedResponse)});
         assert.equal(authRes.authenticated, true, 'tampered unsignedMetadata must NOT invalidate ECDSA auth');
       });
     });
@@ -699,9 +702,9 @@ describe('Authentication API', () => {
           'auth',
           'john@example.org', 'actor@issuer.example',
           cburl,
-          challenge
+          AuthenticatorStub.publicChallenge(challenge)
         );
-        return {config, authRes: await Triauth.authenticate({challenge, response}, config)};
+        return {config, authRes: await Triauth.authenticate({challenge, response: await AuthenticatorStub.seal(challenge, response)}, config)};
       };
 
       it('authenticates the subject through a granted actor, with the composite deviceTag', async () => {
@@ -752,9 +755,9 @@ describe('Authentication API', () => {
           'auth',
           'john@example.org', 'actor@issuer.example',
           callbackUrl,
-          challenge
+          AuthenticatorStub.publicChallenge(challenge)
         );
-        const authRes = await Triauth.authenticate({challenge, response}, config);
+        const authRes = await Triauth.authenticate({challenge, response: await AuthenticatorStub.seal(challenge, response)}, config);
 
         assert.equal(authRes.authenticated, true);
         assert.deepStrictEqual(authRes.groups, ['admins@example.org', 'project3@example.org'], "the subject's groups, qualified with the subject's domain - the actor's own groups must not leak in");
@@ -782,9 +785,9 @@ describe('Authentication API', () => {
         })};
         const challenge = (await Triauth.authenticate({identifier: 'john@example.org', callbackUrl}, config)).challenge;
         const response = await Triauth.Signature.generate(
-          SignerStub.signUsingDeviceKeys(actorDevice.keys), 'auth', 'john@example.org', 'actor@issuer.example', callbackUrl, challenge);
+          SignerStub.signUsingDeviceKeys(actorDevice.keys), 'auth', 'john@example.org', 'actor@issuer.example', callbackUrl, AuthenticatorStub.publicChallenge(challenge));
         const before = Date.now();
-        const authRes = await Triauth.authenticate({challenge, response}, config);
+        const authRes = await Triauth.authenticate({challenge, response: await AuthenticatorStub.seal(challenge, response)}, config);
 
         assert.equal(authRes.authenticated, true);
         assert(authRes.expires >= before + 60_000 && authRes.expires <= Date.now() + 60_000, 'the subject endpoint record expires first');
@@ -852,36 +855,161 @@ describe('Authentication API', () => {
         assert.equal(authRes.error.code, 401);
       });
     });
+
+    describe('sealed responses', () => {
+
+      const identity = identities['john'];
+      const callbackUrl = 'https://example.com/';
+
+      // Stage 1, and the plain envelope the authenticator signs for it
+      const startFlow = async () => {
+        const challenge = (await Triauth.authenticate({identifier: identity.identifier, callbackUrl})).challenge;
+        const envelope = await Triauth.Signature.generate(
+          SignerStub.signUsingDeviceKeys(identity.devices[0].keys), 'auth', identity.identifier, '', callbackUrl,
+          AuthenticatorStub.publicChallenge(challenge)
+        );
+        return {challenge, envelope};
+      };
+
+      it('stores the challenge with its decryption key, and puts the encryption key into the challenge', async () => {
+        const {challenge} = await startFlow();
+        const [publicChallenge, decryptionKey, rest] = challenge.split('.');
+
+        assert.match(decryptionKey, /^[A-Za-z0-9_-]{43}$/);
+        assert.equal(rest, undefined);
+        assert.match(Triauth.Challenge.fromString(publicChallenge).data.ek, /^[A-Za-z0-9_-]{87}$/);
+      });
+
+      it('authenticates a sealed response, and refuses the plain envelope for a challenge with a key (224)', async () => {
+        const {challenge, envelope} = await startFlow();
+
+        assert.equal((await Triauth.authenticate({challenge, response: await AuthenticatorStub.seal(challenge, envelope)})).authenticated, true);
+
+        const plainRes = await Triauth.authenticate({challenge, response: envelope});
+        assert(!plainRes.authenticated);
+        assert.equal(plainRes.error.code, 224);
+      });
+
+      it('refuses a challenge stored without its decryption key (223)', async () => {
+        const {challenge, envelope} = await startFlow();
+        const authRes = await Triauth.authenticate({challenge: AuthenticatorStub.publicChallenge(challenge), response: envelope});
+
+        assert(!authRes.authenticated);
+        assert.equal(authRes.error.code, 223);
+      });
+
+      it('refuses a decryption key on a challenge without `ek` (223)', async () => {
+        const {challenge, envelope} = await startFlow();
+        const data = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(challenge)).data;
+        const ek = data.ek;
+        delete data.ek;
+        const stored = AuthenticatorStub.reencode(challenge, data);
+
+        const authRes = await Triauth.authenticate({challenge: stored, response: (await Triauth.ResponseCipher.seal(ek, envelope)).sealedResponse});
+        assert(!authRes.authenticated);
+        assert.equal(authRes.error.code, 223);
+      });
+
+      it('refuses a challenge without `ek` or key, even with the plain envelope signed for it (223)', async () => {
+        const {challenge} = await startFlow();
+        const data = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(challenge)).data;
+        delete data.ek;
+        const bare = Triauth.Helpers.stringToBase64Url(JSON.stringify(data));
+        const envelope = await Triauth.Signature.generate(
+          SignerStub.signUsingDeviceKeys(identity.devices[0].keys), 'auth', identity.identifier, '', callbackUrl, bare
+        );
+
+        const authRes = await Triauth.authenticate({challenge: bare, response: envelope});
+        assert(!authRes.authenticated);
+        assert.equal(authRes.error.code, 223);
+      });
+
+      it('refuses a stored challenge whose `ek` is malformed (223)', async () => {
+        const {challenge, envelope} = await startFlow();
+        const response = await AuthenticatorStub.seal(challenge, envelope);
+        const data = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(challenge)).data;
+
+        for (const ek of [data.ek.slice(1), data.ek + 'A', 42]) {
+          const authRes = await Triauth.authenticate({challenge: AuthenticatorStub.reencode(challenge, {...data, ek}), response});
+          assert(!authRes.authenticated, String(ek).slice(0, 12));
+          assert.equal(authRes.error.code, 223, String(ek).slice(0, 12));
+        }
+      });
+
+      it('refuses a malformed decryption key suffix (223)', async () => {
+        const {challenge, envelope} = await startFlow();
+        const response = await AuthenticatorStub.seal(challenge, envelope);
+        const [publicChallenge, decryptionKey] = challenge.split('.');
+
+        for (const stored of [challenge + 'A', publicChallenge + '.' + decryptionKey.slice(1), publicChallenge + '.', challenge + '.' + decryptionKey, publicChallenge + '.' + decryptionKey.replace(/.$/, '!')]) {
+          const authRes = await Triauth.authenticate({challenge: stored, response});
+          assert(!authRes.authenticated, stored.slice(-12));
+          assert.equal(authRes.error.code, 223, stored.slice(-12));
+        }
+      });
+
+      it('refuses a response sealed for another challenge, or changed in transit (224)', async () => {
+        const first = await startFlow();
+        const second = await startFlow();
+        const response = await AuthenticatorStub.seal(first.challenge, first.envelope);
+
+        const otherRes = await Triauth.authenticate({challenge: second.challenge, response});
+        assert(!otherRes.authenticated);
+        assert.equal(otherRes.error.code, 224);
+
+        const tampered = response.slice(0, -5) + (response.at(-5) === 'A' ? 'B' : 'A') + response.slice(-4);
+        const tamperedRes = await Triauth.authenticate({challenge: first.challenge, response: tampered});
+        assert(!tamperedRes.authenticated);
+        assert.equal(tamperedRes.error.code, 224);
+      });
+
+      it('refuses a well-sealed response whose plaintext is not a response envelope (224)', async () => {
+        const {challenge} = await startFlow();
+        const ek = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(challenge)).data.ek;
+        const authRes = await Triauth.authenticate({challenge, response: (await Triauth.ResponseCipher.seal(ek, 'not-an-envelope')).sealedResponse});
+
+        assert(!authRes.authenticated);
+        assert.equal(authRes.error.code, 224);
+      });
+
+      it('keeps the denial plain: `false` is 403 for a challenge with a key', async () => {
+        const {challenge} = await startFlow();
+        const authRes = await Triauth.authenticate({challenge, response: 'false'});
+
+        assert(!authRes.authenticated);
+        assert.equal(authRes.error.code, 403);
+      });
+    });
   });
 
   describe('Triauth.ping', () => {
 
-    describe('accepts identifier, callbackUrl, and token to produce challenge and redirectUrl', () => {
+    describe('accepts identifier, callbackUrl, and sessionKey to produce challenge and redirectUrl', () => {
 
       const identifier = 'john@triauthdemo.org';
       const callbackUrl = 'https://example.com/';
-      const token = ':' + 'a'.repeat(16);
+      const sessionKey = AuthenticatorStub.SESSION_KEY;
 
       it('returns challenge and a correct redirectUrl for valid identifiers', async () => {
-        const pingRes = (await Triauth.ping({identifier, callbackUrl, token}));
+        const pingRes = (await Triauth.ping({identifier, callbackUrl, sessionKey}));
         assert(typeof pingRes.challenge === 'string' && pingRes.challenge.length > 0);
         assert(typeof pingRes.redirectUrl === 'string' && pingRes.redirectUrl.length > 0);
       });
 
-      it('includes the token and its hmac in redirectUrl when token is provided', async () => {
-        const pingRes = (await Triauth.ping({identifier, callbackUrl, token}));
-        assert(pingRes.redirectUrl.indexOf('token=') >= 0);
-        assert(pingRes.redirectUrl.indexOf('hmac=') < 0);
+      it('seals the challenge into redirectUrl under the session key, next to its skid', async () => {
+        const pingRes = (await Triauth.ping({identifier, callbackUrl, sessionKey}));
+        assert(pingRes.redirectUrl.includes('#?skid=') && pingRes.redirectUrl.includes('&request='));
+        assert(!pingRes.redirectUrl.includes('challenge=') && !pingRes.redirectUrl.includes('token='));
       });
 
-      it('rejects a token-less request with 226 - ping is a token-gated flow', async () => {
+      it('rejects a request without a session key with 226 - ping follows a sign-in', async () => {
         const pingRes = (await Triauth.ping({identifier, callbackUrl}));
         assert.equal(pingRes?.error?.code, 226);
       });
 
       it('encodes type, identifier and callbackUrl in the challenge', async () => {
-        const pingRes = (await Triauth.ping({identifier, callbackUrl, token}));
-        const challengeRequest = Triauth.Challenge.fromString(pingRes.challenge);
+        const pingRes = (await Triauth.ping({identifier, callbackUrl, sessionKey}));
+        const challengeRequest = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(pingRes.challenge));
 
         assert.equal(challengeRequest.data.type, 'ping');
         assert.equal(challengeRequest.data.identifier, identifier);
@@ -890,8 +1018,8 @@ describe('Authentication API', () => {
       });
 
       it('accepts optional ext hash and encodes it in the challenge', async () => {
-        const pingRes = (await Triauth.ping({identifier, callbackUrl, token, ext:{'foo':'bar'}}));
-        const challengeRequest = Triauth.Challenge.fromString(pingRes.challenge);
+        const pingRes = (await Triauth.ping({identifier, callbackUrl, sessionKey, ext:{'foo':'bar'}}));
+        const challengeRequest = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(pingRes.challenge));
 
         assert.equal(challengeRequest.data.ext?.foo, 'bar');
       });
@@ -900,7 +1028,7 @@ describe('Authentication API', () => {
         const challenges = [];
 
         for (let i = 1; i <= 3; i++) {
-          challenges.push((await Triauth.ping({identifier, callbackUrl, token})).challenge);
+          challenges.push((await Triauth.ping({identifier, callbackUrl, sessionKey})).challenge);
         }
 
         assert.equal((new Set(challenges)).size, challenges.length);
@@ -909,7 +1037,7 @@ describe('Authentication API', () => {
       it('returns validation error for invalid identifiers', async () => {
         const {invalidIdentifiers} = identifiersFixture;
         for (const invalidIdentifier in invalidIdentifiers) {
-          const pingRes = (await Triauth.ping({identifier: invalidIdentifier, callbackUrl, token}));
+          const pingRes = (await Triauth.ping({identifier: invalidIdentifier, callbackUrl, sessionKey}));
           assert(!pingRes?.pinged, invalidIdentifier);
           assert(pingRes.error.code >= 210 && pingRes.error.code < 220, invalidIdentifier);
         }
@@ -919,22 +1047,23 @@ describe('Authentication API', () => {
         const invalidUrls = ['=', '', 'https://[::1]/' + 'a'.repeat(1100)];
 
         for (const invalidUrl of invalidUrls) {
-          const pingRes = (await Triauth.ping({identifier, callbackUrl: invalidUrl, token}));
+          const pingRes = (await Triauth.ping({identifier, callbackUrl: invalidUrl, sessionKey}));
           assert(!pingRes?.pinged);
           assert.equal(pingRes.error.code, 221);
         }
       });
 
       it('returns {error:{code:102}} for unrecognized options', async () => {
-        const pingRes = (await Triauth.ping({identifier, callbackUrl, token, unknownKey: 1}));
+        const pingRes = (await Triauth.ping({identifier, callbackUrl, sessionKey, unknownKey: 1}));
         assert(!pingRes?.pinged);
         assert.equal(pingRes.error.code, 102);
       });
 
-      it('returns {error:{code:226}} for invalid tokens', async () => {
-        const invalidTokens = ['short', 123, '', 'a'.repeat(257)];
-        for (const invalidToken of invalidTokens) {
-          const pingRes = (await Triauth.ping({identifier, callbackUrl, token: invalidToken}));
+      it('returns {error:{code:226}} for invalid session keys', async () => {
+        const invalidSessionKeys = ['short', 123, '', 'A'.repeat(42), 'A'.repeat(44), ':' + 'a'.repeat(16), 'A'.repeat(42) + '+', 'A'.repeat(42) + 'B',
+          ':' + 'A'.repeat(43), 'Issuer.Example:' + 'A'.repeat(43), 'not_a_domain:' + 'A'.repeat(43), 'a.example:b.example:' + 'A'.repeat(43)];
+        for (const invalidSessionKey of invalidSessionKeys) {
+          const pingRes = (await Triauth.ping({identifier, callbackUrl, sessionKey: invalidSessionKey}));
           assert(!pingRes?.pinged);
           assert.equal(pingRes.error.code, 226);
         }
@@ -943,26 +1072,18 @@ describe('Authentication API', () => {
       it('returns {error:{code:222}} for malformed ext', async () => {
         const invalidExts = [[], {a:{b:{c:1}}}, {x:'y'.repeat(4096)}];
         for (const invalidExt of invalidExts) {
-          const pingRes = (await Triauth.ping({identifier, callbackUrl, token, ext: invalidExt}));
+          const pingRes = (await Triauth.ping({identifier, callbackUrl, sessionKey, ext: invalidExt}));
           assert(!pingRes?.pinged);
           assert.equal(pingRes.error.code, 222);
         }
       });
     });
 
-    describe('token pass-through and hmac keying', () => {
+    describe('session key routing and request sealing', () => {
 
-      // The redirectUrl carries the token's public part verbatim, with the HMAC appended after a
-      // ':' separator. The HMAC is keyed by the full `public:secret` token string, exactly as the
-      // issuing endpoint handed it out - the secret half never travels.
-      const expectedHmac = async (token, challenge) => {
-        const key = await crypto.subtle.importKey(
-          'raw', Triauth.Helpers.stringToUtf8Bytes(token), {name: 'HMAC', hash: 'SHA-256'}, false, ['sign']
-        );
-        return Triauth.Helpers.arrayBufferToBase64Url(
-          await crypto.subtle.sign('HMAC', key, Triauth.Helpers.base64UrlToUint8(challenge))
-        );
-      };
+      // The redirect fragment is `skid=<skid>&request=<iv>.<ciphertext>`. The request opens under the session key
+      // to the challenge, and the session key itself never travels.
+      const fragment = (redirectUrl) => new URLSearchParams(redirectUrl.split('#?')[1]);
 
       const keyRecord = {value: 'key desktop[1/1]:BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8', ttl: 1800, dnssec: true};
       const resolver = (grant = 'include actor@issuer.example scope=any') => new DnsResolverStub({
@@ -971,36 +1092,32 @@ describe('Authentication API', () => {
         'issuer.example':        {TXT: [{value: 'triauth remote-auth.issuer.example mode=public', ttl: 1800, dnssec: true}]}
       });
       const callbackUrl = 'https://example.com/';
+      const sessionKey = AuthenticatorStub.SESSION_KEY;
 
-      const tokenParam = (redirectUrl) => redirectUrl.match(/[#&?]token=([^&]*)/)[1];
-
-      it('keys the redirectUrl hmac with the whole token, leading colon included', async () => {
-        const token = ':' + 'a'.repeat(16);
-        const pingRes = await Triauth.ping({identifier: 'john@example.org', callbackUrl, token}, {resolver: resolver()});
+      it("seals the challenge under the session key, and sends it to the identity's own endpoint", async () => {
+        const pingRes = await Triauth.ping({identifier: 'john@example.org', callbackUrl, sessionKey}, {resolver: resolver()});
 
         assert(pingRes.redirectUrl.startsWith('https://local-auth.example.org/ping.html#?'));
-        assert.equal(tokenParam(pingRes.redirectUrl), ':' + await expectedHmac(token, pingRes.challenge));
+        assert.equal(fragment(pingRes.redirectUrl).get('skid'), await Triauth.RequestCipher.skid(sessionKey));
+        assert.equal(await Triauth.RequestCipher.open(sessionKey, fragment(pingRes.redirectUrl).get('request')), AuthenticatorStub.publicChallenge(pingRes.challenge));
       });
 
-      it("carries an issuer-hinted token's public part through to the identity's own endpoint", async () => {
-        const token = 'issuer.example:' + 'a'.repeat(16);
-        const pingRes = await Triauth.ping({identifier: 'john@example.org', callbackUrl, token}, {resolver: resolver()});
+      it('sends a delegated session key `<domain>:<key>` to the authenticator of that domain', async () => {
+        const pingRes = await Triauth.ping({identifier: 'john@example.org', callbackUrl, sessionKey: 'issuer.example:' + sessionKey}, {resolver: resolver()});
 
-        assert(pingRes.redirectUrl.startsWith('https://local-auth.example.org/ping.html#?'),
-          'the redirect always targets the identity\'s endpoint; the issuer hint travels in the token');
-        assert.equal(tokenParam(pingRes.redirectUrl), 'issuer.example:' + await expectedHmac(token, pingRes.challenge));
+        assert(pingRes.redirectUrl.startsWith('https://remote-auth.issuer.example/ping.html#?'));
+        assert.equal(await Triauth.RequestCipher.open(sessionKey, fragment(pingRes.redirectUrl).get('request')), AuthenticatorStub.publicChallenge(pingRes.challenge));
       });
 
-      it('carries an issuer hint no include grant covers, unchanged - the grant is enforced on the signed response, not at issue', async () => {
-        const token = 'unrelated.example:' + 'a'.repeat(16);
-        const pingRes = await Triauth.ping({identifier: 'john@example.org', callbackUrl, token}, {resolver: resolver()});
+      it('rejects (226) a session key in the `issuer:secret` form of a token', async () => {
+        const pingRes = await Triauth.ping({identifier: 'john@example.org', callbackUrl, sessionKey: 'issuer.example:' + 'a'.repeat(16)}, {resolver: resolver()});
 
-        assert(!pingRes.error);
-        assert.equal(tokenParam(pingRes.redirectUrl).split(':')[0], 'unrelated.example');
+        assert(!pingRes?.pinged);
+        assert.equal(pingRes.error.code, 226);
       });
 
-      it('rejects (226) a token with no secret part - the grammar keeps a secret behind every public part', async () => {
-        const pingRes = await Triauth.ping({identifier: 'john@example.org', callbackUrl, token: 'issuer.example'}, {resolver: resolver()});
+      it('rejects (226) a session key with a character outside the base64url alphabet', async () => {
+        const pingRes = await Triauth.ping({identifier: 'john@example.org', callbackUrl, sessionKey: 'A'.repeat(42) + '/'}, {resolver: resolver()});
 
         assert(!pingRes?.pinged);
         assert.equal(pingRes.error.code, 226);
@@ -1012,7 +1129,7 @@ describe('Authentication API', () => {
       it('correctly sets the pinged status', async () => {
         const callbackUrl = 'https://example.com/';
         for (const identity of Object.values(identities)) {
-          const challenge = (await Triauth.ping({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl})).challenge;
+          const challenge = (await Triauth.ping({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl})).challenge;
 
           for (const device of identity.devices) {
             const tsBefore = Date.now();
@@ -1021,10 +1138,10 @@ describe('Authentication API', () => {
               'ping',
               identity.identifier, '',
               callbackUrl,
-              challenge
+              AuthenticatorStub.publicChallenge(challenge)
             );
 
-            const pingRes = (await Triauth.ping({challenge, response}));
+            const pingRes = (await Triauth.ping({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
             const tsAfter = Date.now();
 
             assert.equal(pingRes.pinged, true);
@@ -1044,7 +1161,7 @@ describe('Authentication API', () => {
             assert(pingRes.signedAt <= pingRes.verifiedAt);
 
             // Invalid signature must not ping
-            const pingResInvalid = (await Triauth.ping({challenge, response: response.replace('@', '@a')}));
+            const pingResInvalid = (await Triauth.ping({challenge, response: await AuthenticatorStub.seal(challenge, response.replace('@', '@a'))}));
             assert(!pingResInvalid.pinged);
           }
         }
@@ -1055,20 +1172,20 @@ describe('Authentication API', () => {
         const device = identity.devices[0];
         const callbackUrl = 'https://example.com/';
 
-        const buildRes = await Triauth.ping({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl});
-        const challengeObj = Triauth.Challenge.fromString(buildRes.challenge);
+        const buildRes = await Triauth.ping({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl});
+        const challengeObj = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(buildRes.challenge));
         challengeObj.data.iat = Date.now() - (Triauth.config.pingTimeout + 10e3);
-        const modifiedChallenge = Triauth.Helpers.stringToBase64Url(JSON.stringify(challengeObj.data));
+        const modifiedChallenge = AuthenticatorStub.reencode(buildRes.challenge, challengeObj.data);
 
         const response = await Triauth.Signature.generate(
           SignerStub.signUsingDeviceKeys(device.keys),
           'ping',
           identity.identifier, '',
           callbackUrl,
-          modifiedChallenge
+          AuthenticatorStub.publicChallenge(modifiedChallenge)
         );
 
-        const pingRes = await Triauth.ping({challenge: modifiedChallenge, response});
+        const pingRes = await Triauth.ping({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)});
         assert(!pingRes.pinged);
         assert.equal(pingRes.error.code, 402);
       });
@@ -1078,20 +1195,20 @@ describe('Authentication API', () => {
         const device = identity.devices[0];
         const callbackUrl = 'https://example.com/';
 
-        const buildRes = await Triauth.ping({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl});
-        const challengeObj = Triauth.Challenge.fromString(buildRes.challenge);
+        const buildRes = await Triauth.ping({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl});
+        const challengeObj = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(buildRes.challenge));
         challengeObj.data.iat = 99999999999999;
-        const modifiedChallenge = Triauth.Helpers.stringToBase64Url(JSON.stringify(challengeObj.data));
+        const modifiedChallenge = AuthenticatorStub.reencode(buildRes.challenge, challengeObj.data);
 
         const response = await Triauth.Signature.generate(
           SignerStub.signUsingDeviceKeys(device.keys),
           'ping',
           identity.identifier, '',
           callbackUrl,
-          modifiedChallenge
+          AuthenticatorStub.publicChallenge(modifiedChallenge)
         );
 
-        const pingRes = await Triauth.ping({challenge: modifiedChallenge, response});
+        const pingRes = await Triauth.ping({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)});
         assert(!pingRes.pinged);
         assert.equal(pingRes.error.code, 402);
       });
@@ -1101,17 +1218,17 @@ describe('Authentication API', () => {
         const device = identity.devices[0];
         const callbackUrl = 'https://example.com/';
 
-        const challenge = (await Triauth.ping({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl})).challenge;
+        const challenge = (await Triauth.ping({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl})).challenge;
 
         const response = await Triauth.Signature.generate(
           SignerStub.signUsingDeviceKeys(device.keys),
           'auth',
           identity.identifier, '',
           callbackUrl,
-          challenge
+          AuthenticatorStub.publicChallenge(challenge)
         );
 
-        const pingRes = await Triauth.ping({challenge, response});
+        const pingRes = await Triauth.ping({challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert(!pingRes.pinged);
         assert(pingRes.error);
       });
@@ -1121,20 +1238,20 @@ describe('Authentication API', () => {
         const device = identity.devices[0];
         const callbackUrl = 'https://example.com/';
 
-        const buildRes = await Triauth.ping({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl});
-        const challengeObj = Triauth.Challenge.fromString(buildRes.challenge);
+        const buildRes = await Triauth.ping({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl});
+        const challengeObj = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(buildRes.challenge));
         challengeObj.data.type = 'auth';
-        const modifiedChallenge = Triauth.Helpers.stringToBase64Url(JSON.stringify(challengeObj.data));
+        const modifiedChallenge = AuthenticatorStub.reencode(buildRes.challenge, challengeObj.data);
 
         const response = await Triauth.Signature.generate(
           SignerStub.signUsingDeviceKeys(device.keys),
           'ping',
           identity.identifier, '',
           callbackUrl,
-          modifiedChallenge
+          AuthenticatorStub.publicChallenge(modifiedChallenge)
         );
 
-        const pingRes = await Triauth.ping({challenge: modifiedChallenge, response});
+        const pingRes = await Triauth.ping({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)});
         assert(!pingRes.pinged);
         assert.equal(pingRes.error.code, 401);
       });
@@ -1144,19 +1261,19 @@ describe('Authentication API', () => {
         const device = identity.devices[0];
         const callbackUrl = 'https://example.com/';
 
-        const challenge = (await Triauth.ping({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl})).challenge;
+        const challenge = (await Triauth.ping({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl})).challenge;
         const response = await Triauth.Signature.generate(
           SignerStub.signUsingDeviceKeys(device.keys),
           'ping',
           identity.identifier, '',
           callbackUrl,
-          challenge
+          AuthenticatorStub.publicChallenge(challenge)
         );
 
-        let pingRes = await Triauth.ping({identifier: identity.identifier, challenge, response});
+        let pingRes = await Triauth.ping({identifier: identity.identifier, challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert.equal(pingRes.pinged, true);
 
-        pingRes = await Triauth.ping({identifier: 'other-user@example.com', challenge, response});
+        pingRes = await Triauth.ping({identifier: 'other-user@example.com', challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert(!pingRes.pinged);
         assert.equal(pingRes.error.code, 401);
       });
@@ -1166,19 +1283,19 @@ describe('Authentication API', () => {
         const device = identity.devices[0];
         const callbackUrl = 'https://example.com/';
 
-        const challenge = (await Triauth.ping({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl})).challenge;
+        const challenge = (await Triauth.ping({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl})).challenge;
         const response = await Triauth.Signature.generate(
           SignerStub.signUsingDeviceKeys(device.keys),
           'ping',
           identity.identifier, '',
           callbackUrl,
-          challenge
+          AuthenticatorStub.publicChallenge(challenge)
         );
 
-        let pingRes = await Triauth.ping({challenge, response, callbackUrl});
+        let pingRes = await Triauth.ping({challenge, response: await AuthenticatorStub.seal(challenge, response), callbackUrl});
         assert.equal(pingRes.pinged, true);
 
-        pingRes = await Triauth.ping({challenge, response, callbackUrl: 'https://other-domain.com/'});
+        pingRes = await Triauth.ping({challenge, response: await AuthenticatorStub.seal(challenge, response), callbackUrl: 'https://other-domain.com/'});
         assert(!pingRes.pinged);
         assert.equal(pingRes.error.code, 401);
       });
@@ -1188,17 +1305,17 @@ describe('Authentication API', () => {
         const device = identity.devices[0];
         const callbackUrl = 'https://example.com/triauth-callback';
 
-        const challenge = (await Triauth.ping({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl})).challenge;
+        const challenge = (await Triauth.ping({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl})).challenge;
 
         const response = await Triauth.Signature.generate(
           SignerStub.signUsingDeviceKeys(device.keys),
           'ping',
           identity.identifier, '',
           'https://attacker.example/',
-          challenge
+          AuthenticatorStub.publicChallenge(challenge)
         );
 
-        const pingRes = await Triauth.ping({challenge, response});
+        const pingRes = await Triauth.ping({challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert(!pingRes.pinged);
       });
 
@@ -1208,19 +1325,19 @@ describe('Authentication API', () => {
         const device = identity.devices[0];
         const callbackUrl = 'https://example.com/';
 
-        const challenge = (await Triauth.ping({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl})).challenge;
+        const challenge = (await Triauth.ping({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl})).challenge;
         const response = await Triauth.Signature.generate(
           SignerStub.signUsingDeviceKeys(device.keys),
           'ping',
           identity.identifier, '',
           callbackUrl,
-          challenge
+          AuthenticatorStub.publicChallenge(challenge)
         );
 
-        const first = await Triauth.ping({challenge, response});
+        const first = await Triauth.ping({challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert.equal(first.pinged, true);
 
-        const second = await Triauth.ping({challenge, response});
+        const second = await Triauth.ping({challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert.equal(second.pinged, true, 'library does not track consumed challenges — caller must');
       });
 

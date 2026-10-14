@@ -7,6 +7,8 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { basename } from 'node:path';
+import { ResponseCipher } from '../../../src/response_cipher.js';
+import { Helpers } from '../../../src/helpers.js';
 
 // Suite-level frozen clock shared by every generator and suite. Every challenge iat and
 // every signature ts is minted at T, so signatures land inside each flow's
@@ -110,6 +112,12 @@ export const PRIVATE = {
 // Ed25519 envelopes) compare as equal-length masks here; their byte-identity is asserted by
 // the re-mint verification gate, not by this guard.
 //
+// A sealed stage-3 response compares as the envelope inside it. Its ciphertext changes on
+// every mint, because the ephemeral key is random, and a short one would escape the mask.
+// The stored challenge of the case has `ek` and the decryption key, so the guard opens the
+// response and masks the envelope as above. A response that does not open, such as the
+// tampered SEALED case, compares masked.
+//
 // Environment switches:
 //   CHECK=1  dry run — print the drift report, write nothing (exit 1 if drift/removals).
 //   FORCE=1  write despite removals/drift (after eyeballing the report; the follow-up
@@ -132,7 +140,25 @@ const inputsOf = (t) => JSON.stringify(mask({
   call: t.call, args: t.args, dnsEntries: t.dnsEntries, currentTime: t.currentTime, random: t.random,
 }));
 
-export function writeSuite(outUrl, suite) {
+// An opened response becomes `{sealed: <envelope>}`, so a sealed and a plain response never compare equal
+const SEALED_RESPONSE = /^[A-Za-z0-9_-]{87}\.[A-Za-z0-9_-]+$/;
+const openSealed = async (arg) => {
+  if (typeof arg?.challenge !== 'string' || typeof arg.response !== 'string' || !SEALED_RESPONSE.test(arg.response)) {
+    return arg;
+  }
+
+  try {
+    const [challenge, decryptionKey] = arg.challenge.split('.');
+    const {ek} = JSON.parse(Helpers.base64UrlToString(challenge));
+    const {response} = await ResponseCipher.open(ek, decryptionKey, arg.response);
+    return {...arg, response: {sealed: response}};
+  } catch {
+    return arg;
+  }
+};
+const comparableInputs = async (t) => inputsOf({...t, args: Array.isArray(t.args) ? await Promise.all(t.args.map(openSealed)) : t.args});
+
+export async function writeSuite(outUrl, suite) {
   const outPath = fileURLToPath(outUrl);
   const file = basename(outPath);
   const check = process.env.CHECK === '1';
@@ -153,7 +179,9 @@ export function writeSuite(outUrl, suite) {
     const next = new Map(suite.tests.map((t) => [t.name, t]));
     removed = [...prev.keys()].filter((n) => !next.has(n));
     added   = [...next.keys()].filter((n) => !prev.has(n));
-    drifted = [...next.keys()].filter((n) => prev.has(n) && inputsOf(prev.get(n)) !== inputsOf(next.get(n)));
+    const drifts = await Promise.all([...next.keys()].map(async (n) =>
+      prev.has(n) && await comparableInputs(prev.get(n)) !== await comparableInputs(next.get(n))));
+    drifted = [...next.keys()].filter((n, i) => drifts[i]);
 
     console.log(`[writeSuite] ${file}: existing ${previous.tests.length} tests vs generated ${suite.tests.length}`);
     console.log(`  removed: ${removed.length} | input-drifted: ${drifted.length} | added: ${added.length}`);
@@ -177,4 +205,70 @@ export function writeSuite(outUrl, suite) {
 
   writeFileSync(outPath, JSON.stringify(suite, null, 2) + '\n');
   console.log(`Wrote ${suite.tests.length} tests to ${outPath} (run JSON_SUITE=${file} RECORD=1 npm run test:json to fill expecteds).`);
+}
+
+// The key pair that every stage-3 case seals its response to. Stage-3 challenges carry its public key as `ek` and are
+// stored with its private key, as stage 1 stores them. One fixed pair keeps the challenge strings, and the envelopes
+// signed over them, the same across re-mints. Ciphertexts still change, because their ephemeral keys are random.
+// The session key that the stage-1 cases of ping, sign, stamp and attest pass, as `Triauth.authenticate` returns it
+export const SESSION_KEY = '59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8';
+
+export const SEAL = {
+  encryptionKey: 'BBhkXGo5Uy2q2zj4AAZNi30_ZLfccJyzi8xu0Blr3VCFEF-DoPqu1ufKD7nD2Zwo22TGgpXHKiNTiX0YjXgTz5M',
+  decryptionKey: 'G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM',
+};
+
+// Stores every stage-3 case the way an application does. A challenge that carries SEAL's `ek` gets the decryption key
+// appended, and its response is sealed to `ek`, except the plain `false` denial. Cases with any other challenge, such
+// as the sealed-response cases below or malformed challenges, stay as written.
+export async function sealStage3(tests) {
+  for (const test of tests) {
+    const args = test.args?.[0];
+    if (!args || typeof args !== 'object' || !('response' in args) || typeof args.challenge !== 'string' || args.challenge.includes('.')) {
+      continue;
+    }
+
+    let data;
+    try {
+      data = JSON.parse(Helpers.base64UrlToString(args.challenge));
+    } catch {
+      continue;
+    }
+
+    if (data?.ek !== SEAL.encryptionKey) {
+      continue;
+    }
+
+    args.challenge += '.' + SEAL.decryptionKey;
+    if (typeof args.response === 'string' && args.response !== 'false') {
+      args.response = (await ResponseCipher.seal(SEAL.encryptionKey, args.response)).sealedResponse;
+    }
+  }
+
+  return tests;
+}
+
+// Stage-3 cases for sealed responses, shared by the minted suites. `challengeWith(ek)` builds the flow's challenge (no
+// `ek` member when ek is null), and `envelopeFor(challenge)` mints the plain response the authenticator seals. Key
+// pairs, ephemeral keys and ciphertexts are random, so re-minting changes their bytes (the guard masks them).
+export async function sealedCases(s3, challengeWith, envelopeFor) {
+  const pair = await ResponseCipher.generateKeyPair();
+  const other = await ResponseCipher.generateKeyPair();
+  const challenge = challengeWith(pair.encryptionKey);
+  const stored = challenge + '.' + pair.decryptionKey;
+  const envelope = await envelopeFor(challenge);
+  const {sealedResponse: sealed} = await ResponseCipher.seal(pair.encryptionKey, envelope);
+  const tampered = sealed.slice(0, -5) + (sealed.at(-5) === 'A' ? 'B' : 'A') + sealed.slice(-4);
+  const bare = challengeWith(null);
+
+  return [
+    s3('Stage 3 SEALED response opens with the decryption key of the stored challenge and verifies', { challenge: stored, response: sealed }),
+    s3('Stage 3 SEALED plain envelope for a challenge stored with a decryption key returns 224 (a keyed challenge has no unsealed path)', { challenge: stored, response: envelope }),
+    s3('Stage 3 SEALED challenge stored without its decryption key (ek present) returns 223', { challenge, response: envelope }),
+    s3('Stage 3 SEALED decryption key on a challenge without ek returns 223', { challenge: bare + '.' + pair.decryptionKey, response: sealed }),
+    s3('Stage 3 SEALED challenge without ek or decryption key returns 223, even with the plain envelope signed for it (every response is sealed)', { challenge: bare, response: await envelopeFor(bare) }),
+    s3('Stage 3 SEALED malformed decryption key (42 characters) returns 223', { challenge: challenge + '.' + pair.decryptionKey.slice(1), response: sealed }),
+    s3("Stage 3 SEALED response sealed to another challenge's key returns 224", { challenge: challengeWith(other.encryptionKey) + '.' + other.decryptionKey, response: sealed }),
+    s3('Stage 3 SEALED ciphertext changed in transit returns 224', { challenge: stored, response: tampered }),
+  ];
 }

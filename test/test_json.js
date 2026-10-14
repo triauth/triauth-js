@@ -43,6 +43,13 @@
 //     Triauth.config.randomSource that returns these bytes in order; tests not consuming
 //     randomness omit the field.
 //   - expected is matched with assert.deepStrictEqual.
+//   - A successful stage-1 result ({challenge, redirectUrl}) is masked before matching, because stage 1 mints a fresh
+//     key pair for every challenge. The stored challenge is `<c>.<decryptionKey>`, and `<c>` carries `"ek":"<87 chars>"`.
+//     The runner checks that a value sealed to `ek` opens with the decryption key, replaces the decryption key with
+//     `DK`, base64url-decodes `<c>`, replaces the `ek` value with `EK` in the JSON text, and re-encodes it, in
+//     `challenge` and in the `redirectUrl` fragment. When the fragment has `request=<nonce>.<ciphertext>`, the runner
+//     checks that `skid` is the session key ID of the `sessionKey` argument (its key after any `<domain>:`), and that
+//     the request opens under that key to `<c>`. Then it replaces the request with `REQUEST`. Ports apply the same rule.
 //
 // Record mode:
 //   Run with RECORD=1 (e.g., `RECORD=1 npm run test:json`) to capture actual output and
@@ -112,6 +119,39 @@ function makeRandomSource(hex, testName) {
   };
 }
 
+// Stage 1 mints a fresh key pair for every challenge, so a stage-1 result carries random values: the `ek` inside the
+// challenge, the decryption key after the challenge's `.`, and the sealed request of a flow that follows a sign-in. The runner checks
+// each one, then puts a fixed placeholder in its place (EK, DK, HMAC) before comparing.
+async function maskStage1(result, options) {
+  if (!result || typeof result.challenge !== 'string' || typeof result.redirectUrl !== 'string') {
+    return result;
+  }
+
+  const [challenge, decryptionKey] = result.challenge.split('.');
+  const json = Triauth.Helpers.base64UrlToString(challenge);
+  const ek = (json.match(/"ek":"([A-Za-z0-9_-]{87})"/) || [])[1];
+  assert(ek && json.split('"ek":').length === 2, 'a stage-1 challenge carries exactly one ek');
+
+  // The key pair works: a probe sealed to ek opens with the decryption key
+  const {sealedResponse: probe} = await Triauth.ResponseCipher.seal(ek, 'probe');
+  assert.equal((await Triauth.ResponseCipher.open(ek, decryptionKey, probe)).response, 'probe');
+
+  const masked = Triauth.Helpers.stringToBase64Url(json.replace(`"ek":"${ek}"`, '"ek":"EK"'));
+  let redirectUrl = result.redirectUrl.replace(`challenge=${challenge}`, `challenge=${masked}`);
+
+  // A request that follows a sign-in has the challenge sealed under the session key, next to the key's skid
+  const request = (redirectUrl.match(/[#?&]request=([^&]*)/) || [])[1];
+  if (request !== undefined) {
+    const sessionKey = options.sessionKey.split(':').pop();
+    const skid = (redirectUrl.match(/[#?&]skid=([^&]*)/) || [])[1];
+    assert.equal(skid, await Triauth.RequestCipher.skid(sessionKey), 'skid identifies the session key');
+    assert.equal(await Triauth.RequestCipher.open(sessionKey, request), challenge, 'the request opens to the challenge');
+    redirectUrl = redirectUrl.replace(`request=${request}`, 'request=REQUEST');
+  }
+
+  return {...result, challenge: masked + '.DK', redirectUrl};
+}
+
 function isDeepEqual(a, b) {
   try {
     assert.deepStrictEqual(a, b);
@@ -150,7 +190,7 @@ for (const suite of SUITES) {
         Triauth.config.randomSource = randomSource;
 
         try {
-          const result = await fn(...t.args);
+          const result = await maskStage1(await fn(...t.args), t.args[0]);
           if (RECORDING) {
             if (!('expected' in t) || !isDeepEqual(result, t.expected)) {
               t.expected = result;

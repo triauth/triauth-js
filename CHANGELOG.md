@@ -2,13 +2,20 @@
 
 ## [Unreleased]
 
+### Added
+
+- Encrypted responses. Every challenge carries a P-256 public key (`ek`), the authenticator encrypts its response to it with HPKE (RFC 9180), and stage 3 decrypts it with the key kept in the stored `challenge`, which stage 1 now returns as `<challenge>.<key>`. Sign-ins need an authenticator that encrypts responses.
+- A `sessionKey` in every `Triauth.authenticate` result, derived by both sides from the encrypted response. `Triauth.ping`, `sign`, `stamp` and `attest` take it in place of a `token`, and their requests travel encrypted under it as `skid` and `request`. After a delegated sign-in it starts with the actor's domain, and the requests go to the actor's authenticator.
+- The `ext.permissions` extension, `{permissions:{ping:true, stamp:true}}`. Ping and stamp need their permission. Sign and attest need none, because the user approves each request.
+
 ### Changed
 
 - The default `callbackMethod` is now `GET`.
 
 ### Removed
 
-- Mentions of the `privateProfile` extension. The Triauth Authenticator no longer keeps a private profile, and it ignores a request for one.
+- The `pingToken`, `signToken`, `stampToken` and `attestToken` extensions, replaced by `ext.permissions`.
+- The `privateProfile` extension. The Triauth Authenticator no longer keeps a private profile and ignores a request for one.
 
 ## [1.0.0-beta.1] - initial public beta
 

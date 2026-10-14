@@ -19,6 +19,10 @@
 // Then copy each printed `RESP_*` block into the corresponding test's `response` arg
 // in auth.json, and re-run `RECORD=1 npm run test:json` to populate the success expecteds.
 // Confirm `git diff test/fixtures/json/auth.json` matches your intent before committing.
+//
+// Every challenge here carries the suite's SEAL key as `ek` (see _capture_common.mjs), so the printed envelopes are
+// signed over strict challenges. A pasted Stage 3 case still holds the plain challenge and envelope: store and seal it
+// with `sealStage3` (the one-liner is in README.md, "Every Stage 3 case is sealed") before recording.
 
 import * as Triauth from '../../../src/index.js';
 globalThis.Triauth = Triauth;
@@ -26,7 +30,7 @@ import identities from '../identities.json' with { type: 'json' };
 // Shared generator plumbing: frozen clock, logger, and the local fixture keypairs (one
 // definition keeps every suite's copies in lock-step); this capture works with them
 // device-shaped, mirroring identities.json's nesting.
-import { T, LOGGER, asDevices, signonly as signonlyKeys, jane as janeKeys, ed25519 as ed25519Keys, PRIVATE } from './_capture_common.mjs';
+import { T, LOGGER, asDevices, signonly as signonlyKeys, jane as janeKeys, ed25519 as ed25519Keys, PRIVATE, sealedCases, SEAL } from './_capture_common.mjs';
 const DnsResolverStub = (await import('../../stubs/dns_resolver.js')).default;
 const SignerStub      = (await import('../../stubs/signer.js')).default;
 
@@ -89,10 +93,14 @@ const callbackUrl = 'https://example.com/cb';
 // a different value to force the rejection.)
 const via = 'https://example.com/';
 
-// Pre-computed Stage 1 challenge for {identifier:'john@...', callbackUrl, currentTime: T, random: 00..33}.
-// Embedded as a literal so this script doesn't depend on the runner producing it for the common case.
-// If you change auth.json's currentTime or the random hex used by Stage 1 success tests, recompute.
-const challenge = 'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoiYXV0aCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjF9';
+// Pre-computed Stage 1 challenge for {identifier:'john@...', callbackUrl, currentTime: T, random: 00..33}, with the
+// suite's SEAL key as `ek`. Embedded as a literal so this script doesn't depend on the runner producing it for the
+// common case. If you change auth.json's currentTime or the random hex used by Stage 1 success tests, recompute.
+const challenge = 'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoiYXV0aCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0';
+
+// Stage 1 returns `<challenge>.<key>` with a fresh `ek`. The fixtures sign the challenge part with SEAL's key in it.
+const challengeData = (storedChallenge) => JSON.parse(Triauth.Helpers.base64UrlToString(storedChallenge.split('.')[0]));
+const withSealKey = (storedChallenge) => Triauth.Helpers.stringToBase64Url(JSON.stringify({...challengeData(storedChallenge), ek: SEAL.encryptionKey}));
 
 // For identities other than John (e.g., signonly), build the challenge via a Stage 1 call with
 // the same deterministic random / clock so the resulting challenge is reproducible.
@@ -100,7 +108,7 @@ const buildChallenge = async (id) => {
   const bytes = new Uint8Array('00112233445566778899aabbccddeeff00112233'.match(/../g).map(h => parseInt(h, 16)));
   let pos = 0;
   Triauth.config.randomSource = (arr) => { for (let i = 0; i < arr.length; i++) arr[i] = bytes[pos++]; };
-  try { return (await Triauth.authenticate({ identifier: id, callbackUrl })).challenge; }
+  try { return withSealKey((await Triauth.authenticate({ identifier: id, callbackUrl })).challenge); }
   finally { Triauth.config.randomSource = null; }
 };
 
@@ -364,29 +372,30 @@ console.log('RESP_DESKTOP_NULL_VALUE_UNSIGNED_METADATA:\n' + await mintWithGarba
   const trailingBytes = new Uint8Array('00112233445566778899aabbccddeeff00112233'.match(/../g).map(h => parseInt(h, 16)));
   let tPos = 0;
   Triauth.config.randomSource = (arr) => { for (let i = 0; i < arr.length; i++) arr[i] = trailingBytes[tPos++]; };
-  let challengeTrailingSlash;
+  let storedTrailingSlash;
   try {
-    challengeTrailingSlash = (await Triauth.authenticate({ identifier: identifier, callbackUrl: trailingCallbackUrl })).challenge;
+    storedTrailingSlash = (await Triauth.authenticate({ identifier: identifier, callbackUrl: trailingCallbackUrl })).challenge;
   } finally {
     Triauth.config.randomSource = null;
   }
+  const challengeTrailingSlash = withSealKey(storedTrailingSlash);
   console.log('CHALLENGE_TRAILING_SLASH:\n' + challengeTrailingSlash + '\n');
   console.log('RESP_DESKTOP_TRAILING_SLASH:\n' + await Triauth.Signature.generate(
     SignerStub.signUsingDeviceKeys(john.devices[0].keys),
     'auth', identifier, '', trailingVia, challengeTrailingSlash,
   ) + '\n');
 
-  // Nonzero-padding-bits twin for the canonical-decode case: this challenge decodes to 145 bytes, so its
-  // final base64url quantum carries 4 padding bits (unlike the main CHALLENGE — 147 bytes, exact
-  // quanta, no padding bits to flip). +1 on the last character sets a padding bit: a forgiving
-  // decoder yields identical JSON; the strict decoder must reject (223). Pair it with
-  // RESP_DESKTOP_TRAILING_SLASH — under a forgiving decoder the flow then dies at 401
-  // payload mismatch, because the signature covers the unmutated challenge string.
+  // Nonzero-padding-bits twin for the canonical-decode case, made from this challenge WITHOUT `ek`: it decodes to
+  // 145 bytes, so its final base64url quantum carries 4 padding bits (with `ek` it is 240 bytes, exact quanta, no
+  // padding bits to flip). +1 on the last character sets a padding bit: a forgiving decoder yields identical JSON;
+  // the strict decoder must reject (223) before anything else. auth.json pairs it with the plain envelope it had.
   const B64U = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
-  const tsLastIdx = B64U.indexOf(challengeTrailingSlash.slice(-1));
-  if (tsLastIdx % 16 !== 0) throw new Error('CHALLENGE_TRAILING_SLASH no longer ends a 4-padding-bit quantum — pick another base');
+  const {ek: _ek, ...bareTrailingSlashData} = challengeData(storedTrailingSlash);
+  const bareTrailingSlash = Triauth.Helpers.stringToBase64Url(JSON.stringify(bareTrailingSlashData));
+  const tsLastIdx = B64U.indexOf(bareTrailingSlash.slice(-1));
+  if (tsLastIdx % 16 !== 0) throw new Error('The bare CHALLENGE_TRAILING_SLASH no longer ends a 4-padding-bit quantum — pick another base');
   console.log('CH_TRAILING_SLASH_BADBITS (nonzero padding bits):\n'
-    + challengeTrailingSlash.slice(0, -1) + B64U[tsLastIdx + 1] + '\n');
+    + bareTrailingSlash.slice(0, -1) + B64U[tsLastIdx + 1] + '\n');
 }
 
 // --- Ed25519 (key type=ed25519) ---------------------------------------------------------
@@ -402,6 +411,9 @@ console.log('RESP_DESKTOP_NULL_VALUE_UNSIGNED_METADATA:\n' + await mintWithGarba
     SignerStub.signUsingDeviceKeys(ed25519.devices[0].keys),
     'auth', ed25519.identifier, '', via, ed25519Challenge,
   ) + '\n');
+
+  // The same envelope with a signature that parses but fails the Ed25519 check (401)
+  console.log('RESP_ED25519_BOGUS:\n' + `|auth;${ed25519.identifier};;${via};v1;${T};;;AAAA|` + '\n');
 }
 
 // ============================================================================
@@ -417,12 +429,16 @@ console.log('RESP_DESKTOP_NULL_VALUE_UNSIGNED_METADATA:\n' + await mintWithGarba
 console.log('// ---- security / regression-guard cases ----\n');
 
 // base64url(JSON) of a challenge object, built in the SAME canonical field order Challenge.build
-// emits ({cburl,[ext],type,identifier,nonce,iat,ver}) so the fixtures read naturally.
+// emits ({cburl,[ext],type,identifier,nonce,iat,ver,ek}) so the fixtures read naturally. `ek` is
+// SEAL's key unless the caller passes another one, or null for a challenge without `ek`.
 const encodeChallenge = (obj) => Triauth.Helpers.stringToBase64Url(JSON.stringify(obj));
-const challengeObj = ({cburl, ext, identifier: id = identifier, nonce = 'ABEiM0RVZneImaq7zN3u_wAR'}) =>
-  ext === undefined
+const challengeObj = ({cburl, ext, identifier: id = identifier, nonce = 'ABEiM0RVZneImaq7zN3u_wAR', ek = SEAL.encryptionKey}) => {
+  const obj = ext === undefined
     ? {cburl, type: 'auth', identifier: id, nonce, iat: T, ver: 1}
     : {cburl, ext, type: 'auth', identifier: id, nonce, iat: T, ver: 1};
+  if (ek !== null) obj.ek = ek;
+  return obj;
+};
 
 // General single-signature mint. (`sign` above is hard-wired to type=auth / john / `via` / the
 // canonical `challenge`; the cases below vary the type, identifier, via, challenge, or ts.)
@@ -544,3 +560,12 @@ console.log(`CH_PRIVATE (identifier=${PRIVATE.john.identifier}):\n` + CH_PRIVATE
 console.log('RESP_PRIVATE:\n' + await mintSig(john.devices[0].keys, 'auth', PRIVATE.john.identifier, via, CH_PRIVATE, { lookupCode: PRIVATE.john.lookupCode }) + '\n');
 console.log('RESP_PRIVATE_NOCODE:\n' + await mintSig(john.devices[0].keys, 'auth', PRIVATE.john.identifier, via, CH_PRIVATE) + '\n');
 console.log('RESP_PUBLIC_CODE:\n' + await sign(john.devices[0].keys, { lookupCode: PRIVATE.john.lookupCode }) + '\n');
+
+// --- [sealed] responses sealed to the challenge's `ek` --------------------------------
+//     Prints the eight Stage-3 SEALED cases as JSON, ready to append to auth.json's tests; then
+//     `JSON_SUITE=auth.json RECORD=1 npm run test:json` fills their expecteds. Key pairs, ephemeral
+//     keys and ciphertexts are random, so every run prints new bytes for the same cases.
+const authCase = (name, args) => ({name, call: 'authenticate', args: [args]});
+const sealedChallenge = (ek) => encodeChallenge(challengeObj({cburl: callbackUrl, ek}));
+console.log('SEALED_CASES:\n' + JSON.stringify(await sealedCases(authCase, sealedChallenge,
+  (sealed) => mintSig(john.devices[0].keys, 'auth', identifier, via, sealed)), null, 2) + '\n');

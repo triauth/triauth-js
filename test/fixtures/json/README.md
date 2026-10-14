@@ -34,7 +34,8 @@ The writer compares the generated suite against the shipped file and **refuses t
 it would drop cases or silently change same-named inputs (see "The guard" below). WebCrypto
 ECDSA uses a random `k`, so every re-mint changes every ECDSA/WebAuthn signature byte — the
 diff is large but the deterministic parts (challenge strings, Ed25519 envelopes, expecteds
-modulo echoed envelopes) must survive byte-identically.
+modulo echoed envelopes) must survive byte-identically. Sealed responses change on every
+re-mint, because their ephemeral keys are random. The guard compares the envelopes inside them.
 
 New cases go **into the generator**, never directly into a minted `.json` — a direct edit
 survives only until the next re-mint reverts it (the guard turns that silent revert into a
@@ -68,6 +69,10 @@ shipped file by test name:
 - **added** names → informational;
 - duplicate test names → always refuse (names are the stable key the guard diffs by).
 
+A sealed Stage 3 response compares as the envelope inside it. The guard opens the response with
+the `ek` and the decryption key of the case's stored challenge, then masks the envelope as above.
+A response that does not open, such as the tampered `Stage 3 SEALED` case, compares masked.
+
 Switches: `CHECK=1` dry-runs (report only, exit 1 on drift), `FORCE=1` writes despite the
 report — only after eyeballing it; the `git diff` of the suite is the final review.
 
@@ -81,13 +86,31 @@ report — only after eyeballing it; the `git diff` of the suite is the final re
   and `stamp` expecteds echo the full response envelope in `expected.result`, so those blocks
   legitimately change on re-mint; `ping`/`attest`/`verify` expecteds carry only stable
   base64url (public keys, deviceTag).
+- **Stage-1 keys are masked**: stage 1 mints a fresh key pair for every challenge, so a successful
+  Stage-1 `expected` carries placeholders. `challenge` is `<c>.DK`, `<c>` decodes to JSON with
+  `"ek":"EK"`, and the `redirectUrl` of ping, sign, stamp and attest ends in
+  `skid=<skid>&request=REQUEST`. The runner checks the key pair, the `skid` of the case's
+  `sessionKey`, and that the request opens under that key to the challenge, then masks them (rule
+  in the `test/test_json.js` header).
+- **Every Stage 3 case is sealed**: as an application stores it, the challenge is
+  `<challenge>.<decryptionKey>` and the response is sealed to the challenge's `ek` (a `false`
+  denial stays plain). The suites use one fixed key pair, `SEAL` in `_capture_common.mjs`, so
+  challenge strings and the signatures over them stay the same across re-mints. Ciphertexts
+  change on every mint, because their ephemeral keys are random, so the guard compares the
+  envelopes inside them. The minted generators apply `sealStage3` to their tests before
+  writing. For `auth.json`, paste the capture's challenge and envelope, then store and seal the
+  new cases with
+  `node --input-type=module -e "import fs from 'node:fs'; import { sealStage3 } from './test/fixtures/json/_capture_common.mjs'; const p = 'test/fixtures/json/auth.json'; const s = JSON.parse(fs.readFileSync(p, 'utf8')); await sealStage3(s.tests); fs.writeFileSync(p, JSON.stringify(s, null, 2) + '\n');"`
+  The `Stage 3 SEALED` cases use their own random key pairs, made by `sealedCases`, and cover
+  what stage 3 refuses: a challenge without its key, a key without `ek`, a challenge with
+  neither (with the plain envelope signed for it), a plain envelope, and a ciphertext that does
+  not open.
 - **DNS stub defaults**: a bare-string TXT record means `{value, ttl: 1800, dnssec: true}`.
   Non-DNSSEC cases (e.g. the `requireSecure` twins) use the object form with `dnssec: false`.
-- **Token gating**: `ping`/`sign`/`stamp`/`attest` require a `token` at Stage 1 *before*
-  message/attachment/DNS work — every Stage-1 case that must get past the token check carries
-  `token: ':aaaaaaaaaaaaaaaa'` (the `issuer:secret` form with an empty issuer); cases pinning
-  earlier validation errors (dispatch, identifier, callbackUrl, ext, invalid-token 226) stay
-  tokenless.
+- **Session key gating**: `ping`/`sign`/`stamp`/`attest` require a `sessionKey` at Stage 1
+  *before* message/attachment/DNS work. Every Stage-1 case that must get past that check has
+  `sessionKey: SESSION_KEY` from `_capture_common.mjs`. Cases that pin earlier validation errors
+  (dispatch, identifier, callbackUrl, ext, invalid session key 226) have none.
 - **Per-suite coverage**: `JSON_SUITE=<flow>.json npm run coverage:json` measures one suite in
   isolation. Each minted suite alone covers 100% of the paths reachable through its
   `Triauth.<flow>` call; each generator's header inventories the branches that are

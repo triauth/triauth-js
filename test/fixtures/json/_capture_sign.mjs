@@ -54,7 +54,10 @@ import identities from '../identities.json' with { type: 'json' };
 //   - signonly (published with use=sign in this suite's dnsEntries): for the SIGN flow a
 //     POSITIVE (the key may sign) — the mirror image of auth/ping where use=sign is a negative.
 //   - jane: ordinary identity used as the "wrong identity" (jane signs john's message).
-import { T, LOGGER, signonly, jane, ed25519, PRIVATE, writeSuite } from './_capture_common.mjs';
+import { T, LOGGER, signonly, jane, ed25519, PRIVATE, writeSuite, sealedCases, SEAL, sealStage3, SESSION_KEY } from './_capture_common.mjs';
+
+// A session key with every base64url character class (A-Z, a-z, 0-9, - and _)
+const SK_ALPHABET = 'AZaz09-_AZaz09-_AZaz09-_AZaz09-_AZaz09-_Aa0';
 // Minting only needs the private-key signer; no DNS is consulted here (the runner resolves DNS
 // from the suite's dnsEntries at verify time).
 const SignerStub = (await import('../../stubs/signer.js')).default;
@@ -100,7 +103,7 @@ const ATT_LAN = { name: 'License.txt', sourceUrl: 'http://10.0.0.5:8080/license.
 // Challenge.build (cburl, [ext], type, identifier, nonce, iat, ver) followed by the msg/attachments that
 // _perform's onChallenge appends (so the baked strings read like real ones). Stage 3 never
 // re-checks the nonce, so a fixed nonce is fine.
-const mkChallenge = ({ cburl = CB, ext, type = 'sign', identifier = ID, nonce = NONCE, iat = T, ver = 1,
+const mkChallenge = ({ cburl = CB, ext, type = 'sign', identifier = ID, nonce = NONCE, iat = T, ver = 1, ek = SEAL.encryptionKey,
                        msg = MSG, attachments = [], includeMsg = true, includeAttachments = true } = {}) => {
   const data = {};
   data.cburl = cburl;
@@ -110,6 +113,7 @@ const mkChallenge = ({ cburl = CB, ext, type = 'sign', identifier = ID, nonce = 
   data.nonce = nonce;
   data.iat = iat;
   data.ver = ver;
+  if (ek !== null) data.ek = ek;
   if (includeMsg) data.msg = msg;
   if (includeAttachments) data.attachments = attachments;
   return Triauth.Helpers.stringToBase64Url(JSON.stringify(data));
@@ -476,88 +480,89 @@ const tests = [
   s1('Stage 1 non-string callbackUrl returns 221', { identifier: ID, callbackUrl: 123, message: MSG }),
   s1('Stage 1 over-length callbackUrl (>2048 bytes) returns 221',
     { identifier: ID, callbackUrl: 'https://example.com/' + 'a'.repeat(2048), message: MSG }),
-  s1('Stage 1 plain-http callbackUrl on a named host (http://example.com/cb) passes URL validation; the tokenless request then returns 226 — an ordering pin: the callbackUrl gate precedes the token gate', { identifier: ID, callbackUrl: 'http://example.com/cb', message: MSG }),
+  s1('Stage 1 plain-http callbackUrl on a named host (http://example.com/cb) passes URL validation; the request without a session key then returns 226 — an ordering pin: the callbackUrl gate precedes the session key gate', { identifier: ID, callbackUrl: 'http://example.com/cb', message: MSG }),
   s1("Stage 1 callbackUrl with punycode domain returns 221", {"identifier":ID,"callbackUrl":"https://xn--mller-kva.de/cb","message":"Please read and accept the Terms of Service"}),
   s1('Stage 1 array-shaped ext returns 222', { identifier: ID, callbackUrl: CB, message: MSG, ext: ['not', 'a', 'plain', 'object'] }),
 
   // ===================================================================================
-  // Stage 1 — token validation (226). SIGN allows token (like ping/attest/stamp).
+  // Stage 1 — session key validation (226). SIGN takes sessionKey (like ping/attest/stamp).
   // ===================================================================================
-  s1('Stage 1 too-short token (<16 chars) returns 226', { identifier: ID, callbackUrl: CB, message: MSG, token: 'short' }),
-  s1('Stage 1 colon-less token returns 226 (a token is issuer:secret - the issuer may be empty, the colon is structural)', { identifier: ID, callbackUrl: CB, message: MSG, token: 'aaaaaaaaaaaaaaaa' }),
-  s1('Stage 1 token with more than one colon returns 226', { identifier: ID, callbackUrl: CB, message: MSG, token: 'issuer.example:aaaaaaaaaaaaaaaa:x' }),
-  s1('Stage 1 token with an uppercase issuer returns 226 (the issuer must be a canonical lowercase domain)', { identifier: ID, callbackUrl: CB, message: MSG, token: 'Issuer.Example:aaaaaaaaaaaaaaaa' }),
-  s1('Stage 1 token with a non-domain issuer returns 226', { identifier: ID, callbackUrl: CB, message: MSG, token: 'not_a_domain:aaaaaaaaaaaaaaaa' }),
-  s1('Stage 1 non-string token returns 226', { identifier: ID, callbackUrl: CB, message: MSG, token: 123 }),
-  s1('Stage 1 over-length token (>255 bytes, the Normal-String default byte cap) returns 226', { identifier: ID, callbackUrl: CB, message: MSG, token: 'a'.repeat(257) }),
+  s1('Stage 1 too-short session key (42 characters) returns 226', { identifier: ID, callbackUrl: CB, message: MSG, sessionKey: SESSION_KEY.slice(0, 42) }),
+  s1('Stage 1 session key in standard base64 (with /) returns 226 - a session key is base64url', { identifier: ID, callbackUrl: CB, message: MSG, sessionKey: SESSION_KEY.slice(0, 42) + '/' }),
+  s1('Stage 1 session key with base64 padding (44 characters ending in =) returns 226', { identifier: ID, callbackUrl: CB, message: MSG, sessionKey: SESSION_KEY + '=' }),
+  s1('Stage 1 session key in the issuer:secret form of a token returns 226', { identifier: ID, callbackUrl: CB, message: MSG, sessionKey: ':aaaaaaaaaaaaaaaa' }),
+  s1('Stage 1 empty session key returns 226', { identifier: ID, callbackUrl: CB, message: MSG, sessionKey: '' }),
+  s1('Stage 1 non-string session key returns 226', { identifier: ID, callbackUrl: CB, message: MSG, sessionKey: 123 }),
+  s1('Stage 1 too-long session key (44 characters) returns 226', { identifier: ID, callbackUrl: CB, message: MSG, sessionKey: SESSION_KEY + 'A' }),
+  s1('Stage 1 session key with data in the unused bits of its last character (not canonical base64url) returns 226', { identifier: ID, callbackUrl: CB, message: MSG, sessionKey: SESSION_KEY.slice(0, 42) + '9' }),
 
   // ===================================================================================
   // Stage 1 — message validation (227), SIGN-DISTINCT: validated in _perform's onChallenge
-  // (after id/url/ext/token, before DNS). A sign call MUST carry a printable-ASCII message.
+  // (after id/url/ext/sessionKey, before DNS). A sign call MUST carry a printable-ASCII message.
   // ===================================================================================
-  s1('Stage 1 omitting message entirely returns 227 (isNormalString(undefined) is false)', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa' }),
-  s1('Stage 1 non-string message (number) returns 227', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: 123 }),
-  s1('Stage 1 empty-string message returns 227 (isNormalString("") is false)', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: '' }),
-  s1('Stage 1 message with a newline control char returns 227', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: 'line one\nline two' }),
-  s1('Stage 1 over-length message (>2048 bytes) returns 227', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: 'a'.repeat(2050) }),
-  s1('Stage 1 SECURITY: an over-large request (8 max-length attachment sourceUrls) makes the assembled challenge exceed challengeBytesize and fails early with 223 — before any DNS resolution', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: 'Please sign', attachments: Array.from({length: 8}, (_, i) => ({ name: `file-${i}`, sourceUrl: 'https://example.com/' + 'a'.repeat(2000), sha256: '0'.repeat(64) })) }),
+  s1('Stage 1 omitting message entirely returns 227 (isNormalString(undefined) is false)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY }),
+  s1('Stage 1 non-string message (number) returns 227', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: 123 }),
+  s1('Stage 1 empty-string message returns 227 (isNormalString("") is false)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: '' }),
+  s1('Stage 1 message with a newline control char returns 227', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: 'line one\nline two' }),
+  s1('Stage 1 over-length message (>2048 bytes) returns 227', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: 'a'.repeat(2050) }),
+  s1('Stage 1 SECURITY: an over-large request (8 max-length attachment sourceUrls) makes the assembled challenge exceed challengeBytesize and fails early with 223 — before any DNS resolution', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: 'Please sign', attachments: Array.from({length: 8}, (_, i) => ({ name: `file-${i}`, sourceUrl: 'https://example.com/' + 'a'.repeat(2000), sha256: '0'.repeat(64) })) }),
 
   // ===================================================================================
   // Stage 1 — attachments validation (228), SIGN-DISTINCT: validated in onChallenge after
   // the message. Each case isolates one validateAttachments branch.
   // ===================================================================================
-  s1('Stage 1 attachments not an array returns 228', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG, attachments: 'not-an-array' }),
-  s1('Stage 1 attachment entry is null returns 228 (hasOnlyKnownProperties null-guard)', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG, attachments: [null] }),
-  s1('Stage 1 attachment missing sha256 returns 228', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG, attachments: [{ name: ATT.name, sourceUrl: ATT.sourceUrl }] }),
-  s1('Stage 1 attachment sourceUrl with a presigned-style query (https://example.com/license.txt?X-Amz-Signature=abc) builds a challenge — queries remain valid on sourceUrls (presigned fetch URLs)', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG, attachments: [{ name: ATT.name, sourceUrl: ATT.sourceUrl + '?X-Amz-Signature=abc', sha256: ATT.sha256 }] }, { random: RAND }),
-  s1('Stage 1 attachment sourceUrl with a fragment (https://example.com/license.txt#v2) builds a challenge — fragments remain valid on sourceUrls', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG, attachments: [{ name: ATT.name, sourceUrl: ATT.sourceUrl + '#v2', sha256: ATT.sha256 }] }, { random: RAND }),
-  s1('Stage 1 attachment malformed sha256 returns 228', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG, attachments: [{ name: ATT.name, sourceUrl: ATT.sourceUrl, sha256: 'not-hex' }] }),
-  s1('Stage 1 attachment plain-http sourceUrl on a named public host (http://insecure.example/f.txt) builds a challenge — a sourceUrl is any canonical URL; integrity rides the sha256, and the authenticator runtime is the fetch policy', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG, attachments: [{ name: ATT.name, sourceUrl: 'http://insecure.example/f.txt', sha256: ATT.sha256 }] }, { random: RAND }),
-  s1('Stage 1 SIGN-DISTINCT: fully-local flow — plain-http LAN callbackUrl with a same-host plain-http sourceUrl builds a challenge (the natural self-hosted layout)', { identifier: ID, callbackUrl: LAN_CB, token: ':aaaaaaaaaaaaaaaa', message: MSG, attachments: [ATT_LAN] }, { random: RAND }),
-  s1('Stage 1 attachment plain-http sourceUrl on a different LAN host than the callback (http://192.168.0.99 with a 10.0.0.5 callback) builds a challenge — the descriptor is a fetch instruction with no host tie; what is actually fetchable is the authenticator runtime’s call', { identifier: ID, callbackUrl: LAN_CB, token: ':aaaaaaaaaaaaaaaa', message: MSG, attachments: [{ name: ATT.name, sourceUrl: 'http://192.168.0.99/f.txt', sha256: ATT.sha256 }] }, { random: RAND }),
-  s1('Stage 1 attachment https sourceUrl stays valid on any host regardless of the callback host (https://cdn.example.net with a LAN callback) and builds a challenge', { identifier: ID, callbackUrl: LAN_CB, token: ':aaaaaaaaaaaaaaaa', message: MSG, attachments: [{ name: ATT.name, sourceUrl: 'https://cdn.example.net/license.txt', sha256: ATT.sha256 }] }, { random: RAND }),
-  s1("Stage 1 attachment sourceUrl with \";\" in its query (https://example.com/license.txt?v=1;sig=abc) builds a challenge — sourceUrls carry the full RFC 3986 pchar charset (no via is ever derived from them)", { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG, attachments: [{ name: ATT.name, sourceUrl: ATT.sourceUrl + '?v=1;sig=abc', sha256: ATT.sha256 }] }, { random: RAND }),
-  s1("Stage 1 attachment sourceUrl with punycode domain returns 228", {"identifier":ID,"callbackUrl":CB,"token":":aaaaaaaaaaaaaaaa","message":"Please read and accept the Terms of Service","attachments":[{"name":"License.txt","sourceUrl":"https://xn--mller-kva.de/f.txt","sha256":"d8a6cc31abc16b6748c7a21f21611f5a1ec33f67d22ca23d7da1c19b95496bee"}]}),
-  s1('Stage 1 attachment sourceUrl that is unparseable (isValidSourceUrl new URL throws) returns 228', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG, attachments: [{ name: ATT.name, sourceUrl: 'https://', sha256: ATT.sha256 }] }),
-  s1('Stage 1 attachment sourceUrl with credentials returns 228', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG, attachments: [{ name: ATT.name, sourceUrl: 'https://user:pass@example.com/f', sha256: ATT.sha256 }] }),
-  s1('Stage 1 attachment with an unknown extra property returns 228', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG, attachments: [{ name: ATT.name, sourceUrl: ATT.sourceUrl, sha256: ATT.sha256, extra: 'x' }] }),
-  s1('Stage 1 duplicate attachment names return 228', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG, attachments: [ATT, ATT] }),
-  s1('Stage 1 more than attachmentsCount (10) attachments return 228', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG, attachments: Array.from({ length: 11 }, (_, i) => ({ name: `f${i}`, sourceUrl: `https://example.com/f${i}.txt`, sha256: ATT.sha256 })) }),
-  s1('Stage 1 message of exactly 2048 bytes (the cap) builds a challenge — strict-greater boundary, companion of the over-length 227 case', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: 'a'.repeat(2048) }, { random: RAND }),
-  s1('Stage 1 exactly attachmentsCount (10) attachments build a challenge — boundary companion of the over-count 228 case', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG, attachments: Array.from({ length: 10 }, (_, i) => ({ name: `f${i}`, sourceUrl: `https://example.com/f${i}.txt`, sha256: ATT.sha256 })) }, { random: RAND }),
-  s1('Stage 1 token of exactly 255 bytes (the Normal-String default byte cap) is accepted and keys the hmac — boundary companion of the over-cap 226 case', { identifier: ID, callbackUrl: CB, token: 'a'.repeat(255), message: MSG }, { random: RAND }),
-  s1('Stage 1 token of 256 bytes exceeds the 255-byte Normal-String cap and returns 226 — the cap is the Normal-String default, not a token-specific 256', { identifier: ID, callbackUrl: CB, token: 'a'.repeat(256), message: MSG }),
+  s1('Stage 1 attachments not an array returns 228', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, attachments: 'not-an-array' }),
+  s1('Stage 1 attachment entry is null returns 228 (hasOnlyKnownProperties null-guard)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, attachments: [null] }),
+  s1('Stage 1 attachment missing sha256 returns 228', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, attachments: [{ name: ATT.name, sourceUrl: ATT.sourceUrl }] }),
+  s1('Stage 1 attachment sourceUrl with a presigned-style query (https://example.com/license.txt?X-Amz-Signature=abc) builds a challenge — queries remain valid on sourceUrls (presigned fetch URLs)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, attachments: [{ name: ATT.name, sourceUrl: ATT.sourceUrl + '?X-Amz-Signature=abc', sha256: ATT.sha256 }] }, { random: RAND }),
+  s1('Stage 1 attachment sourceUrl with a fragment (https://example.com/license.txt#v2) builds a challenge — fragments remain valid on sourceUrls', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, attachments: [{ name: ATT.name, sourceUrl: ATT.sourceUrl + '#v2', sha256: ATT.sha256 }] }, { random: RAND }),
+  s1('Stage 1 attachment malformed sha256 returns 228', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, attachments: [{ name: ATT.name, sourceUrl: ATT.sourceUrl, sha256: 'not-hex' }] }),
+  s1('Stage 1 attachment plain-http sourceUrl on a named public host (http://insecure.example/f.txt) builds a challenge — a sourceUrl is any canonical URL; integrity rides the sha256, and the authenticator runtime is the fetch policy', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, attachments: [{ name: ATT.name, sourceUrl: 'http://insecure.example/f.txt', sha256: ATT.sha256 }] }, { random: RAND }),
+  s1('Stage 1 SIGN-DISTINCT: fully-local flow — plain-http LAN callbackUrl with a same-host plain-http sourceUrl builds a challenge (the natural self-hosted layout)', { identifier: ID, callbackUrl: LAN_CB, sessionKey: SESSION_KEY, message: MSG, attachments: [ATT_LAN] }, { random: RAND }),
+  s1('Stage 1 attachment plain-http sourceUrl on a different LAN host than the callback (http://192.168.0.99 with a 10.0.0.5 callback) builds a challenge — the descriptor is a fetch instruction with no host tie; what is actually fetchable is the authenticator runtime’s call', { identifier: ID, callbackUrl: LAN_CB, sessionKey: SESSION_KEY, message: MSG, attachments: [{ name: ATT.name, sourceUrl: 'http://192.168.0.99/f.txt', sha256: ATT.sha256 }] }, { random: RAND }),
+  s1('Stage 1 attachment https sourceUrl stays valid on any host regardless of the callback host (https://cdn.example.net with a LAN callback) and builds a challenge', { identifier: ID, callbackUrl: LAN_CB, sessionKey: SESSION_KEY, message: MSG, attachments: [{ name: ATT.name, sourceUrl: 'https://cdn.example.net/license.txt', sha256: ATT.sha256 }] }, { random: RAND }),
+  s1("Stage 1 attachment sourceUrl with \";\" in its query (https://example.com/license.txt?v=1;sig=abc) builds a challenge — sourceUrls carry the full RFC 3986 pchar charset (no via is ever derived from them)", { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, attachments: [{ name: ATT.name, sourceUrl: ATT.sourceUrl + '?v=1;sig=abc', sha256: ATT.sha256 }] }, { random: RAND }),
+  s1("Stage 1 attachment sourceUrl with punycode domain returns 228", {"identifier":ID,"callbackUrl":CB,"sessionKey":SESSION_KEY,"message":"Please read and accept the Terms of Service","attachments":[{"name":"License.txt","sourceUrl":"https://xn--mller-kva.de/f.txt","sha256":"d8a6cc31abc16b6748c7a21f21611f5a1ec33f67d22ca23d7da1c19b95496bee"}]}),
+  s1('Stage 1 attachment sourceUrl that is unparseable (isValidSourceUrl new URL throws) returns 228', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, attachments: [{ name: ATT.name, sourceUrl: 'https://', sha256: ATT.sha256 }] }),
+  s1('Stage 1 attachment sourceUrl with credentials returns 228', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, attachments: [{ name: ATT.name, sourceUrl: 'https://user:pass@example.com/f', sha256: ATT.sha256 }] }),
+  s1('Stage 1 attachment with an unknown extra property returns 228', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, attachments: [{ name: ATT.name, sourceUrl: ATT.sourceUrl, sha256: ATT.sha256, extra: 'x' }] }),
+  s1('Stage 1 duplicate attachment names return 228', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, attachments: [ATT, ATT] }),
+  s1('Stage 1 more than attachmentsCount (10) attachments return 228', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, attachments: Array.from({ length: 11 }, (_, i) => ({ name: `f${i}`, sourceUrl: `https://example.com/f${i}.txt`, sha256: ATT.sha256 })) }),
+  s1('Stage 1 message of exactly 2048 bytes (the cap) builds a challenge — strict-greater boundary, companion of the over-length 227 case', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: 'a'.repeat(2048) }, { random: RAND }),
+  s1('Stage 1 exactly attachmentsCount (10) attachments build a challenge — boundary companion of the over-count 228 case', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, attachments: Array.from({ length: 10 }, (_, i) => ({ name: `f${i}`, sourceUrl: `https://example.com/f${i}.txt`, sha256: ATT.sha256 })) }, { random: RAND }),
+  s1('Stage 1 session key with every base64url character class (A-Z, a-z, 0-9, - and _) is accepted and seals the request', { identifier: ID, callbackUrl: CB, sessionKey: SK_ALPHABET, message: MSG }, { random: RAND }),
+  s1('Stage 1 session key of 256 characters returns 226', { identifier: ID, callbackUrl: CB, sessionKey: 'A'.repeat(256), message: MSG }),
 
   // ===================================================================================
   // Stage 1 — DNS / configuration (301, 110). Stage 1 resolves the endpoint record only; identity
   // existence and the identity-domain derivation are settled on the signed response at stage 3.
   // ===================================================================================
-  s1('Stage 1 domain with no triauth TXT record returns 301', { identifier: 'john@unconfigured.example', callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG }, { random: RAND }),
-  s1('Stage 1 endpoint record with an invalid (non-domain) value returns 301 (isDomainName false)', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG }, { random: RAND, dnsEntries: { 'triauthdemo.org': { TXT: ['triauth invalid_domain mode=public'] } } }),
-  s1('Stage 1 domain with multiple triauth TXT records returns 301 (ambiguous, refuse to choose)', { identifier: 'user@ambiguous.example', callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG }, { random: RAND }),
-  s1('Stage 1 unknown identifier under a configured domain still builds a challenge - existence is never probed at issue', { identifier: 'ghost@triauthdemo.org', callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG }, { random: RAND }),
-  s1('Stage 1 per-test dnsEntries patch can NXDOMAIN a known domain (returns 301)', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG }, { random: RAND, dnsEntries: { 'triauthdemo.org': null } }),
-  s1('Stage 1 endpoint with an unknown mode still builds a challenge - an unresolvable mode surfaces only once a response is verified', { identifier: 'john@hashed.triauthdemo.org', callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG }, { random: RAND, dnsEntries: { 'hashed.triauthdemo.org': { TXT: ['triauth auth.triauthdemo.org mode=unknownmode'] } } }),
-  s1('Stage 1 SERVFAIL on the identifier domain (endpoint lookup) surfaces as 110', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG }, { random: RAND, dnsEntries: { 'triauthdemo.org': { _error: 'SERVFAIL' } } }),
-  s1('Stage 1 SERVFAIL on the identity domain (records lookup) still builds a challenge - the identity domain is never queried at issue', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG }, { random: RAND, dnsEntries: { 'john._at.triauthdemo.org': { _error: 'SERVFAIL' } } }),
+  s1('Stage 1 domain with no triauth TXT record returns 301', { identifier: 'john@unconfigured.example', callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG }, { random: RAND }),
+  s1('Stage 1 endpoint record with an invalid (non-domain) value returns 301 (isDomainName false)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG }, { random: RAND, dnsEntries: { 'triauthdemo.org': { TXT: ['triauth invalid_domain mode=public'] } } }),
+  s1('Stage 1 domain with multiple triauth TXT records returns 301 (ambiguous, refuse to choose)', { identifier: 'user@ambiguous.example', callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG }, { random: RAND }),
+  s1('Stage 1 unknown identifier under a configured domain still builds a challenge - existence is never probed at issue', { identifier: 'ghost@triauthdemo.org', callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG }, { random: RAND }),
+  s1('Stage 1 per-test dnsEntries patch can NXDOMAIN a known domain (returns 301)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG }, { random: RAND, dnsEntries: { 'triauthdemo.org': null } }),
+  s1('Stage 1 endpoint with an unknown mode still builds a challenge - an unresolvable mode surfaces only once a response is verified', { identifier: 'john@hashed.triauthdemo.org', callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG }, { random: RAND, dnsEntries: { 'hashed.triauthdemo.org': { TXT: ['triauth auth.triauthdemo.org mode=unknownmode'] } } }),
+  s1('Stage 1 SERVFAIL on the identifier domain (endpoint lookup) surfaces as 110', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG }, { random: RAND, dnsEntries: { 'triauthdemo.org': { _error: 'SERVFAIL' } } }),
+  s1('Stage 1 SERVFAIL on the identity domain (records lookup) still builds a challenge - the identity domain is never queried at issue', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG }, { random: RAND, dnsEntries: { 'john._at.triauthdemo.org': { _error: 'SERVFAIL' } } }),
 
   // ===================================================================================
   // Stage 1 — success (challenge + sign.html redirectUrl). All deterministic via fixed nonce + clock.
   // ===================================================================================
-  s1('Stage 1 SIGN-DISTINCT: deterministic challenge bakes msg + empty attachments, redirect uses /sign.html', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG }, { random: RAND }),
-  s1('Stage 1 message with non-Latin (Cyrillic) letters builds a challenge (msg is UTF-8 encoded into the base64url challenge; the btoa-era code returned 100)', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: 'Привет, мир' }, { random: RAND }),
-  s1('Stage 1 challenge bakes the attachments array', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG, attachments: [ATT] }, { random: RAND }),
-  s1('Stage 1 two attachments are baked into the challenge', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG, attachments: [ATT, ATT2] }, { random: RAND }),
-  s1("Stage 1 token produces a redirectUrl with a &token= param carrying the token's public part and the hmac", { identifier: ID, callbackUrl: CB, message: MSG, token: ':aaaaaaaaaaaaaaaa' }, { random: RAND }),
-  s1('Stage 1 token + ext together: challenge bakes the ext, redirectUrl carries the token and its hmac', { identifier: ID, callbackUrl: CB, message: MSG, token: ':aaaaaaaaaaaaaaaa', ext: { signToken: true } }, { random: RAND }),
-  s1("Stage 1 omitting the token returns 226 - token-gated flows require a token at issue (src/challenge_response_flow.js)", {"identifier":ID,"callbackUrl":CB,"message":"Please read and accept the Terms of Service"}, { random: RAND }),
-  s1('Stage 1 endpoint record with a __proto__ option is parsed safely (option dropped) and still builds a challenge', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG }, { random: RAND, dnsEntries: { 'triauthdemo.org': { TXT: ['triauth auth.triauthdemo.org __proto__=evil mode=public'] } } }),
-  s1('Stage 1 challenge bakes in the ext object', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG, ext: { signToken: true, nested: { foo: 'bar' } } }, { random: RAND }),
-  s1('Stage 1 multi-device identity still builds a challenge', { identifier: 'multi@triauthdemo.org', callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG }, { random: RAND }),
-  s1('Stage 1 identity with a profile but no key records still builds a challenge (key absence surfaces in Stage 3)', { identifier: 'nokeys@triauthdemo.org', callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG }, { random: RAND }),
-  s1('Stage 1 PRIVATE: a private-mode endpoint builds a challenge without resolving the identity (no lookup code exists server-side)', { identifier: PRIVATE.john.identifier, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG }, { random: RAND }),
-  s1('Stage 1 localhost http callbackUrl is accepted (validateCallbackUrl localhost branch)', { identifier: ID, callbackUrl: 'http://localhost:3000/cb', token: ':aaaaaaaaaaaaaaaa', message: MSG }, { random: RAND }),
-  s1('Stage 1 per-test currentTime changes the iat baked into the challenge (nonce unchanged)', { identifier: ID, callbackUrl: CB, token: ':aaaaaaaaaaaaaaaa', message: MSG }, { random: RAND, currentTime: 1800000000000 }),
+  s1('Stage 1 SIGN-DISTINCT: deterministic challenge bakes msg + empty attachments, redirect uses /sign.html', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG }, { random: RAND }),
+  s1('Stage 1 message with non-Latin (Cyrillic) letters builds a challenge (msg is UTF-8 encoded into the base64url challenge; the btoa-era code returned 100)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: 'Привет, мир' }, { random: RAND }),
+  s1('Stage 1 challenge bakes the attachments array', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, attachments: [ATT] }, { random: RAND }),
+  s1('Stage 1 two attachments are baked into the challenge', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, attachments: [ATT, ATT2] }, { random: RAND }),
+  s1("Stage 1 session key produces a redirectUrl with skid and the sealed request", { identifier: ID, callbackUrl: CB, message: MSG, sessionKey: SESSION_KEY }, { random: RAND }),
+  s1('Stage 1 session key + ext together: challenge bakes the ext, redirectUrl has the sealed request', { identifier: ID, callbackUrl: CB, message: MSG, sessionKey: SESSION_KEY, ext: { callbackMethod: 'POST' } }, { random: RAND }),
+  s1("Stage 1 omitting the session key returns 226 - the flows that follow a sign-in require it at issue (src/challenge_response_flow.js)", {"identifier":ID,"callbackUrl":CB,"message":"Please read and accept the Terms of Service"}, { random: RAND }),
+  s1('Stage 1 endpoint record with a __proto__ option is parsed safely (option dropped) and still builds a challenge', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG }, { random: RAND, dnsEntries: { 'triauthdemo.org': { TXT: ['triauth auth.triauthdemo.org __proto__=evil mode=public'] } } }),
+  s1('Stage 1 challenge bakes in the ext object', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG, ext: { callbackMethod: 'POST', nested: { foo: 'bar' } } }, { random: RAND }),
+  s1('Stage 1 multi-device identity still builds a challenge', { identifier: 'multi@triauthdemo.org', callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG }, { random: RAND }),
+  s1('Stage 1 identity with a profile but no key records still builds a challenge (key absence surfaces in Stage 3)', { identifier: 'nokeys@triauthdemo.org', callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG }, { random: RAND }),
+  s1('Stage 1 PRIVATE: a private-mode endpoint builds a challenge without resolving the identity (no lookup code exists server-side)', { identifier: PRIVATE.john.identifier, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG }, { random: RAND }),
+  s1('Stage 1 localhost http callbackUrl is accepted (validateCallbackUrl localhost branch)', { identifier: ID, callbackUrl: 'http://localhost:3000/cb', sessionKey: SESSION_KEY, message: MSG }, { random: RAND }),
+  s1('Stage 1 per-test currentTime changes the iat baked into the challenge (nonce unchanged)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, message: MSG }, { random: RAND, currentTime: 1800000000000 }),
 
   // ===================================================================================
   // Stage 3 — challenge (223) & response (224) validation
@@ -761,7 +766,7 @@ const tests = [
   // callbackUrl base-directory delimiter guards (";" and "|" are envelope separators).
   s1("Stage 1 SECURITY: callbackUrl with a \";\" in its base directory (https://example.com/a;b/cb) returns 221 — \";\" is the signature envelope field delimiter, so the base URL that becomes the signed via must not contain it; rejecting at validation avoids a silent downstream failure (the authenticator’s Signature.generate refuses such a via)", {"identifier":ID,"callbackUrl":"https://example.com/a;b/cb","message":"Please read and accept the Terms of Service"}),
   s1("Stage 1 SECURITY: callbackUrl with a \"|\" in its base directory (https://example.com/a|b/cb) returns 221 — \"|\" is the signature envelope wrapper/separator; a base URL containing it would corrupt the envelope, so it is rejected at validation rather than failing silently downstream", {"identifier":ID,"callbackUrl":"https://example.com/a|b/cb","message":"Please read and accept the Terms of Service"}),
-  s1("Stage 1 callbackUrl with a \";\" in its LAST path segment (https://example.com/cb;sid=1) builds a challenge — the final segment never enters the base URL/via, so the envelope delimiter rule stops at the base span", {"identifier":ID,"callbackUrl":"https://example.com/cb;sid=1","token":":aaaaaaaaaaaaaaaa","message":"Please read and accept the Terms of Service"}, { random: RAND }),
+  s1("Stage 1 callbackUrl with a \";\" in its LAST path segment (https://example.com/cb;sid=1) builds a challenge — the final segment never enters the base URL/via, so the envelope delimiter rule stops at the base span", {"identifier":ID,"callbackUrl":"https://example.com/cb;sid=1","sessionKey":SESSION_KEY,"message":"Please read and accept the Terms of Service"}, { random: RAND }),
   // PUBLICPROFILE: shape and hardening of the publicProfile surfaced on sign results
   // (per-test dnsEntries publish the profile records; the envelope is the canonical minted one).
   s3("PUBLICPROFILE: sign surfaces name/initials and x- extensions; unrecognized keywords (incl. former 'roles'/'title') and over-long x- keys are dropped", { challenge: CH, response: RESP_DESKTOP }, { dnsEntries: {
@@ -855,6 +860,9 @@ const tests = [
         ]
       }
     } }),
+
+  // Sealed responses: the challenge carries `ek`, the stored challenge its decryption key
+  ...await sealedCases(s3, (ek) => mkChallenge({ ek }), () => mint(john.devices[0].keys)),
 ];
 
 // Normalize: a couple of dispatch tests need a non-object sole arg (null / []) that the s3()
@@ -863,13 +871,16 @@ for (const t of tests) {
   if (t._argsOverride) { t.args = t._argsOverride; delete t._argsOverride; }
 }
 
+// Store every stage-3 case as an application does: challenge with its decryption key, response sealed to `ek`
+await sealStage3(tests);
+
 const suite = {
   title: 'sign',
   description:
     'Comprehensive, branch-complete coverage of Triauth.sign. Stage 1 (request): dispatch/arg guards, ' +
-    'identifier/callbackUrl/ext/token validation, the SIGN-DISTINCT message (227) and attachments (228) ' +
+    'identifier/callbackUrl/ext/sessionKey validation, the SIGN-DISTINCT message (227) and attachments (228) ' +
     'validation done in onChallenge, DNS configuration (301/302) and DNS failure (110), and deterministic ' +
-    'challenge + /sign.html redirect building (with msg + attachments baked in, and the token HMAC). ' +
+    'challenge + /sign.html redirect building (with msg + attachments baked in, and the request sealed under the session key). ' +
     'Stage 3 (verify): challenge/response validation, dispatch constraints (401/403), signature-envelope ' +
     'parse failures (225), generic verification failures (401), the IdentityKeys add/verify branches reached ' +
     "via the verify path, the 30min signTimeout window (402), metadata parse rejections (225), and the heart " +
@@ -885,4 +896,4 @@ const suite = {
   tests,
 };
 
-writeSuite(new URL('./sign.json', import.meta.url), suite);
+await writeSuite(new URL('./sign.json', import.meta.url), suite);

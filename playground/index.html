@@ -147,11 +147,11 @@
     .pg-field-check label { font-size:0.9rem; font-weight:500; padding:0; flex:1; min-width:200px; cursor:pointer; }
     .pg-field-check .pg-hint { flex-basis:100%; }
 
-    .pg-tokens { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:0.8rem; padding:0.5rem 0; }
-    .pg-token-pill { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:99px; background:#eef0f4; color:#5a5f68; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:0.72rem; }
-    .pg-token-pill.has { background:#dff3e3; color:#1e6b30; }
-    .pg-token-pill.has::before { content:'✓'; font-weight:700; }
-    .pg-token-pill.empty::before { content:'·'; opacity:0.5; }
+    .pg-captured { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:0.8rem; padding:0.5rem 0; }
+    .pg-pill { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:99px; background:#eef0f4; color:#5a5f68; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:0.72rem; }
+    .pg-pill.has { background:#dff3e3; color:#1e6b30; }
+    .pg-pill.has::before { content:'✓'; font-weight:700; }
+    .pg-pill.empty::before { content:'·'; opacity:0.5; }
 
     .pg-btn {
       background:#3451b2; color:#fff; border:none; border-radius:6px;
@@ -251,6 +251,7 @@
       background:#fff; padding:8px 10px; border-radius:4px; border:1px solid #e2e5ea;
       max-height:140px; overflow:auto; white-space:pre-wrap;
     }
+    .pg-stage3-block.failed { color:#9b3a3a; background:#fdf3f3; border-color:#f0c9c9; }
 
     .pg-sidebar-mobile { display:none; }
 
@@ -307,7 +308,8 @@
     callbackMethod: 'HASH',
     logLevel: 'debug',
     autoRedirect: false,
-    tokens: { pingToken: '', signToken: '', stampToken: '', attestToken: '' },
+    sessionKey: '',
+    permissions: {},
     deviceTag: '',
     lastChallenge: '',
     lastMethod: '',
@@ -323,7 +325,8 @@
       if (!raw) return defaultState();
       const parsed = JSON.parse(raw);
       const merged = Object.assign(defaultState(), parsed);
-      merged.tokens = Object.assign(defaultState().tokens, parsed.tokens || {});
+      merged.permissions = Object.assign({}, parsed.permissions || {});
+      delete merged.tokens;
       merged.forms = Object.assign({}, parsed.forms || {});
       merged.lastResponses = Object.assign({}, parsed.lastResponses || {});
       // One-time defaults refresh: make HASH the default callback method and
@@ -375,10 +378,10 @@
     lookupCode:  "Private-mode lookup code (16 characters `A–Z0–9`) issued by the identity's domain operator — the same code that rides in the `deviceTag` as its `~` suffix. Leave empty under public/hashed domains.",
     deviceName:  "Public device name, lowercase, letters/digits/hyphens only.",
     callbackUrl: "Where the authenticator will POST/GET/HASH the response. Defaults to this playground page; override for testing other receivers.",
-    token:       "Per-method token from a previous `authenticate` call. Auto-filled when available.",
+    sessionKey:  "Session key from a previous `authenticate` call. Auto-filled when available.",
     message:     "ASCII-printable text to be signed/stamped. No newlines or control characters.",
     attachments: "JSON array of `{name, sourceUrl, sha256}` objects covered by the signature.",
-    ext:         "JSON object of protocol extensions, e.g. `{\"callbackMethod\":\"GET\",\"pingToken\":true}`.",
+    ext:         "JSON object of protocol extensions, e.g. `{\"callbackMethod\":\"GET\",\"permissions\":{\"ping\":true}}`.",
     attestations:"JSON object mapping attestation IDs to `{label, providers}` entries.",
     signature:   "Triauth signature string in the `|type;identifier;actor;via;ver;ts;...;sig|` format.",
     constraints: "Optional JSON object of constraints (`identifier`, `type`, `ver`, `via`, `notBefore`, `notAfter`)."
@@ -387,7 +390,7 @@
   function defaultAuthExt() {
     return {
       callbackMethod: state.callbackMethod || 'HASH',
-      pingToken: true, signToken: true, stampToken: true, attestToken: true
+      permissions: { ping: true, stamp: true }
     };
   }
   function defaultExt() { return { callbackMethod: state.callbackMethod || 'HASH' }; }
@@ -403,7 +406,7 @@
     authenticate: {
       label: 'authenticate', group: 'Authentication',
       synopsis: '({identifier, callbackUrl, ext})',
-      description: 'Performs a challenge-response authentication. After approval, returns the identity and any requested tokens.',
+      description: 'Performs a challenge-response authentication. After approval, returns the identity, the session key, and the decision on each requested permission.',
       fields: [
         { name: 'identifier',  type: 'text', global: 'identifier' },
         { name: 'callbackUrl', type: 'text', getDefault: () => callbackUrl() },
@@ -421,12 +424,12 @@
     },
     ping: {
       label: 'ping', group: 'Authentication',
-      synopsis: '({identifier, callbackUrl, token, ext})',
-      description: 'Background re-authentication: obtains a fresh signature without user interaction. Requires a `pingToken`.',
+      synopsis: '({identifier, callbackUrl, sessionKey, ext})',
+      description: 'Background re-authentication: obtains a fresh signature without user interaction. Requires the session key of a sign-in with the `ping` permission.',
       fields: [
         { name: 'identifier',  type: 'text', global: 'identifier' },
         { name: 'callbackUrl', type: 'text', getDefault: () => callbackUrl() },
-        { name: 'token',       type: 'text', tokenKey: 'pingToken' },
+        { name: 'sessionKey',  type: 'text', fromSessionKey: true },
         { name: 'ext',         type: 'json', getDefault: () => defaultExt() }
       ]
     },
@@ -441,33 +444,33 @@
     },
     sign: {
       label: 'sign', group: 'Signing',
-      synopsis: '({identifier, callbackUrl, message, attachments, token, ext})',
-      description: 'Interactive signature: the user reviews the message (and any attachments) before signing. Requires a `signToken`.',
+      synopsis: '({identifier, callbackUrl, message, attachments, sessionKey, ext})',
+      description: 'Interactive signature: the user reviews the message (and any attachments) before signing. Requires the session key of a sign-in.',
       fields: [
         { name: 'identifier',  type: 'text', global: 'identifier' },
         { name: 'callbackUrl', type: 'text', getDefault: () => callbackUrl() },
         { name: 'message',     type: 'text', default: 'Hello world' },
         { name: 'attachments', type: 'json', default: [] },
-        { name: 'token',       type: 'text', tokenKey: 'signToken' },
+        { name: 'sessionKey',  type: 'text', fromSessionKey: true },
         { name: 'ext',         type: 'json', getDefault: () => defaultExt() }
       ]
     },
     stamp: {
       label: 'stamp', group: 'Signing',
-      synopsis: '({identifier, callbackUrl, message, token, ext})',
-      description: 'Non-interactive signature over `message`. Requires a `stampToken`. Stamps are not replay-protected on their own.',
+      synopsis: '({identifier, callbackUrl, message, sessionKey, ext})',
+      description: 'Non-interactive signature over `message`. Requires the session key of a sign-in with the `stamp` permission. Stamps are not replay-protected on their own.',
       fields: [
         { name: 'identifier',  type: 'text', global: 'identifier' },
         { name: 'callbackUrl', type: 'text', getDefault: () => callbackUrl() },
         { name: 'message',     type: 'text', default: 'example-data-in-textual-format' },
-        { name: 'token',       type: 'text', tokenKey: 'stampToken' },
+        { name: 'sessionKey',  type: 'text', fromSessionKey: true },
         { name: 'ext',         type: 'json', getDefault: () => defaultExt() }
       ]
     },
     verify: {
       label: 'verify', group: 'Signing',
       synopsis: '(message, signature, constraints?)',
-      description: 'Independently verifies a signature or stamp against the DNS-published keys. No redirect, no token needed.',
+      description: 'Independently verifies a signature or stamp against the DNS-published keys. No redirect, no session key needed.',
       positional: true,
       fields: [
         { name: 'message',     type: 'text' },
@@ -477,8 +480,8 @@
     },
     attest: {
       label: 'attest', group: 'Attestation',
-      synopsis: '({identifier, callbackUrl, attestations, token, ext})',
-      description: 'Requests third-party verified attestations (e.g. not-a-robot, age). Requires an `attestToken`.',
+      synopsis: '({identifier, callbackUrl, attestations, sessionKey, ext})',
+      description: 'Requests third-party verified attestations (e.g. not-a-robot, age). Requires the session key of a sign-in.',
       fields: [
         { name: 'identifier',  type: 'text', global: 'identifier' },
         { name: 'callbackUrl', type: 'text', getDefault: () => callbackUrl() },
@@ -489,7 +492,7 @@
             }
           }
         },
-        { name: 'token', type: 'text', tokenKey: 'attestToken' },
+        { name: 'sessionKey', type: 'text', fromSessionKey: true },
         { name: 'ext',   type: 'json', getDefault: () => defaultExt() }
       ]
     },
@@ -569,7 +572,7 @@
     if (!field) return '';
 
     if (field.global && state[field.global]) return state[field.global];
-    if (field.tokenKey && state.tokens?.[field.tokenKey]) return state.tokens[field.tokenKey];
+    if (field.fromSessionKey && state.sessionKey) return state.sessionKey;
     if (field.getDefault) return field.getDefault();
     if (field.default !== undefined) return field.default;
     return field.type === 'json' ? {} : '';
@@ -669,20 +672,20 @@
     const label = document.createElement('label');
     label.htmlFor = id;
     label.textContent = field.label || field.name;
-    if (field.tokenKey) {
-      // Report what the field is actually showing, not merely what is in state.tokens:
+    if (field.fromSessionKey) {
+      // Report what the field is actually showing, not merely what is in state.sessionKey:
       // an edited value shadows the stored one (see getFormValue), and silently claiming
-      // "auto-filled" over a stale token hides the reason the authenticator refuses it.
-      const live = state.tokens?.[field.tokenKey];
+      // "auto-filled" over a stale session key hides the reason the authenticator refuses it.
+      const live = state.sessionKey;
       const shown = getFormValue(method, field.name);
       const note = document.createElement('span');
       note.style.cssText = 'color:#8b909b; font-weight:400; margin-left:6px; font-size:0.72rem;';
       if (!live) {
-        note.textContent = '(no stored ' + field.tokenKey + ' — run authenticate first)';
+        note.textContent = '(no stored session key — run authenticate first)';
       } else if (shown === live) {
-        note.textContent = '(auto-filled from stored ' + field.tokenKey + ')';
+        note.textContent = '(auto-filled from the stored session key)';
       } else {
-        note.textContent = '(edited — does not match stored ' + field.tokenKey + ')';
+        note.textContent = '(edited — does not match the stored session key)';
         note.style.color = '#a8600f';
       }
       label.appendChild(note);
@@ -713,7 +716,7 @@
       input.value = valueStr;
     }
     if (field.type !== 'select') {
-      // Every text field carries a machine-readable value (identifier, URL, token, JSON,
+      // Every text field carries a machine-readable value (identifier, URL, session key, JSON,
       // signature), so mobile keyboards must not capitalise or "correct" it. Identifier
       // fields get the email keyboard: `@` and `.` sit on the primary layer.
       input.setAttribute('autocapitalize', 'off');
@@ -983,12 +986,41 @@
         <label>extracted <code>response</code> string</label>
         <div class="pg-stage3-block" data-slot="response"></div>
       </div>
+      <div class="pg-field" style="margin: 10px 0 0;">
+        <label>decrypted <code>response</code> envelope</label>
+        <span class="pg-hint">Unsealed with the decryption key stored in the remembered challenge.</span>
+        <div class="pg-stage3-block" data-slot="decrypted">decrypting…</div>
+      </div>
     `;
     methodPanelEl.appendChild(wrap);
 
     wrap.querySelector('[data-slot="challenge"]').textContent = captured.challenge || '(none — challenge had already been cleared before the response arrived)';
     wrap.querySelector('[data-slot="url"]').textContent = captured.url || '';
     wrap.querySelector('[data-slot="response"]').textContent = captured.response || '';
+
+    const decrypted = wrap.querySelector('[data-slot="decrypted"]');
+    decryptResponse(captured.challenge, captured.response).then(
+      (text) => { decrypted.textContent = text; },
+      (err) => {
+        // Web Crypto words an authentication failure differently in each browser
+        const reason = err?.name === 'OperationError'
+          ? 'the response does not open with the key of the remembered challenge (another challenge, or changed in transit)'
+          : (err?.message || err?.name || String(err));
+        decrypted.textContent = 'decryption failed: ' + reason;
+        decrypted.classList.add('failed');
+      }
+    );
+  }
+
+  // Opens the response with the decryption key that the remembered challenge keeps after its `.`, as stage 3 does
+  async function decryptResponse(storedChallenge, response) {
+    if (response === 'false') return 'false (a denial is not encrypted)';
+
+    const [challengeString, decryptionKey] = String(storedChallenge || '').split('.');
+    if (!challengeString || !decryptionKey) throw new Error('no remembered challenge with a decryption key');
+
+    const {ek} = JSON.parse(Triauth.Helpers.base64UrlToString(challengeString));
+    return (await Triauth.ResponseCipher.open(ek, decryptionKey, response)).response;
   }
 
   function renderPendingRedirect() {
@@ -1030,17 +1062,16 @@
 
     meta.fields.forEach((field) => methodPanelEl.appendChild(renderField('globalConfig', field)));
 
-    // Captured tokens / deviceTag from last authenticate
+    // Session key, permissions and deviceTag captured from the last authenticate
     const capWrap = document.createElement('div');
     capWrap.className = 'pg-field';
     capWrap.innerHTML = `
       <label>Captured from <code>authenticate</code></label>
-      <div class="pg-tokens" id="globalTokenDetail">
-        <span class="pg-token-pill empty" data-token="pingToken">pingToken</span>
-        <span class="pg-token-pill empty" data-token="signToken">signToken</span>
-        <span class="pg-token-pill empty" data-token="stampToken">stampToken</span>
-        <span class="pg-token-pill empty" data-token="attestToken">attestToken</span>
-        <span class="pg-token-pill empty" data-token="deviceTag">deviceTag</span>
+      <div class="pg-captured" id="globalCapturedDetail">
+        <span class="pg-pill empty" data-key="sessionKey">sessionKey</span>
+        <span class="pg-pill empty" data-key="ping">ping permission</span>
+        <span class="pg-pill empty" data-key="stamp">stamp permission</span>
+        <span class="pg-pill empty" data-key="deviceTag">deviceTag</span>
       </div>
       <span class="pg-hint" id="globalDeviceTag" style="font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; word-break:break-all;"></span>
     `;
@@ -1050,14 +1081,14 @@
     danger.className = 'pg-danger-zone';
     danger.innerHTML = `
       <h4>Danger zone</h4>
-      <p>Wipes config, tokens, per-method form values, and cached results from <code>localStorage</code>.</p>
+      <p>Wipes config, the session key, per-method form values, and cached results from <code>localStorage</code>.</p>
     `;
     const clearBtn = document.createElement('button');
     clearBtn.type = 'button';
     clearBtn.className = 'pg-btn danger';
     clearBtn.textContent = 'Clear all playground state';
     clearBtn.addEventListener('click', () => {
-      if (!confirm('Clear all playground state (identifier, tokens, captured forms)?')) return;
+      if (!confirm('Clear all playground state (identifier, session key, captured forms)?')) return;
       localStorage.removeItem(STORAGE_KEY);
       Object.assign(state, defaultState());
       saveState();
@@ -1067,16 +1098,15 @@
     danger.appendChild(clearBtn);
     methodPanelEl.appendChild(danger);
 
-    refreshTokenIndicators();
+    refreshCapturedIndicators();
   }
 
-  function refreshTokenIndicators() {
-    const detail = document.getElementById('globalTokenDetail');
+  function refreshCapturedIndicators() {
+    const detail = document.getElementById('globalCapturedDetail');
     if (!detail) return;
-    const tokens = state.tokens || {};
-    detail.querySelectorAll('.pg-token-pill').forEach((pill) => {
-      const k = pill.dataset.token;
-      const hasIt = k === 'deviceTag' ? !!state.deviceTag : !!tokens[k];
+    detail.querySelectorAll('.pg-pill').forEach((pill) => {
+      const k = pill.dataset.key;
+      const hasIt = k === 'deviceTag' ? !!state.deviceTag : k === 'sessionKey' ? !!state.sessionKey : state.permissions?.[k] === true;
       pill.classList.toggle('has', hasIt);
       pill.classList.toggle('empty', !hasIt);
     });
@@ -1206,7 +1236,7 @@
       renderResult(result, statusFor(result, method));
       cacheResult(method, result, statusFor(result, method));
 
-      // Token capture from authenticate stage-3 result
+      // Capture from the authenticate stage-3 result
       if (method === 'authenticate' && result && result.authenticated) {
         captureAuthenticateResult(result);
       }
@@ -1235,30 +1265,27 @@
   function captureAuthenticateResult(result) {
     state.identifier = result.identifier || state.identifier;
     state.deviceTag = result.deviceTag || state.deviceTag;
-    const ext = result.ext || {};
-    ['pingToken', 'signToken', 'stampToken', 'attestToken'].forEach(k => {
-      if (typeof ext[k] === 'string' && ext[k]) state.tokens[k] = ext[k];
-    });
-    refreshTokensAcrossForms(ext);
+    state.sessionKey = result.sessionKey || '';
+    state.permissions = result.ext?.permissions || {};
+    refreshSessionKeyAcrossForms(state.sessionKey);
     saveState();
-    refreshTokenIndicators();
+    refreshCapturedIndicators();
   }
 
-  // Every `auth` approval re-mints the tokens for that (identity, base URL) pair, so any
-  // copy a token field pinned into state.forms on an earlier run is now dead: the
-  // authenticator will refuse the HMAC it keys. Drop the pinned copies so getFormValue
-  // falls back through to the freshly captured state.tokens value, and update the input
-  // in place when the affected method is the one currently on screen.
-  function refreshTokensAcrossForms(ext) {
+  // Every sign-in gives a new session key, so any copy that a session key field pinned into
+  // state.forms on an earlier run is now dead: the authenticator will refuse the HMAC it keys.
+  // Drop the pinned copies so getFormValue falls back to the captured state.sessionKey, and
+  // update the input in place when the affected method is the one currently on screen.
+  function refreshSessionKeyAcrossForms(sessionKey) {
+    if (!sessionKey) return;
     for (const [m, meta] of Object.entries(METHODS)) {
       for (const field of meta.fields || []) {
-        const minted = field.tokenKey && ext[field.tokenKey];
-        if (!minted) continue;
+        if (!field.fromSessionKey) continue;
 
         if (state.forms?.[m]) delete state.forms[m][field.name];
 
         const el = methodPanelEl.querySelector(`[data-method="${m}"][data-field="${field.name}"]`);
-        if (el) el.value = minted;
+        if (el) el.value = sessionKey;
       }
     }
   }
@@ -1368,15 +1395,14 @@
 
     const response = got.response;
     let method;
-    if (response === 'false') {
-      // Rejection response carries no `|type;...|` envelope, so the method
-      // can't be inferred from the response itself — fall back to whatever
-      // flow stage 1 recorded as in-flight.
-      method = state.lastMethod;
+    const match = response.match(/\|(attest|auth|ping|sign|stamp);/);
+    if (match) {
+      method = match[1] === 'auth' ? 'authenticate' : match[1];
     } else {
-      const match = response.match(/\|(attest|auth|ping|sign|stamp);/);
-      method = match ? match[1] : null;
-      if (method === 'auth') method = 'authenticate';
+      // A rejection (`false`) or a sealed response shows no `|type;...|`
+      // envelope, so the method can't be inferred from the response itself —
+      // fall back to whatever flow stage 1 recorded as in-flight.
+      method = state.lastMethod;
     }
 
     if (!method || !METHODS[method]) return;

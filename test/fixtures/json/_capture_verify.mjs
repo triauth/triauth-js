@@ -45,7 +45,7 @@
 //     THIS script at mint time, never by verify);
 //   - other-API helpers: IdentityKeys.findByTag (Triauth.check), and the Validator functions verify
 //     never calls at all: validateExt / validateAttestations / validateChallenge / validateResponse
-//     / validateMessage / validateAttachments / validateToken. (verify reaches exactly three
+//     / validateMessage / validateAttachments / validateSessionKey. (verify reaches exactly three
 //     validators: validateIdentifier + validateCallbackUrl via the Signature ctor on the envelope's
 //     identifier/via slots, and validateDeviceName via IdentityKeys.add on the DNS key records);
 //   - the validator arms the upstream input shape makes unreachable from verify: validateIdentifier's
@@ -980,4 +980,4 @@ const suite = {
   tests,
 };
 
-writeSuite(new URL('./verify.json', import.meta.url), suite);
+await writeSuite(new URL('./verify.json', import.meta.url), suite);

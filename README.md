@@ -254,7 +254,7 @@ app.listen(3000, () => {
     : {
         identifier: window.prompt('Enter your identifier'),
         callbackUrl: window.location.href,
-        ext: { callbackMethod: 'HASH', stampToken: true }
+        ext: { callbackMethod: 'HASH', permissions: { stamp: true } }
       });
 
   if (challenge && response) {
@@ -329,9 +329,9 @@ Following methods are available:
 > 1. **Request:** <br/>
 >    Call the method with `identifier` (string), `callbackUrl` (string), and any other required parameters. You'll receive a `challenge` (string) and `redirectUrl` (string).
 > 2. **Redirect:** <br/>
->    Securely store the `challenge` and redirect the user's browser to `redirectUrl`.
+>    Securely store the `challenge` and redirect the user's browser to `redirectUrl`. The stored `challenge` also contains the key that decrypts the `response`. Keep it out of URLs and logs.
 > 3. **Verify:** <br/>
->    The user's browser brings a `response` back to your `callbackUrl`, by default as a URL query parameter (see [callbackMethod](#protocol-extensions)). Pass both `challenge` and `response` back to the original method to complete the flow. 
+>    The user's browser brings an encrypted `response` back to your `callbackUrl`, by default as a URL query parameter (see [callbackMethod](#protocol-extensions)). Pass both `challenge` and `response` back to the original method to complete the flow. 
 
 <a name="preserve-referrer"></a>
 
@@ -383,8 +383,8 @@ await Triauth.authenticate(
   }
 );
 // {
-//   challenge: 'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJhdXRoIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJTSWRJaXZRRTVJbkhHQmFUWGhDb0UxMG8iLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MX0', 
-//   redirectUrl: 'https://auth.triauthdemo.org/auth.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJhdXRoIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJTSWRJaXZRRTVJbkhHQmFUWGhDb0UxMG8iLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MX0'
+//   challenge: 'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJhdXRoIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJTSWRJaXZRRTVJbkhHQmFUWGhDb0UxMG8iLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MSwiZWsiOiJCQXZJbDlWVDJ3Z3JoS2FBMmw3MTFhWmIxSVJlWURkX0UtdVRfcDl2VnNzZndqWG5VWjVNcVhjRTNmSUNCRlpmOElFeXJoUXVmX0F0ODlSaHBZMFlScUUifQ.-rkB18wDNcYxPU7jK3Lb8nwmQcV-fhJ-1nLCxdDgEzE', 
+//   redirectUrl: 'https://auth.triauthdemo.org/auth.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJhdXRoIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJTSWRJaXZRRTVJbkhHQmFUWGhDb0UxMG8iLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MSwiZWsiOiJCQXZJbDlWVDJ3Z3JoS2FBMmw3MTFhWmIxSVJlWURkX0UtdVRfcDl2VnNzZndqWG5VWjVNcVhjRTNmSUNCRlpmOElFeXJoUXVmX0F0ODlSaHBZMFlScUUifQ'
 // }
 ```
 
@@ -395,7 +395,7 @@ await Triauth.authenticate(
 Once the user's web browser is redirected to the `redirectUrl`, they will be taken to the Triauth Authenticator web application, where they can approve or reject the authentication request. 
 
 If the user approves the authentication request, Triauth Authenticator signs the challenge using one or more private keys that are available to it, and for which matching public keys may be obtained from the identity records stored in the DNS, associated with the user's `identifier`. 
-It then redirects the web browser to the `callbackUrl`, by default using a `HTTP GET` method, and passes the signature, together with optional additional data, inside the `response` URL parameter.
+It then redirects the web browser to the `callbackUrl`, by default using a `HTTP GET` method, and passes the signature, together with optional additional data, inside the encrypted `response` URL parameter.
 The callback method that is used to pass the response to the client application can be configured with the [callbackMethod extension](#protocol-extensions).
 
 If the user declines the authentication request, the Triauth Authenticator sends `false` as the `response`, which `Triauth.authenticate` reports as error 403.
@@ -415,7 +415,7 @@ Synopsis:
 ```javascript
 
 let authenticationResult = await Triauth.authenticate({challenge, response});
-// @returns {authenticated:true, issuedAt, signedAt, verifiedAt, expires, secure, identifier, identityDomain, lookupCode, actor, actorIdentityDomain, actorLookupCode, publicProfile, groups, deviceName, deviceTag, keys, ext} upon successful authentication
+// @returns {authenticated:true, issuedAt, signedAt, verifiedAt, expires, secure, identifier, identityDomain, lookupCode, actor, actorIdentityDomain, actorLookupCode, publicProfile, groups, deviceName, deviceTag, keys, sessionKey, ext} upon successful authentication
 // @returns {error:{code, message}} upon failed authentication
 
 ```
@@ -426,8 +426,8 @@ let authenticationResult = await Triauth.authenticate({challenge, response});
 ```javascript
 await Triauth.authenticate(
   {
-   challenge:'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJhdXRoIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJTSWRJaXZRRTVJbkhHQmFUWGhDb0UxMG8iLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MX0', 
-   response:'|auth;john@triauthdemo.org;;https://example.com/;v1;1787224766683;;;S8lEY3KOYs9gsSpCJ8YnbnKHVCJcT0dXRREZCAgfIR_3dqkW3S9eUcfQZc6q2HD2sy56LwndOoSbcGyO2ZbUnw|'
+   challenge:'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJhdXRoIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJTSWRJaXZRRTVJbkhHQmFUWGhDb0UxMG8iLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MSwiZWsiOiJCQXZJbDlWVDJ3Z3JoS2FBMmw3MTFhWmIxSVJlWURkX0UtdVRfcDl2VnNzZndqWG5VWjVNcVhjRTNmSUNCRlpmOElFeXJoUXVmX0F0ODlSaHBZMFlScUUifQ.-rkB18wDNcYxPU7jK3Lb8nwmQcV-fhJ-1nLCxdDgEzE', 
+   response:'BNh1cQjNAGfM2AT7Kee_wcSpCMPmf393GaP5h1bOOFgrH58q9CIgGz0ChLLBzLGOUGbZB46FIgY8CPljfgKTNj4.DJguMmSAhafOTygveRsBQlHfpOcc4haXughtMSANoZO3ra2IIpYviH6H4ErvaqeRb_bEBu2e0URsJUjsA4iJ1Fu_2MMnn80zA-slH6XIsReM6i7m7a74iU_hmDmUMaL6KkwDM_LVJQw71pR1qnSLEE9EWOHHe8sqOT8t42S4TX0fhmzZFrlPm969B2eopvMFvJ0HMQ0I1USB6XB-lT0arzJt9UQB6XKsi2Dm'
   }
 );
 //
@@ -462,6 +462,7 @@ await Triauth.authenticate(
 //       "skipped": false
 //     }
 //   ],
+//   "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8",
 //   "ext": {}
 // }
 //
@@ -495,7 +496,8 @@ When authentication is successful, following properties are included in the auth
 | `deviceName`          | `string`  | Contains a user-given, public name of the device that was used for authentication, as read from the DNS key records. Its value is informational only, and `deviceTag` should be used to uniquely identify devices. Example: `'mylaptop'`.                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `deviceTag`           | `string`  | Contains a string (up to 255 ASCII characters) that uniquely identifies a device, lookup code (if used), and delegation (when `actor` is present), that was used for authentication. A change in the `deviceTag` may be used to identify a situation when user is logging in from a different or new device. You can use the value of `deviceTag` with the `Triauth.check` function to determine if keys are still present in the DNS and the device and/or associated session may remain authenticated. Examples: `'VpGPcGr5psnmgaq4mPxY5tZ4Adxa5V2Vh1GFVRfQFmk'` (direct authentication), `'VpGPcGr5psnmgaq4mPxY5tZ4Adxa5V2Vh1GFVRfQFmk~K7QJ3FB9M2WZX0C4'` (private-mode authentication). |
 | `keys`                | `array`   | Contains an array of objects, each representing a public key as read from identity records in the DNS, that was taken into account during authentication. Example: `[{value: '…', options: {…}, verified: true}]`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `ext`                 | `object`  | Contains additional data related to the requested [triauth protocol extensions](#protocol-extensions), or `{}` when none was returned. Example: `{signToken:'triauthdemo.org:ace21…'}`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `sessionKey`          | `string`  | A secret of this sign-in, in 43 base64url characters, that only your application and the user's authenticator know. Pass it to `Triauth.ping`, `Triauth.sign`, `Triauth.stamp` and `Triauth.attest`. Store it with the user's server-side or encrypted session, and keep it out of logs. After a delegated sign-in, it starts with the actor's domain and a colon.                                                                                                                                                                                                                                                                                                                          |
+| `ext`                 | `object`  | Contains additional data related to the requested [triauth protocol extensions](#protocol-extensions), or `{}` when none was returned. Example: `{permissions:{ping:true, stamp:false}}`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 [Back to TOC](#table-of-contents)
 
@@ -568,7 +570,7 @@ The result object has the following properties:
 
 <a name="triauth-ping"></a>
 
-### Triauth.ping ({identifier, callbackUrl, token, challenge, response, ext})
+### Triauth.ping ({identifier, callbackUrl, sessionKey, challenge, response, ext})
 
 The `ping` method may be used to re-authenticate the user in background, by obtaining a fresh proof that the user still has access to cryptographic keys.
 While the `Triauth.check` method ensures only that the keys and the optional delegation used for authentication were not changed or removed from DNS,
@@ -577,16 +579,13 @@ While the `Triauth.check` method ensures only that the keys and the optional del
 Pings typically do not require any interaction from the user, and may be used as one of the signals in Continuous Authentication schemes.
 
 > [!NOTE]  
-> **To use this function you must request and obtain a special `pingToken`**
+> **Get the `ping` permission and use the same base callbackUrl as for authentication**
 >
 > <details>
 > <summary>Details</summary>
 >
-> To do so, provide the `ext:{pingToken:true}` parameter to the `Triauth.authenticate` function during the initial call (i.e., when building the challenge),
-> and in the authentication result you will receive `ext.pingToken` property (string).
-> You should keep the `pingToken` value private, and pass it as a `token` parameter in the initial call to the `ping` method.
-> The token is issued by the authenticator on the device that signed in, and only that device honors it.
-> A user with several devices holds a different token on each.
+> To get the permission, provide the `ext:{permissions:{ping:true}}` parameter to the `Triauth.authenticate` function during the initial call (i.e., when building the challenge).
+> The authentication result shows the decision in `ext.permissions`. You can call `ping` only when `ext.permissions?.ping === true` in the result.
 >
 > Also, the `callbackUrl` used in this method must have the **same base URL** (its origin plus the path up to and including the last `/`) as the `callbackUrl` from the initial `Triauth.authenticate` call.
 > For example, if `callbackUrl` used for authentication was `https://example.com/dir1/callback`, the `callbackUrl` used in this method
@@ -600,7 +599,7 @@ The ping is based on the [3-step challenge-response flow](#user-content-3-step-c
 
 At first, you need to call the `Triauth.ping` method with the `identifier` option set to the user provided personal identifier (lowercase string),
 a `callbackUrl` option set to the URL under which your application expects to receive a response (string),
-a `token` (string) option set to the `pingToken` previously obtained via `ext.pingToken` from a `Triauth.authenticate` call,
+a `sessionKey` (string) option set to the `sessionKey` of a `Triauth.authenticate` result,
 and an optional `ext` option (object) listing the [protocol extensions](#protocol-extensions) that you wish to use.
 
 In return, you will receive an object with the `challenge` (string) and `redirectUrl` (string).
@@ -610,7 +609,7 @@ Synopsis:
 
 ```javascript
 
-let result = await Triauth.ping({identifier, callbackUrl, token, ext});
+let result = await Triauth.ping({identifier, callbackUrl, sessionKey, ext});
 // @returns {challenge, redirectUrl} the challenge should be remembered, and user redirected to the redirectUrl
 // @returns {error} on error
 
@@ -625,13 +624,13 @@ await Triauth.ping(
   {
     identifier:'john@triauthdemo.org', 
     callbackUrl:'https://example.com/callback',
-    token:':SvUj6xL4PhtYnNEboKbJ85WW'
+    sessionKey:'59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8'
   }
 );
 //
 // {
-//   challenge: 'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2FsbGJhY2siLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoicWFvU1JnZlVnREpwZG5LX1FnQTd4SG9ZIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjF9', 
-//   redirectUrl: 'https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2FsbGJhY2siLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoicWFvU1JnZlVnREpwZG5LX1FnQTd4SG9ZIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjF9&token=:DFB4aHZqJ6zpbq8QVqQfTM4rsCkuCuyBqokCaImZelE'
+//   challenge: 'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2FsbGJhY2siLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoicWFvU1JnZlVnREpwZG5LX1FnQTd4SG9ZIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjEsImVrIjoiQkVoLTJGR0JOUkUyUGZvSTVsWjh4eU9KX2IzaTlaRVFadGtQOGJVajJ6VWljWDdsaTdqalBvYzVmUnczUlZKb2tjb1BZdVRLdGdGaVVENlR1LURrM3I0In0.urITupCNu0ZNV4CF692qaZs6UaBb5LNov-Z9hhB5ArU', 
+//   redirectUrl: 'https://auth.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=aTO6cylS_52etdEH.hAskvAG-kqxradXNXvr3S4yxpgI3c6EdBOWOnN3UP4CjEfhkyQ1vbcYTmYQ_L3UOtIm6VwPYczazFTW7G7mXByWzAITIVkTRaQHlwyOj9CkPiOP278pc8pQdjPsCKmVHEPSqfwYlnUvNOOp_dsVRgb1zKT2QEkWFnCAH1CUvxDb4bpYqQ_YFa-q48WjkC9cDXRSKRgpN51iwPGV-koSmoIwgYLghNpUC4Cvx72ctYq1tLyP6jrXa3dS8VrSZgy5D4EFwYx22VHg1LloHgDc730QN560wpD7yGL8ylk0eENLml357QTLextpeqZ4Q_MG6JEg0fsN1XdNduNlsiQd_GfTiVwLnaXh3'
 // }
 //
 ```
@@ -640,9 +639,9 @@ await Triauth.ping(
 
 **2. Redirect**
 
-Once the user's web browser is redirected to the `redirectUrl`, and assuming that the `token` is valid, the Triauth Authenticator web application will immediately respond to the `callbackUrl`.
+Once the user's web browser is redirected to the `redirectUrl`, the Triauth Authenticator web application immediately responds to the `callbackUrl`. This needs a valid session key with the `ping` permission.
 
-The Triauth Authenticator application redirects the user's web browser to the previously provided `callbackUrl`, by default through the [HTTP GET method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/GET), and passes a fresh signature in the `response` URL parameter.
+The Triauth Authenticator application redirects the user's web browser to the previously provided `callbackUrl`, by default through the [HTTP GET method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/GET), and passes a fresh signature in the encrypted `response` URL parameter.
 The method that is used to pass the response to your application can be configured with the [callbackMethod extension](#protocol-extensions).
 
 **3. Verify**
@@ -666,8 +665,8 @@ let pingResult = await Triauth.ping({challenge, response});
 ```javascript
 await Triauth.ping(
   {
-   challenge:'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2FsbGJhY2siLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoicWFvU1JnZlVnREpwZG5LX1FnQTd4SG9ZIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjF9', 
-   response:'|ping;john@triauthdemo.org;;https://example.com/;v1;1787224751161;;;KalL2ivLz--0voQXL-jBp58650Hj1PIUpe8W4Nfps0HnRdlXMFu6wDUCssE_dr6_BrKRtT508BRXe3228yiA_A|'
+   challenge:'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2FsbGJhY2siLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoicWFvU1JnZlVnREpwZG5LX1FnQTd4SG9ZIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjEsImVrIjoiQkVoLTJGR0JOUkUyUGZvSTVsWjh4eU9KX2IzaTlaRVFadGtQOGJVajJ6VWljWDdsaTdqalBvYzVmUnczUlZKb2tjb1BZdVRLdGdGaVVENlR1LURrM3I0In0.urITupCNu0ZNV4CF692qaZs6UaBb5LNov-Z9hhB5ArU', 
+   response:'BGb9tY40nX1dXVl8KlCg8c6mSThXTM2UPWvkN_tHT8h05FIbypseeOplJNXLRH3mVtiTT4YarHDUVT5OqmHziOc.AV7MibGdeVKtc2hBh9BfpeB48dxc1xwu1bv2LtfvmHNEXUf_J_g0j3Njndh-_wiUI2sF2s_b8g9WJe5SewgFblFvdKIz6rXNL6SeCZsQeZhIvNSAvMtXgAHJtybBU5MmQJhx0zqh0Rf7Osuju8bceqMHFzuY9083btLzpU6iCbJeKGXqnwAMyCVOOwCDkJgCVRE_Mb2wADTsFpIUiQAQX-k6q0qAaBbZ1bec'
   }
 );
 
@@ -862,7 +861,7 @@ The result object has the following properties:
 
 <a name="triauth-attest"></a>
 
-### Triauth.attest ({identifier, callbackUrl, attestations, token, challenge, response, ext})
+### Triauth.attest ({identifier, callbackUrl, attestations, sessionKey, challenge, response, ext})
 
 The `attest` method obtains third-party verified attestations associated with the user's `identifier`.
 You can request attestations of almost anything, like the user age, not-a-robot status, location, role, etc., given that there is a verification provider that provides such attestation.
@@ -885,18 +884,12 @@ These signatures are included in the final response you receive and verified whe
 > They can later ask the user for their full identifier if needed and set a constraint that the attestation is valid only for the given identifier.
 
 > [!NOTE]  
-> **To use this function you must request and obtain a special `attestToken`**
+> **Use the same base callbackUrl as for authentication**
 >
 > <details>
 > <summary>Details</summary>
 >
-> To do so, provide the `ext:{attestToken:true}` parameter to the `Triauth.authenticate` function during the initial call (i.e., when building the challenge),
-> and, given that the user agrees and/or authenticator supports it, in the authentication result you will receive `ext.attestToken` property (string).
-> You should keep the `attestToken` value private, and pass it as a `token` parameter in the initial call to the `attest` method.
-> The token is issued by the authenticator on the device that signed in, and only that device honors it.
-> A user with several devices holds a different token on each.
->
-> Also, the `callbackUrl` used in this method must have the **same base URL** (its origin plus the path up to and including the last `/`) as the `callbackUrl` from the initial `Triauth.authenticate` call.
+> The `callbackUrl` used in this method must have the **same base URL** (its origin plus the path up to and including the last `/`) as the `callbackUrl` from the initial `Triauth.authenticate` call.
 > For example, if `callbackUrl` used for authentication was `https://example.com/dir1/callback`, the `callbackUrl` used in this method
 > must sit in that same `https://example.com/dir1/` base directory — only the final path segment may differ, e.g., `https://example.com/dir1/this-callback` (a deeper path such as `https://example.com/dir1/dir2/this-callback` does **not** match the base URL, and the request will be rejected).
 >
@@ -909,7 +902,7 @@ The attestations are based on the [3-step challenge-response flow](#user-content
 At first, you need to call the `Triauth.attest` method with the `identifier` option set to the user provided personal identifier (lowercase string),
 a `callbackUrl` option set to the URL under which your application expects to receive a response (string),
 an `attestations` option (object) whose keys are caller-chosen attestation IDs and whose values consist of a `label` (string) and `providers` (array of `https://` URL strings),
-a `token` (string) option set to the `attestToken` previously obtained via `ext.attestToken` from a `Triauth.authenticate` call,
+a `sessionKey` (string) option set to the `sessionKey` of a `Triauth.authenticate` result,
 and an optional `ext` option (object) listing the [protocol extensions](#protocol-extensions) that you wish to use.
 
 In return, you will receive an object with the `challenge` (string) and `redirectUrl` (string).
@@ -922,7 +915,7 @@ Synopsis:
 
 ```javascript
 
-let result = await Triauth.attest({identifier, callbackUrl, attestations, token, ext});
+let result = await Triauth.attest({identifier, callbackUrl, attestations, sessionKey, ext});
 // @returns {challenge, redirectUrl} the challenge should be remembered, and user redirected to the redirectUrl
 // @returns {error} on error
 
@@ -945,10 +938,10 @@ await Triauth.attest(
         ]
       }
     }, 
-    token: ':tgX6ZXfNi3xwzSwuennigDoA'
+    sessionKey: '59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8'
   }
 );
-// {challenge: 'eyJjYn…JdfX19', redirectUrl: 'https://auth.triauthdemo.org/attest.html#?challenge=eyJjYn…JdfX19&token=:WE4zaN5WA_NuHX1BW4wBidu_Sef2aqkzA-gOxlyLmeE'}
+// {challenge: 'eyJjYn…l19fX0.PEq5CslSnTExe9xko1O5B-K9T4wBse5XtyClYb8WxJM', redirectUrl: 'https://auth.triauthdemo.org/attest.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=…'}
 ```
 
 </details>
@@ -962,7 +955,7 @@ If the user declines the request, the Triauth Authenticator sends `false` as the
 
 **3. Verify**
 
-The Triauth Authenticator application redirects the user's web browser to the previously provided `callbackUrl`, by default through the [HTTP GET method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/GET), and passes the attestation in the `response` URL parameter.
+The Triauth Authenticator application redirects the user's web browser to the previously provided `callbackUrl`, by default through the [HTTP GET method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/GET), and passes the attestation in the encrypted `response` URL parameter.
 The method that is used to pass the response to your application can be configured with the [callbackMethod extension](#protocol-extensions).
 
 Once you extract the `response` (string), you should pass it to the `Triauth.attest` function together with the previously stored `challenge` (string) to obtain attestation result.
@@ -984,8 +977,8 @@ let attestResult = await Triauth.attest({challenge, response});
 ```javascript
 await Triauth.attest(
   {
-   challenge:'eyJjYn…JdfX19', 
-   response:'|attest;john@triauthdemo.org;;https://example.com/;v1;1787224773556;;;MsVdr13VwgivjiTRnp78ncX2skDvZf5MdWLqXTXrMmo0VUtmn6R7gx1qJVhLJGYojMh9C4Lj2b_wxtbFlaZltg|attest;robot-attester@attest.triauthdemo.org;;https://attest.triauthdemo.org/not-a-robot;v1;1787224768930;;;AvbmMJwAcE0B_EaBv0EdMAcBAwJVY0BpN1MOmARhc_LdS6QsQzgwSNUaahjL_UyA8qXoiEqqtDXrlkG_1fWBpg|'
+   challenge:'eyJjYn…l19fX0.PEq5CslSnTExe9xko1O5B-K9T4wBse5XtyClYb8WxJM', 
+   response:'BPPDsY…OGSBac'
   }
 );
 
@@ -1102,7 +1095,7 @@ When `attested` is `true`, the result object has the following properties.
 
 <a name="triauth-sign"></a>
 
-### Triauth.sign ({identifier, callbackUrl, message, attachments, token, challenge, response, ext})
+### Triauth.sign ({identifier, callbackUrl, message, attachments, sessionKey, challenge, response, ext})
 
 The `sign` method may be used to obtain an interactive signature of a given `message` and optional `attachments` from the user with a given `identifier`.
 Interactive signatures require interaction from the user, like reviewing the message and clicking on the 'Sign' button in the Triauth Authenticator.
@@ -1110,18 +1103,12 @@ Signatures generated by the `sign` function may be later verified by any party u
 user has accepted certain terms or documents.
 
 > [!NOTE]  
-> **To use this function you must request and obtain a special `signToken`**
+> **Use the same base callbackUrl as for authentication**
 >
 > <details>
 > <summary>Details</summary>
 >
-> To do so, provide the `ext:{signToken:true}` parameter to the `Triauth.authenticate` function during the initial call (i.e., when building the challenge),
-> and, given that the user agrees and/or authenticator supports it, in the authentication result you will receive `ext.signToken` property (string).
-> You should keep the `signToken` value private, and pass it as a `token` parameter in the initial call to the `sign` method.
-> The token is issued by the authenticator on the device that signed in, and only that device honors it.
-> A user with several devices holds a different token on each.
->
-> Also, the `callbackUrl` used in this method must have the **same base URL** (its origin plus the path up to and including the last `/`) as the `callbackUrl` from the initial `Triauth.authenticate` call.
+> The `callbackUrl` used in this method must have the **same base URL** (its origin plus the path up to and including the last `/`) as the `callbackUrl` from the initial `Triauth.authenticate` call.
 > For example, if `callbackUrl` used for authentication was `https://example.com/dir1/callback`, the `callbackUrl` used in this method
 > must sit in that same `https://example.com/dir1/` base directory - only the final path segment may differ, e.g., `https://example.com/dir1/this-callback` (a deeper path such as `https://example.com/dir1/dir2/this-callback` does **not** match the base URL, and the request will be rejected).
 >
@@ -1135,7 +1122,7 @@ At first, you need to call the `Triauth.sign` method with the `identifier` optio
 a `callbackUrl` option set to the URL under which your application expects to receive a response (string), 
 a `message` (string) option set to a human-readable text message to be signed, 
 an optional `attachments` (array) option listing additional file attachments to be covered by the signature, 
-a `token` (string) option set to the `signToken` previously obtained via `ext.signToken` from a `Triauth.authenticate` call,
+a `sessionKey` (string) option set to the `sessionKey` of a `Triauth.authenticate` result,
 and an optional `ext` option (object) listing the [protocol extensions](#protocol-extensions) that you wish to use.
 
 > [!NOTE]
@@ -1164,7 +1151,7 @@ Synopsis:
 
 ```javascript
 
-let result = await Triauth.sign({identifier, callbackUrl, message, attachments, token, ext});
+let result = await Triauth.sign({identifier, callbackUrl, message, attachments, sessionKey, ext});
 // @returns {challenge, redirectUrl} the challenge should be remembered, and user redirected to the redirectUrl
 // @returns {error} on error
 
@@ -1186,12 +1173,12 @@ await Triauth.sign(
         sha256: 'd8a6cc31abc16b6748c7a21f21611f5a1ec33f67d22ca23d7da1c19b95496bee'
       }
     ], 
-    token: ':icP7sOAmpY_W1ODqjLgG6y-G'
+    sessionKey: '59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8'
   }
 );
 // {
-//   "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzaWduIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJLRXZCSVBLZFRLX1JNYldFUkZVVFpBcUkiLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MSwibXNnIjoiVG8gY29udGludWUsIHBsZWFzZSByZWFkIGFuZCBhY2NlcHQgdGhlIGF0dGFjaGVkIExpY2Vuc2UiLCJhdHRhY2htZW50cyI6W3sibmFtZSI6IkxpY2Vuc2UiLCJzb3VyY2VVcmwiOiJodHRwczovL3Jhdy5naXRodWJ1c2VyY29udGVudC5jb20vc3BkeC9saWNlbnNlLWxpc3QtZGF0YS9yZWZzL2hlYWRzL21haW4vdGV4dC9BR1BMLTMuMC1vci1sYXRlci50eHQiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn1dfQ", 
-//   "redirectUrl": "https://auth.triauthdemo.org/sign.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzaWduIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJLRXZCSVBLZFRLX1JNYldFUkZVVFpBcUkiLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MSwibXNnIjoiVG8gY29udGludWUsIHBsZWFzZSByZWFkIGFuZCBhY2NlcHQgdGhlIGF0dGFjaGVkIExpY2Vuc2UiLCJhdHRhY2htZW50cyI6W3sibmFtZSI6IkxpY2Vuc2UiLCJzb3VyY2VVcmwiOiJodHRwczovL3Jhdy5naXRodWJ1c2VyY29udGVudC5jb20vc3BkeC9saWNlbnNlLWxpc3QtZGF0YS9yZWZzL2hlYWRzL21haW4vdGV4dC9BR1BMLTMuMC1vci1sYXRlci50eHQiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn1dfQ&token=:rZCy5mqxuP2Oru3AWovmMd7ym4oqyx7sBV033WcLlNk"
+//   "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzaWduIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJLRXZCSVBLZFRLX1JNYldFUkZVVFpBcUkiLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MSwiZWsiOiJCTEYxdEVWQkVZMGpBZ3lFcGM0MUJSdTRHS2loaTVneDhyalFmY2Q3UnFOUGFUd1kyeG1zYkNSZ0YxNkN5VWJuRk5XUFREZndkMV9XTVlEWldRdWFOblkiLCJtc2ciOiJUbyBjb250aW51ZSwgcGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgYXR0YWNoZWQgTGljZW5zZSIsImF0dGFjaG1lbnRzIjpbeyJuYW1lIjoiTGljZW5zZSIsInNvdXJjZVVybCI6Imh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9zcGR4L2xpY2Vuc2UtbGlzdC1kYXRhL3JlZnMvaGVhZHMvbWFpbi90ZXh0L0FHUEwtMy4wLW9yLWxhdGVyLnR4dCIsInNoYTI1NiI6ImQ4YTZjYzMxYWJjMTZiNjc0OGM3YTIxZjIxNjExZjVhMWVjMzNmNjdkMjJjYTIzZDdkYTFjMTliOTU0OTZiZWUifV19.zN__zhGHx9hT7gakwy1WZ33JRURklZVmS-crUohEchE", 
+//   "redirectUrl": "https://auth.triauthdemo.org/sign.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=23luwOGXdIM6JX8f._EkvQKPuF6kR2v-ur9aIU1QkqCDURnpq-_GThw669vCmekrNYmLC6ZaVuqHLy3i77tFqNUed5hlm-Yk1KLkyroMGnQQl5_jS7CPrwTthn0MjrHrf0hBcVBdeD_3mGTm-wFDjXS6qpgZO9721poQnV3Cj-a6rxQXyX6o1tOD8_JdiEql23uFQ8axvbnpFVP7w-QLj9IuNU6jeM2hOGNrS-n6TKR11iQ40bfyERFWNtQNgrDTh1A_fnnxv_YPTTBdnzgFiDe09M0h93ZACRVJGLWNGj4dx4xsa5l08cC0-6a1BwuShxbMtoWROFLky0vUNkbAseko-4xKvuIIXAu5AmPDTXfLpiormgzmGK72f0aokY1YUUy0VzGIsTDdjCxqPJTgrDlt4g1uJu60yfSCPdHOWubbRj5eMdhTW3p6LzOWIDZPDpSeC141v9eX7wbTB_KIJiJwCvHD1dbq3fTaTM0z313WzT8VXKc5RPtaIWz8J1L7KiZcH2NjjyqFRJ1jYHPj2g8JPiPo5wohmcuPqC98l7cBPK_GI0PXEuuWvuEqk9uDXtufhBHwu2wLOx-n2n9ktLHnE1Bgw5qkYn6-YJD5NJ1YCjljc4_Une_smlyXL6-cDm-dD3ugp1rw1SbVv_f5m8uQUvkHxkxKXrSqSmljxFsG4g9kbf3myh39d5iODAxuwzLcGdOAXWHmIS9Hmkx2rLytc-v8emjPu9Ktb5iD0yZtKAX4-3eWBHzBgPr3wbA"
 // }
 ```
 
@@ -1206,7 +1193,7 @@ If the user declines the signing request, the Triauth Authenticator sends `false
 
 **3. Verify**
 
-After the user approves the signing request, the Triauth Authenticator application redirects the user's web browser to the previously provided `callbackUrl`, by default through the [HTTP GET method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/GET), and passes a signature in the `response` URL parameter.
+After the user approves the signing request, the Triauth Authenticator application redirects the user's web browser to the previously provided `callbackUrl`, by default through the [HTTP GET method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/GET), and passes a signature in the encrypted `response` URL parameter.
 The method that is used to pass the response to your application can be configured with the [callbackMethod extension](#protocol-extensions).
 
 Once you extract the `response` (string), you should pass it to the `Triauth.sign` function together with the previously stored `challenge` (string) to obtain signing result.
@@ -1228,8 +1215,8 @@ let signingResult = await Triauth.sign({challenge, response});
 ```javascript
 await Triauth.sign(
   {
-   challenge:'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzaWduIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJLRXZCSVBLZFRLX1JNYldFUkZVVFpBcUkiLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MSwibXNnIjoiVG8gY29udGludWUsIHBsZWFzZSByZWFkIGFuZCBhY2NlcHQgdGhlIGF0dGFjaGVkIExpY2Vuc2UiLCJhdHRhY2htZW50cyI6W3sibmFtZSI6IkxpY2Vuc2UiLCJzb3VyY2VVcmwiOiJodHRwczovL3Jhdy5naXRodWJ1c2VyY29udGVudC5jb20vc3BkeC9saWNlbnNlLWxpc3QtZGF0YS9yZWZzL2hlYWRzL21haW4vdGV4dC9BR1BMLTMuMC1vci1sYXRlci50eHQiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn1dfQ', 
-   response:'|sign;john@triauthdemo.org;;https://example.com/;v1;1787224774435;eyJhdHRhY2htZW50cyI6W3sibmFtZSI6IkxpY2Vuc2UiLCJzaGEyNTYiOiJkOGE2Y2MzMWFiYzE2YjY3NDhjN2EyMWYyMTYxMWY1YTFlYzMzZjY3ZDIyY2EyM2Q3ZGExYzE5Yjk1NDk2YmVlIn1dfQ;;pj0gdEVQ3JBYh08jknFpY45WX462AUb1z78mINHewl1NXWzU5_g9ibD3-ffbdH9SIGtQTtcHQrsa3Ivt1wg1sg|'
+   challenge:'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzaWduIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJLRXZCSVBLZFRLX1JNYldFUkZVVFpBcUkiLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MSwiZWsiOiJCTEYxdEVWQkVZMGpBZ3lFcGM0MUJSdTRHS2loaTVneDhyalFmY2Q3UnFOUGFUd1kyeG1zYkNSZ0YxNkN5VWJuRk5XUFREZndkMV9XTVlEWldRdWFOblkiLCJtc2ciOiJUbyBjb250aW51ZSwgcGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgYXR0YWNoZWQgTGljZW5zZSIsImF0dGFjaG1lbnRzIjpbeyJuYW1lIjoiTGljZW5zZSIsInNvdXJjZVVybCI6Imh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9zcGR4L2xpY2Vuc2UtbGlzdC1kYXRhL3JlZnMvaGVhZHMvbWFpbi90ZXh0L0FHUEwtMy4wLW9yLWxhdGVyLnR4dCIsInNoYTI1NiI6ImQ4YTZjYzMxYWJjMTZiNjc0OGM3YTIxZjIxNjExZjVhMWVjMzNmNjdkMjJjYTIzZDdkYTFjMTliOTU0OTZiZWUifV19.zN__zhGHx9hT7gakwy1WZ33JRURklZVmS-crUohEchE', 
+   response:'BFUYnuW1tUiltgq1DQbLeqpZTNDwDJm89hxkfrBuuNNdTmmwoRYuR5dZeVdnrJWbcSiLfO2VPYuTw-mBq6EZi0c.HUJzImw0j-Uo629gvuIMb6ePe9G835vaz7bURvqz5ICtkxc9vP4sRRXTnkhpQl8lsVVX4aYs1ltz-eft2aqxyUwfaaPYRPhWGj3rwUdr9lXnT8qtSkyInacgxWWx8MCPoveO1GBBD2iIE4-o9vUEfPziEh9dz7bBf_1Y_xM_fFXHEXZaGz1CWBN42S24BnKuVUvcT1gGfJiSIDdoG8YdU6xUFWJwhxwZupQbjIbfGuXrwXVrVejuE3_sgIy7pQ2SyLgSQcoBw329vTJns0b5QcjyRojzc9dS1iWeQWj_3TjF7nQh8F9sHWVqvdc0YCDncrcR_z-uTjDhgzShnhevHXukgQ_-Dze4kOd1wgUiwfEEIQvclIyVkSyrEcMt9bIUkmhb5Su5eicMnzdEZIvLMJQ7gssUxPE8B7_DXKZgMEnH'
   }
 );
 //
@@ -1318,23 +1305,20 @@ When `signed` is `true`, the result object has the following properties:
 
 <a name="triauth-stamp"></a>
 
-### Triauth.stamp ({identifier, callbackUrl, message, token, challenge, response, ext})
+### Triauth.stamp ({identifier, callbackUrl, message, sessionKey, challenge, response, ext})
 
 The `stamp` method may be used to automatically obtain a signature of a given `message` made on behalf of the user with a given `identifier`. 
 Stamps do not typically require any interaction from the user, and may be later verified by any party using the `Triauth.verify` method.
 They can be used e.g., to prove to other websites that the user is currently logged in to your website.
 
 > [!NOTE]  
-> **To use this function you must request and obtain a special `stampToken`**
+> **Get the `stamp` permission and use the same base callbackUrl as for authentication**
 >
 > <details>
 > <summary>Details</summary>
 >
-> To do so, provide the `ext:{stampToken:true}` parameter to the `Triauth.authenticate` function during the initial call (i.e., when building the challenge),
-> and, given that the user agrees and/or authenticator supports it, in the authentication result you will receive `ext.stampToken` property (string).
-> You should keep the `stampToken` value private, and pass it as a `token` parameter in the initial call to the `stamp` method.
-> The token is issued by the authenticator on the device that signed in, and only that device honors it.
-> A user with several devices holds a different token on each.
+> To get the permission, provide the `ext:{permissions:{stamp:true}}` parameter to the `Triauth.authenticate` function during the initial call (i.e., when building the challenge).
+> The authentication result shows the decision in `ext.permissions`. You can use `stamp` only when the authenticator responds with `ext.permissions?.stamp === true`.
 >
 > Also, the `callbackUrl` used in this method must have the **same base URL** (its origin plus the path up to and including the last `/`) as the `callbackUrl` from the initial `Triauth.authenticate` call.
 > For example, if `callbackUrl` used for authentication was `https://example.com/dir1/callback`, the `callbackUrl` used in this method
@@ -1349,7 +1333,7 @@ The stamping is based on the [3-step challenge-response flow](#user-content-3-st
 At first, you need to call the `Triauth.stamp` method with the `identifier` option set to the user provided personal identifier (lowercase string),
 a `callbackUrl` option set to the URL under which your application expects to receive a response (string),
 a `message` (string) option set to a text message to be stamped,
-a `token` (string) option set to the `stampToken` previously obtained via `ext.stampToken` from a `Triauth.authenticate` call,
+a `sessionKey` (string) option set to the `sessionKey` of a `Triauth.authenticate` result,
 and an optional `ext` option (object) listing the [protocol extensions](#protocol-extensions) that you wish to use.
 
 > [!NOTE]  
@@ -1364,7 +1348,7 @@ Synopsis:
 
 ```javascript
 
-let result = await Triauth.stamp({identifier, callbackUrl, message, token, ext});
+let result = await Triauth.stamp({identifier, callbackUrl, message, sessionKey, ext});
 // @returns {challenge, redirectUrl} the challenge should be remembered, and user redirected to the redirectUrl
 // @returns {error} on error
 
@@ -1379,13 +1363,13 @@ await Triauth.stamp(
     identifier:'john@triauthdemo.org', 
     callbackUrl:'https://example.com/triauth-callback', 
     message: 'login-nonce:4f2d9c715b6e4a3c', // a fresh, single-use nonce from your server, when the stamp gates anything
-    token:':uXyqjnczCcq1xStskY7xN6-Q'
+    sessionKey:'59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8'
   }
 );
 //
 // {
-//   challenge: 'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoic1ZoVXRZOXQzMEVDQjJUR0t2WTktZXpBIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjEsIm1zZyI6ImxvZ2luLW5vbmNlOjRmMmQ5YzcxNWI2ZTRhM2MifQ', 
-//   redirectUrl: 'https://auth.triauthdemo.org/stamp.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoic1ZoVXRZOXQzMEVDQjJUR0t2WTktZXpBIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjEsIm1zZyI6ImxvZ2luLW5vbmNlOjRmMmQ5YzcxNWI2ZTRhM2MifQ&token=:dIsLLvqBmQO_DS2o_HhLM5LRJk8hHdbr938NmJnif64'
+//   challenge: 'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoic1ZoVXRZOXQzMEVDQjJUR0t2WTktZXpBIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjEsImVrIjoiQkdpOE1kZG11ZnFQdGNncEdwZFFvNDMzSTdxVzVHUm1uU0NmOGZaLVJHclppNng1ZHJNWkZIa3dQZXRkemFyZ21MQ2VvVU9HaF80dXJ6RWt6T3RKU0NrIiwibXNnIjoibG9naW4tbm9uY2U6NGYyZDljNzE1YjZlNGEzYyJ9.osPmHctBwGQUdU346YuJtHPJ-hh01Hia9bxCFZtYhNs', 
+//   redirectUrl: 'https://auth.triauthdemo.org/stamp.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=qKIqh6XTsNbjhjis.huEd1iwa_Xd1q1OhHA7bUmFhfjxCtTEEoPs3l8JSkxJXMrIzBEbjk58CA24JnV6O6LIJ35YTzf3cfjBfBiZyjLdHRbHlpbanM-VTF0Utke_G6Y2Ol3onMk4vmWn40GN6XhyEYRitzXJfCKawNGjhjBoif6r5niNFsOh1f-RCVauYVKUpvSOoVPztSSwYAwtRs9FohwIBG48FpB6kI5xKQLtFJZbhBze0L02gWSwnXwQr5hMh4jOMPV9po7HZUfA1mmRgBkZPhUBSYknBBKYTa1qFadizopi9a9_M7UH1kNTWWEyIXxXt_ibIXhSu1n5-yxVwx2r-M-q7BnH0Nu-V5MDqCnE9fxJ19KoBjj1zpMfZMbx6b2T_zQ7ULPmmZrQKWZYlIDx_XY4f15M_AyZD72i5Awi9JA'
 // }
 //
 ```
@@ -1394,11 +1378,11 @@ await Triauth.stamp(
 
 **2. Redirect**
 
-Once the user's web browser is redirected to the `redirectUrl`, and assuming that the `token` is valid, the Triauth Authenticator web application will immediately respond with the stamp to the `callbackUrl`.
+Once the user's web browser is redirected to the `redirectUrl`, the Triauth Authenticator web application immediately responds with the stamp to the `callbackUrl`. This needs a valid session key with the `stamp` permission.
 
 **3. Verify**
 
-The Triauth Authenticator application redirects the user's web browser to the previously provided `callbackUrl`, by default through the [HTTP GET method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/GET), and passes a stamp in the `response` URL parameter.
+The Triauth Authenticator application redirects the user's web browser to the previously provided `callbackUrl`, by default through the [HTTP GET method](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/GET), and passes a stamp in the encrypted `response` URL parameter.
 The method that is used to pass the response to your application can be configured with the [callbackMethod extension](#protocol-extensions).
 
 Once you extract the `response` (string), you should pass it to the `Triauth.stamp` function together with the previously stored `challenge` (string) to obtain stamping result.
@@ -1420,8 +1404,8 @@ let stampingResult = await Triauth.stamp({challenge, response});
 ```javascript
 await Triauth.stamp(
   {
-   challenge:'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoic1ZoVXRZOXQzMEVDQjJUR0t2WTktZXpBIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjEsIm1zZyI6ImxvZ2luLW5vbmNlOjRmMmQ5YzcxNWI2ZTRhM2MifQ', 
-   response:'|stamp;john@triauthdemo.org;;https://example.com/;v1;1787224751380;;;0lWRFGKZsAC18au2DqtYEavf7zXDkCQH0fTOqwB2QeWsKhSkm29NY0mz1r6VckOVL2utg3wp1QMnySEO56zupg|'
+   challenge:'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJzdGFtcCIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoic1ZoVXRZOXQzMEVDQjJUR0t2WTktZXpBIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjEsImVrIjoiQkdpOE1kZG11ZnFQdGNncEdwZFFvNDMzSTdxVzVHUm1uU0NmOGZaLVJHclppNng1ZHJNWkZIa3dQZXRkemFyZ21MQ2VvVU9HaF80dXJ6RWt6T3RKU0NrIiwibXNnIjoibG9naW4tbm9uY2U6NGYyZDljNzE1YjZlNGEzYyJ9.osPmHctBwGQUdU346YuJtHPJ-hh01Hia9bxCFZtYhNs', 
+   response:'BFpQrxQ6mXjTWkiCFbd1d1QmQdwwdTT56QAffbbiQf_in1BW_nwpZcWqOHgVOV_FnGZuUlFc0bKEZiUBp-SQW2g.dWHtvEeGPf217Qg3SoQ5BBFrytjc5IumJZDwPmGvd4n04pwr7BD8sQQFCGM6WTwc0zu1_nIy9v6_rG4oqtEVyAzVrG7Siepi6AIBwiLgQQqdjcFBX3LNH-Xh6xD_XBOyM4P9QSDJjicL5dg-KUg3P2XXp8J4Tke6F2QK1WyepNxfIY-wi6HeKmsVqTbUYjzj_tJs23jdDv7Ik_7m5CCYkZtq0Xxj8NZSU1BmEw'
   }
 );
 
@@ -1511,8 +1495,9 @@ For the verification to succeed, the public keys associated with the device that
 > consider using a DNS History Service.  
 
 > [!TIP]
-> All responses in triauth's 3-step challenge-response protocol are triauth signatures, and to some extent can also be verified later with this method. 
-> But **never use this method in place of the original** (i.e., never use `Triauth.verify(challenge, response)` in place of `Triauth.authenticate({challenge, response})` or any other such method), 
+> In triauth's 3-step challenge-response protocol, the `response` to an approved request contains a triauth signature, encrypted with a key from the challenge.
+> Stage 3 decrypts it. `Triauth.sign` and `Triauth.stamp` return the signature as `result`, and to some extent you can also verify it later with this method.
+> But **never use this method in place of the original** (i.e., never use `Triauth.verify` in place of `Triauth.authenticate({challenge, response})` or any other such method), 
 > as it may report `{valid:true}`, even when important constraints are not met (e.g., the authentication request has timed out, or attestation binding is not satisfied). 
 
 > [!IMPORTANT]
@@ -1724,46 +1709,46 @@ The result object has the following properties:
 Some API methods return error information in the `error:{code, message}` format. At the moment, the following error codes are implemented,
 and may be used to provide custom or localized versions of the error message if needed:
 
-| Error Code | Meaning                                                                                                               | Default Message                                                       |
-|------------|-----------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------|
-| **1xx**    | **Internal and generic errors**                                                                                       |                                                                       |
-| 100        | Internal error, logged at `error` level. May be a defect in triauth-js - if it happens, please report it.             | "Internal error"                                                      |
-| 101        | Invalid or missing method arguments. For example `challenge` was passed but `response` not.                           | "Invalid or missing function arguments"                               |
-| 102        | Unrecognized option and/or argument passed to the function. Check for spelling mistakes.                              | "Unrecognized function argument"                                      |
-| 103        | Unrecognized key in the `config` override (or a misspelled global `Triauth.config` key). Check for spelling mistakes. | "Unrecognized configuration key"                                      |
-| 110        | DNS resolution failed - check resolver configuration and Internet connectivity                                        | "DNS resolution failed, try again later"                              |
-| **2xx**    | **Validation errors**                                                                                                 |                                                                       |
-| *21x*      | *identifier validation errors*                                                                                        |                                                                       |
-| 210        |                                                                                                                       | "Identifier is invalid"                                               |
-| 211        |                                                                                                                       | "Identifier must not be empty"                                        |
-| 212        |                                                                                                                       | "Identifier is too long"                                              |
-| 213        |                                                                                                                       | "Identifier must be provided in lowercase"                            |
-| 214        |                                                                                                                       | "Identifier must include one @ sign"                                  |
-| 215        |                                                                                                                       | "Identifier contains invalid username"                                |
-| 216        |                                                                                                                       | "Identifier contains invalid domain name"                             |
-| *22x*      | *Other function parameter validation errors*                                                                          |                                                                       |
-| 221        |                                                                                                                       | "Invalid callbackUrl"                                                 |
-| 222        |                                                                                                                       | "Invalid ext"                                                         |
-| 223        |                                                                                                                       | "Invalid challenge"                                                   |
-| 224        |                                                                                                                       | "Invalid response"                                                    |
-| 225        |                                                                                                                       | "Invalid signature"                                                   |
-| 226        |                                                                                                                       | "Invalid token"                                                       |
-| 227        |                                                                                                                       | "Invalid message"                                                     |
-| 228        |                                                                                                                       | "Invalid attachments"                                                 |
-| 229        |                                                                                                                       | "Invalid attestations"                                                |
-| *26x*      | *device name validation errors*                                                                                       |                                                                       |
-| 260        |                                                                                                                       | "Device name is invalid"                                              |
-| 261        |                                                                                                                       | "Device name must not be empty"                                       |
-| 262        |                                                                                                                       | "Device name is too long"                                             |
-| 263        |                                                                                                                       | "Device name must be provided in lowercase"                           |
-| 264        |                                                                                                                       | "Device name must include only letters, numbers, and hyphens"         |
-| **3xx**    | **Identity errors**                                                                                                   |                                                                       |
-| 301        | Authentication endpoint for the given identifier is not configured.                                                   | "Domain is not configured for triauth"                                |
-| **4xx**    | **Authentication errors**                                                                                             |                                                                       |
-| 401        | Failed authentication attempt (e.g., the received signature is invalid).                                              | "Your identity could not be verified"                                 |
-| 402        | Authentication request has expired (e.g., the user took too long to approve it).                                      | "Authentication request has expired, please try again"                |
-| 403        | Request has been denied (e.g., user clicked on the "Deny" button, or an invalid token was used).                      | "Request has been denied"                                             |
-| 404        | DNSSEC was required via `config.requireSecure`, but the verified response was not DNSSEC-secure (`secure !== true`).  | "Your domain does not support DNSSEC, which is required to continue." |
+| Error Code | Meaning                                                                                                                                           | Default Message                                                       |
+|------------|---------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------|
+| **1xx**    | **Internal and generic errors**                                                                                                                   |                                                                       |
+| 100        | Internal error, logged at `error` level. May be a defect in triauth-js - if it happens, please report it.                                         | "Internal error"                                                      |
+| 101        | Invalid or missing method arguments. For example `challenge` was passed but `response` not.                                                       | "Invalid or missing function arguments"                               |
+| 102        | Unrecognized option and/or argument passed to the function. Check for spelling mistakes.                                                          | "Unrecognized function argument"                                      |
+| 103        | Unrecognized key in the `config` override (or a misspelled global `Triauth.config` key). Check for spelling mistakes.                             | "Unrecognized configuration key"                                      |
+| 110        | DNS resolution failed - check resolver configuration and Internet connectivity                                                                    | "DNS resolution failed, try again later"                              |
+| **2xx**    | **Validation errors**                                                                                                                             |                                                                       |
+| *21x*      | *identifier validation errors*                                                                                                                    |                                                                       |
+| 210        |                                                                                                                                                   | "Identifier is invalid"                                               |
+| 211        |                                                                                                                                                   | "Identifier must not be empty"                                        |
+| 212        |                                                                                                                                                   | "Identifier is too long"                                              |
+| 213        |                                                                                                                                                   | "Identifier must be provided in lowercase"                            |
+| 214        |                                                                                                                                                   | "Identifier must include one @ sign"                                  |
+| 215        |                                                                                                                                                   | "Identifier contains invalid username"                                |
+| 216        |                                                                                                                                                   | "Identifier contains invalid domain name"                             |
+| *22x*      | *Other function parameter validation errors*                                                                                                      |                                                                       |
+| 221        |                                                                                                                                                   | "Invalid callbackUrl"                                                 |
+| 222        |                                                                                                                                                   | "Invalid ext"                                                         |
+| 223        |                                                                                                                                                   | "Invalid challenge"                                                   |
+| 224        |                                                                                                                                                   | "Invalid response"                                                    |
+| 225        |                                                                                                                                                   | "Invalid signature"                                                   |
+| 226        |                                                                                                                                                   | "Invalid session key"                                                 |
+| 227        |                                                                                                                                                   | "Invalid message"                                                     |
+| 228        |                                                                                                                                                   | "Invalid attachments"                                                 |
+| 229        |                                                                                                                                                   | "Invalid attestations"                                                |
+| *26x*      | *device name validation errors*                                                                                                                   |                                                                       |
+| 260        |                                                                                                                                                   | "Device name is invalid"                                              |
+| 261        |                                                                                                                                                   | "Device name must not be empty"                                       |
+| 262        |                                                                                                                                                   | "Device name is too long"                                             |
+| 263        |                                                                                                                                                   | "Device name must be provided in lowercase"                           |
+| 264        |                                                                                                                                                   | "Device name must include only letters, numbers, and hyphens"         |
+| **3xx**    | **Identity errors**                                                                                                                               |                                                                       |
+| 301        | Authentication endpoint for the given identifier is not configured.                                                                               | "Domain is not configured for triauth"                                |
+| **4xx**    | **Authentication errors**                                                                                                                         |                                                                       |
+| 401        | Failed authentication attempt (e.g., the received signature is invalid).                                                                          | "Your identity could not be verified"                                 |
+| 402        | Authentication request has expired (e.g., the user took too long to approve it).                                                                  | "Authentication request has expired, please try again"                |
+| 403        | Request has been denied (e.g., user clicked the "Deny" button, or the session key lacks the permission or is for another identifier or base URL). | "Request has been denied"                                             |
+| 404        | DNSSEC was required via `config.requireSecure`, but the verified response was not DNSSEC-secure (`secure !== true`).                              | "Your domain does not support DNSSEC, which is required to continue." |
 
 [Back to TOC](#table-of-contents)
 
@@ -1781,14 +1766,12 @@ Currently, the following extensions are available:
 | Extension                 | Details                                                                                                                                                                                                                                                                   | 
 |---------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **callbackMethod**        | **Modifies how response is sent to your application** (the Triauth Authenticator refuses a request with any other value):                                                                                                                                                 |
-| `{callbackMethod:'GET'}`  | - through a HTTP GET request to the `callbackUrl`, passed inside the `response` URL parameter. Default. Useful for server-side applications that keep the challenge in a session cookie. The response appears in the URL and in access logs.                              |
+| `{callbackMethod:'GET'}`  | - through a HTTP GET request to the `callbackUrl`, passed inside the `response` URL parameter. Default. Useful for server-side applications that keep the challenge in a session cookie. The encrypted response appears in the URL and in access logs.                    |
 | `{callbackMethod:'POST'}` | - through a HTTP POST request to the `callbackUrl`, passed inside the request body as a `response` form parameter. Session cookies marked `SameSite=Lax` or `Strict` do not arrive with it.                                                                               |
 | `{callbackMethod:'HASH'}` | - through a HTTP GET request to the `callbackUrl`, passed inside the `response` parameter of the URL fragment (location.hash), which browsers do not send to servers. Useful for client-side applications, and for a receiver page that posts it to your server.          |
-| **tokens**                | **Requests a token, as required by some of the API methods**                                                                                                                                                                                                              |
-| `{attestToken:true}`      | Requests a token that may be used with the `Triauth.attest` function. The token is returned inside the `ext.attestToken` property of authentication result.                                                                                                               |
-| `{signToken:true}`        | Requests a token that may be used with the `Triauth.sign` function. The token is returned inside the `ext.signToken` property of authentication result.                                                                                                                   |
-| `{stampToken:true}`       | Requests a token that may be used with the `Triauth.stamp` function. The token is returned inside the `ext.stampToken` property of authentication result.                                                                                                                 |
-| `{pingToken:true}`        | Requests a token that may be used with the `Triauth.ping` function. The token is returned inside the `ext.pingToken` property of authentication result.                                                                                                                   |
+| **permissions**           | **Allows requests that run without asking the user again.** `Triauth.sign` and `Triauth.attest` need no permission, because the user approves each of their requests.                                                                                                     |
+| `{permissions:{ping:true}}` | Asks the user to allow `Triauth.ping` in the background. The authentication result shows the decision in `ext.permissions.ping` (`true` or `false`).                                                                                                                     |
+| `{permissions:{stamp:true}}` | Asks the user to allow `Triauth.stamp`. The authentication result shows the decision in `ext.permissions.stamp` (`true` or `false`).                                                                                                                                    |
 | **manifest**              | **Information about your website that may be used by Triauth Authenticator, for example to add a shortcut to your website on its home screen**                                                                                                                            |
 | `{name:string}`           | Name of your website as shown to users (at most 255 bytes), e.g., `{manifest: {name: 'Fabulous Example'}}`                                                                                                                                                                |
 | `{startUrl:string}`       | The URL that is opened when a user clicks on a shortcut to your website. It must be on the same origin as the `callbackUrl`, otherwise it is ignored and the shortcut opens the base URL of the `callbackUrl`, e.g., `{manifest: {startUrl: 'https://example.com/app/'}}` |
@@ -1969,9 +1952,10 @@ A per-call `{cache: false}` option fully bypasses the cache (if CachingResolver 
 
 ### Randomness
 
-The triauth-js library generates cryptographic nonces for every challenge it builds. By default, randomness is obtained from `crypto.getRandomValues` of the Web Crypto API, which is suitable for production use.
+The triauth-js library generates cryptographic nonces for every challenge it builds. 
+By default, randomness is obtained from `crypto.getRandomValues` of the Web Crypto API, which is suitable for production use.
 
-If you wish to supply your own source - for example a hardware-backed RNG, a system entropy pool wrapper, or a deterministic byte stream for tests and cross-language conformance fixtures - set `Triauth.config.randomSource` to a function with the same shape as `crypto.getRandomValues`: it receives a `Uint8Array` and must fill it in place with random bytes.
+If you wish to supply your own source - for example a hardware-backed RNG, a system entropy pool wrapper, or a deterministic byte stream for tests - set `Triauth.config.randomSource` to a function that receives a `Uint8Array` and must fill it in place with random bytes.
 
 ```javascript
 Triauth.config.randomSource = (buf) => {
@@ -1986,6 +1970,11 @@ Setting `Triauth.config.randomSource = null` (the default) restores `crypto.getR
 > A predictable `randomSource` undermines the unforgeability of challenges. Override the default only with a source you trust to provide cryptographic-quality entropy. The deterministic-bytes use case is intended for tests, not production.
 
 ## Privacy Considerations
+
+### Requests to the authenticator
+
+A sign-in request has no session key yet, so its challenge, with the identifier, is readable in the redirect URL.
+Some frameworks may log redirect URLs, so filter the redirect to the authenticator from your logs if you need to.
 
 ### Identifier enumeration and private mode
 
@@ -2020,13 +2009,14 @@ DNS queries for identity records and authentication endpoints.
 
 * In step 3 of the challenge-response flow, **always pass the `challenge` from your own session store** - never from the HTTP request body or any other user-controlled input.
   The challenge is not server-signed, so trusting it from user input would allow an attacker to substitute a crafted challenge and authenticate as a different identity.
+  The stored challenge also contains the key that decrypts the response. Keep it out of URLs and logs, because anyone with both can read the response.
 
 * After step 3 of the challenge-response flow, regardless of its status, forget or invalidate the stored `challenge` to prevent replay attacks.
   You may also store each user's last seen `verifiedAt` and reject any results whose `issuedAt` is ≤ that value to block re-use of an old `(challenge, response)` pairs.  
 
 * Prefer a fixed, application-controlled `callbackUrl` over one derived from request data or other user input.
   The Triauth Authenticator identifies and remembers each site by the **base URL** of its `callbackUrl` (its origin plus the path up to and including the last `/`), 
-  and binds every per-site token (`pingToken`/`signToken`/`stampToken`/`attestToken`) to that base URL and to the device that issued it.
+  and binds the session key of every sign-in, with its permissions, to that base URL and to the device that signed in.
 
 * When you send the user to `redirectUrl`, **don't strip the `Referer`** - the referring origin is a security signal, and the Triauth Authenticator may reject a request that arrives without it, so it must see at least your origin (a full path isn't required).
   The browser default is fine; just avoid `rel="noreferrer"` and a `no-referrer`/`same-origin` `Referrer-Policy` (such as [Helmet](https://helmetjs.github.io/)'s default). See [Preserve the referrer when redirecting](#user-content-preserve-referrer).
@@ -2050,7 +2040,10 @@ DNS queries for identity records and authentication endpoints.
   Under `mode=private` the `deviceTag` carries a lookup code, which lets anyone who also knows the identifier read the identity's records, but not authenticate as it. For delegated authentication it also carries the actor's identifier. 
   Do not display it, except to the user it belongs to.
 
-* It is good practice to store the `deviceTag` and the tokens from `ext` with the server-side, or encrypted cookie based user session, and to periodically call the `Triauth.check` or `Triauth.ping` to re-authenticate the user.
+* Count a ping or a stamp that does not return within your time limit, for example 30 seconds, as a failure, and sign the user out.
+  The authenticator does not answer a request that it cannot open, for example after the user made it forget your website.
+
+* It is good practice to store the `deviceTag` and the `sessionKey` with the server-side, or encrypted cookie based user session, and to periodically call the `Triauth.check` or `Triauth.ping` to re-authenticate the user.
 
 * Context-escape strings before rendering.
   Returned values (e.g., `ext.publicProfile.name`, `groups` entries, device key's `options`, etc.) are returned verbatim, so an unescaped value rendered into HTML (or interpolated into a shell command, SQL query, etc.) is an injection vector. Apply the appropriate output encoding at the point of use.

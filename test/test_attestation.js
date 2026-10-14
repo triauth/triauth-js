@@ -1,4 +1,5 @@
 import SignerStub from './stubs/signer.js';
+import AuthenticatorStub from './stubs/authenticator.js';
 import identities from './fixtures/identities.json' with { type: 'json' };
 import attesters from './fixtures/attesters.json' with { type: 'json' };
 import identifiersFixture from './fixtures/identifiers.json' with { type: 'json' };
@@ -7,11 +8,11 @@ describe('Attestation API', () => {
 
   describe('Triauth.attest', () => {
 
-    describe('accepts identifier, callbackUrl, attestations, and token to produce challenge and redirectUrl', () => {
+    describe('accepts identifier, callbackUrl, attestations, and sessionKey to produce challenge and redirectUrl', () => {
 
       const identifier = 'john@triauthdemo.org';
       const callbackUrl = 'https://example.com/';
-      const token = ':' + 'a'.repeat(16);
+      const sessionKey = AuthenticatorStub.SESSION_KEY;
       const attestations = {
         'not-a-robot': {
           label: 'I am not a robot',
@@ -20,14 +21,14 @@ describe('Attestation API', () => {
       };
 
       it('returns challenge and a correct redirectUrl for valid input', async () => {
-        const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations, token}));
+        const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations, sessionKey}));
         assert(typeof attestRes.challenge === 'string' && attestRes.challenge.length > 0);
         assert(typeof attestRes.redirectUrl === 'string' && attestRes.redirectUrl.length > 0);
       });
 
       it('encodes type, identifier, callbackUrl, and attestations in the challenge', async () => {
-        const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations, token}));
-        const challengeRequest = Triauth.Challenge.fromString(attestRes.challenge);
+        const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations, sessionKey}));
+        const challengeRequest = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(attestRes.challenge));
 
         assert.equal(challengeRequest.data.type, 'attest');
         assert.equal(challengeRequest.data.identifier, identifier);
@@ -35,13 +36,13 @@ describe('Attestation API', () => {
         assert.deepEqual(challengeRequest.data.attest, attestations);
       });
 
-      it('includes the token and its hmac in redirectUrl when token is provided', async () => {
-        const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations, token}));
-        assert(attestRes.redirectUrl.indexOf('token=') >= 0);
-        assert(attestRes.redirectUrl.indexOf('hmac=') < 0);
+      it('seals the challenge into redirectUrl under the session key, next to its skid', async () => {
+        const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations, sessionKey}));
+        assert(attestRes.redirectUrl.includes('#?skid=') && attestRes.redirectUrl.includes('&request='));
+        assert(!attestRes.redirectUrl.includes('challenge=') && !attestRes.redirectUrl.includes('token='));
       });
 
-      it('rejects a token-less request with 226 - attest is a token-gated flow', async () => {
+      it('rejects a request without a session key with 226 - attest follows a sign-in', async () => {
         const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations}));
         assert.equal(attestRes?.error?.code, 226);
       });
@@ -49,7 +50,7 @@ describe('Attestation API', () => {
       it('returns validation error for invalid identifiers', async () => {
         const {invalidIdentifiers} = identifiersFixture;
         for (const invalidIdentifier in invalidIdentifiers) {
-          const attestRes = (await Triauth.attest({identifier: invalidIdentifier, callbackUrl, attestations, token}));
+          const attestRes = (await Triauth.attest({identifier: invalidIdentifier, callbackUrl, attestations, sessionKey}));
           assert(!attestRes?.attested, invalidIdentifier);
           assert(attestRes.error.code >= 210 && attestRes.error.code < 220, invalidIdentifier);
         }
@@ -59,22 +60,23 @@ describe('Attestation API', () => {
         const invalidUrls = ['=', '', 'https://[::1]/' + 'a'.repeat(1100)];
 
         for (const invalidUrl of invalidUrls) {
-          const attestRes = (await Triauth.attest({identifier, callbackUrl: invalidUrl, attestations, token}));
+          const attestRes = (await Triauth.attest({identifier, callbackUrl: invalidUrl, attestations, sessionKey}));
           assert(!attestRes?.attested);
           assert.equal(attestRes.error.code, 221);
         }
       });
 
       it('returns {error:{code:102}} for unrecognized options', async () => {
-        const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations, token, unknownKey: 1}));
+        const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations, sessionKey, unknownKey: 1}));
         assert(!attestRes?.attested);
         assert.equal(attestRes.error.code, 102);
       });
 
-      it('returns {error:{code:226}} for invalid tokens', async () => {
-        const invalidTokens = ['short', 123, '', 'a'.repeat(257)];
-        for (const invalidToken of invalidTokens) {
-          const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations, token: invalidToken}));
+      it('returns {error:{code:226}} for invalid session keys', async () => {
+        const invalidSessionKeys = ['short', 123, '', 'A'.repeat(42), 'A'.repeat(44), ':' + 'a'.repeat(16), 'A'.repeat(42) + '+', 'A'.repeat(42) + 'B',
+          ':' + 'A'.repeat(43), 'Issuer.Example:' + 'A'.repeat(43), 'not_a_domain:' + 'A'.repeat(43), 'a.example:b.example:' + 'A'.repeat(43)];
+        for (const invalidSessionKey of invalidSessionKeys) {
+          const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations, sessionKey: invalidSessionKey}));
           assert(!attestRes?.attested);
           assert.equal(attestRes.error.code, 226);
         }
@@ -82,7 +84,7 @@ describe('Attestation API', () => {
 
       it('returns {error:{code:229}} when attestations option is null or non-object', async () => {
         for (const invalidAttestations of [null, 'string', 123, []]) {
-          const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations: invalidAttestations, token}));
+          const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations: invalidAttestations, sessionKey}));
           assert(!attestRes?.attested);
           assert.equal(attestRes.error.code, 229);
         }
@@ -90,7 +92,7 @@ describe('Attestation API', () => {
 
       it('returns {error:{code:229}} when an entry has an unknown property', async () => {
         const bad = {'not-a-robot': {label: 'I am not a robot', providers: ['https://triauthdemo.org/p'], extra: 'x'}};
-        const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations: bad, token}));
+        const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations: bad, sessionKey}));
         assert(!attestRes?.attested);
         assert.equal(attestRes.error.code, 229);
       });
@@ -103,7 +105,7 @@ describe('Attestation API', () => {
           {'a': {label: 'lbl', providers: []}}                                         // empty providers
         ];
         for (const bad of sets) {
-          const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations: bad, token}));
+          const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations: bad, sessionKey}));
           assert(!attestRes?.attested);
           assert.equal(attestRes.error.code, 229);
         }
@@ -112,7 +114,7 @@ describe('Attestation API', () => {
       it('returns {error:{code:229}} when providers list is too long', async () => {
         const tooMany = Array.from({length: Triauth.LIMITS.maxMultiSignatures}, (_, i) => `https://triauthdemo.org/p${i}`);
         const bad = {'a': {label: 'lbl', providers: tooMany}};
-        const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations: bad, token}));
+        const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations: bad, sessionKey}));
         assert(!attestRes?.attested);
         assert.equal(attestRes.error.code, 229);
       });
@@ -128,7 +130,7 @@ describe('Attestation API', () => {
         ];
         for (const badUrl of sets) {
           const bad = {'a': {label: 'lbl', providers: [badUrl]}};
-          const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations: bad, token}));
+          const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations: bad, sessionKey}));
           assert(!attestRes?.attested, badUrl);
           assert.equal(attestRes.error.code, 229, badUrl);
         }
@@ -155,7 +157,7 @@ describe('Attestation API', () => {
         attesterSignedMetadata = {},
         omitAttester = false
       } = {}) => {
-        const overrideMessage = await Triauth.Helpers.sha256(challenge);
+        const overrideMessage = await Triauth.Helpers.sha256(AuthenticatorStub.publicChallenge(challenge));
 
         const userSig = await Triauth.Signature.generate(
           SignerStub.signUsingDeviceKeys(device.keys),
@@ -191,13 +193,13 @@ describe('Attestation API', () => {
             'not-a-robot': {label: 'I am not a robot', providers: [perIdentityVia]}
           };
 
-          const buildRes = await Triauth.attest({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl, attestations: perIdentityAttestations});
+          const buildRes = await Triauth.attest({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl, attestations: perIdentityAttestations});
           const challenge = buildRes.challenge;
 
           for (const device of identity.devices) {
             const response = await buildResponse(identity, device, challenge, {attesterViaOverride: perIdentityVia});
 
-            const attestRes = (await Triauth.attest({challenge, response}));
+            const attestRes = (await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
 
             assert.equal(attestRes.attested, true);
             assert.equal(attestRes.secure, true);
@@ -235,10 +237,10 @@ describe('Attestation API', () => {
         const identity = identities['john'];
         const device = identity.devices[0];
 
-        const challenge = (await Triauth.attest({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl, attestations: multiAttestations})).challenge;
+        const challenge = (await Triauth.attest({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl, attestations: multiAttestations})).challenge;
         const response = await buildResponse(identity, device, challenge);
 
-        const attestRes = (await Triauth.attest({challenge, response}));
+        const attestRes = (await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert.equal(attestRes.attested, true);
         assert.equal(attestRes.attestations.first.valid, true);
         assert.equal(attestRes.attestations.second.valid, true);
@@ -248,12 +250,12 @@ describe('Attestation API', () => {
         const identity = identities['john'];
         const device = identity.devices[0];
 
-        const challenge = (await Triauth.attest({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl, attestations})).challenge;
+        const challenge = (await Triauth.attest({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl, attestations})).challenge;
         const response = await buildResponse(identity, device, challenge, {
           attesterSignedMetadata: {bind: {identifier: identity.identifier, via: callbackUrl}}
         });
 
-        const attestRes = (await Triauth.attest({challenge, response}));
+        const attestRes = (await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert.equal(attestRes.attested, true);
       });
 
@@ -261,10 +263,10 @@ describe('Attestation API', () => {
         const identity = identities['john'];
         const device = identity.devices[0];
 
-        const challenge = (await Triauth.attest({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl, attestations})).challenge;
+        const challenge = (await Triauth.attest({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl, attestations})).challenge;
         const response = await buildResponse(identity, device, challenge, {omitAttester: true});
 
-        const attestRes = (await Triauth.attest({challenge, response}));
+        const attestRes = (await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!attestRes.attested);
         assert.equal(attestRes.error.code, 401);
       });
@@ -273,12 +275,12 @@ describe('Attestation API', () => {
         const identity = identities['john'];
         const device = identity.devices[0];
 
-        const challenge = (await Triauth.attest({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl, attestations})).challenge;
+        const challenge = (await Triauth.attest({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl, attestations})).challenge;
         const response = await buildResponse(identity, device, challenge, {
           attesterViaOverride: 'https://triauthdemo.org/some-other-attestation'
         });
 
-        const attestRes = (await Triauth.attest({challenge, response}));
+        const attestRes = (await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!attestRes.attested);
         assert.equal(attestRes.error.code, 401);
       });
@@ -296,12 +298,12 @@ describe('Attestation API', () => {
           }
         };
 
-        const challenge = (await Triauth.attest({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl, attestations: customAttestations})).challenge;
+        const challenge = (await Triauth.attest({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl, attestations: customAttestations})).challenge;
         const response = await buildResponse(identity, device, challenge, {
           attesterViaOverride: 'https://example.com/not-a-robot'
         });
 
-        const attestRes = (await Triauth.attest({challenge, response}));
+        const attestRes = (await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!attestRes.attested);
         assert.equal(attestRes.error.code, 401);
       });
@@ -310,7 +312,7 @@ describe('Attestation API', () => {
         const identity = identities['john'];
         const device = identity.devices[0];
 
-        const challenge = (await Triauth.attest({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl, attestations})).challenge;
+        const challenge = (await Triauth.attest({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl, attestations})).challenge;
         const goodResponse = await buildResponse(identity, device, challenge);
 
         // Flip a character in the attester segment (after the first '|...|' which is the user sig)
@@ -321,7 +323,7 @@ describe('Attestation API', () => {
         const tamperedAttester = attesterPart.replace(/A/, 'B').replace(/^([^B]+)$/, attesterPart.slice(0, -10) + 'AAAAAAAAA' + attesterPart.slice(-1));
         const badResponse = goodResponse.slice(0, secondPipe) + tamperedAttester;
 
-        const attestRes = (await Triauth.attest({challenge, response: badResponse}));
+        const attestRes = (await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, badResponse)}));
         assert(!attestRes.attested);
         assert.equal(attestRes.error.code, 401);
       });
@@ -330,12 +332,12 @@ describe('Attestation API', () => {
         const identity = identities['john'];
         const device = identity.devices[0];
 
-        const challenge = (await Triauth.attest({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl, attestations})).challenge;
+        const challenge = (await Triauth.attest({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl, attestations})).challenge;
         const response = await buildResponse(identity, device, challenge, {
           attesterSignedMetadata: {bind: {identifier: 'someone-else@example.com'}}
         });
 
-        const attestRes = (await Triauth.attest({challenge, response}));
+        const attestRes = (await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!attestRes.attested);
         assert.equal(attestRes.error.code, 401);
       });
@@ -344,12 +346,12 @@ describe('Attestation API', () => {
         const identity = identities['john'];
         const device = identity.devices[0];
 
-        const challenge = (await Triauth.attest({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl, attestations})).challenge;
+        const challenge = (await Triauth.attest({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl, attestations})).challenge;
         const response = await buildResponse(identity, device, challenge, {
           attesterSignedMetadata: {bind: {via: 'https://wrong.example/'}}
         });
 
-        const attestRes = (await Triauth.attest({challenge, response}));
+        const attestRes = (await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!attestRes.attested);
         assert.equal(attestRes.error.code, 401);
       });
@@ -358,14 +360,14 @@ describe('Attestation API', () => {
         const identity = identities['john'];
         const device = identity.devices[0];
 
-        const buildRes = await Triauth.attest({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl, attestations});
-        const challengeObj = Triauth.Challenge.fromString(buildRes.challenge);
+        const buildRes = await Triauth.attest({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl, attestations});
+        const challengeObj = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(buildRes.challenge));
         challengeObj.data.type = 'auth';
-        const modifiedChallenge = Triauth.Helpers.stringToBase64Url(JSON.stringify(challengeObj.data));
+        const modifiedChallenge = AuthenticatorStub.reencode(buildRes.challenge, challengeObj.data);
 
         const response = await buildResponse(identity, device, modifiedChallenge);
 
-        const attestRes = (await Triauth.attest({challenge: modifiedChallenge, response}));
+        const attestRes = (await Triauth.attest({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)}));
         assert(!attestRes.attested);
         assert.equal(attestRes.error.code, 401);
       });
@@ -374,10 +376,10 @@ describe('Attestation API', () => {
         const identity = identities['john'];
         const device = identity.devices[0];
 
-        const challenge = (await Triauth.attest({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl, attestations})).challenge;
+        const challenge = (await Triauth.attest({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl, attestations})).challenge;
         const response = await buildResponse(identity, device, challenge, {userType: 'auth'});
 
-        const attestRes = (await Triauth.attest({challenge, response}));
+        const attestRes = (await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!attestRes.attested);
         assert.equal(attestRes.error.code, 401);
       });
@@ -386,10 +388,10 @@ describe('Attestation API', () => {
         const identity = identities['john'];
         const device = identity.devices[0];
 
-        const challenge = (await Triauth.attest({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl, attestations})).challenge;
+        const challenge = (await Triauth.attest({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl, attestations})).challenge;
         const response = await buildResponse(identity, device, challenge, {userVia: 'https://attacker.example/'});
 
-        const attestRes = (await Triauth.attest({challenge, response}));
+        const attestRes = (await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!attestRes.attested);
         assert.equal(attestRes.error.code, 401);
       });
@@ -398,14 +400,14 @@ describe('Attestation API', () => {
         const identity = identities['john'];
         const device = identity.devices[0];
 
-        const buildRes = await Triauth.attest({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl, attestations});
-        const challengeObj = Triauth.Challenge.fromString(buildRes.challenge);
+        const buildRes = await Triauth.attest({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl, attestations});
+        const challengeObj = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(buildRes.challenge));
         challengeObj.data.iat = Date.now() - (Triauth.config.attestTimeout + 10e3);
-        const modifiedChallenge = Triauth.Helpers.stringToBase64Url(JSON.stringify(challengeObj.data));
+        const modifiedChallenge = AuthenticatorStub.reencode(buildRes.challenge, challengeObj.data);
 
         const response = await buildResponse(identity, device, modifiedChallenge);
 
-        const attestRes = await Triauth.attest({challenge: modifiedChallenge, response});
+        const attestRes = await Triauth.attest({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)});
         assert(!attestRes.attested);
         assert.equal(attestRes.error.code, 402);
       });
@@ -415,19 +417,19 @@ describe('Attestation API', () => {
         const device = identity.devices[0];
         const defaultTimeout = Triauth.config.attestTimeout;
 
-        const buildRes = await Triauth.attest({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl, attestations});
-        const challengeObj = Triauth.Challenge.fromString(buildRes.challenge);
+        const buildRes = await Triauth.attest({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl, attestations});
+        const challengeObj = Triauth.Challenge.fromString(AuthenticatorStub.publicChallenge(buildRes.challenge));
         challengeObj.data.iat = Date.now() - (defaultTimeout + 10e3);
-        const modifiedChallenge = Triauth.Helpers.stringToBase64Url(JSON.stringify(challengeObj.data));
+        const modifiedChallenge = AuthenticatorStub.reencode(buildRes.challenge, challengeObj.data);
 
         const response = await buildResponse(identity, device, modifiedChallenge);
 
-        let attestRes = await Triauth.attest({challenge: modifiedChallenge, response});
+        let attestRes = await Triauth.attest({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)});
         assert(!attestRes.attested);
         assert.equal(attestRes.error.code, 402);
 
         attestRes = await Triauth.attest(
-          {challenge: modifiedChallenge, response},
+          {challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)},
           {attestTimeout: defaultTimeout * 2 + 60e3}
         );
         assert.equal(attestRes.attested, true);
@@ -440,8 +442,8 @@ describe('Attestation API', () => {
         // and only the identifier comparison against the challenge fails
         const other = attesters['robot'];
 
-        const challenge = (await Triauth.attest({token:':aaaaaaaaaaaaaaaa', identifier: identity.identifier, callbackUrl, attestations})).challenge;
-        const signedPayload = await Triauth.Helpers.sha256(challenge);
+        const challenge = (await Triauth.attest({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: identity.identifier, callbackUrl, attestations})).challenge;
+        const signedPayload = await Triauth.Helpers.sha256(AuthenticatorStub.publicChallenge(challenge));
 
         const userSig = await Triauth.Signature.generate(
           SignerStub.signUsingDeviceKeys(other.devices[0].keys),
@@ -460,7 +462,7 @@ describe('Attestation API', () => {
         );
 
         const response = Triauth.MultiSignature.generate(userSig, attesterSig);
-        const attestRes = await Triauth.attest({challenge, response});
+        const attestRes = await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert(!attestRes.attested);
         assert.equal(attestRes.error.code, 401);
       });
@@ -496,13 +498,13 @@ describe('Attestation API', () => {
       const mkSig = async (challenge, keys, identifier, via, signedMetadata = {}) =>
         Triauth.Signature.generate(
           SignerStub.signUsingDeviceKeys(keys), 'attest', identifier, '', via,
-          await Triauth.Helpers.sha256(challenge), signedMetadata);
+          await Triauth.Helpers.sha256(AuthenticatorStub.publicChallenge(challenge)), signedMetadata);
 
       const userSig = (challenge, via = userVia) => mkSig(challenge, john.devices[0].keys, john.identifier, via);
       const attesterSig = (challenge, attester, { via, signedMetadata = {} } = {}) =>
         mkSig(challenge, attester.devices[0].keys, attester.identifier, via ?? attester.via, signedMetadata);
       const buildChallenge = (attns) =>
-        Triauth.attest({token:':aaaaaaaaaaaaaaaa',  identifier: john.identifier, callbackUrl, attestations: attns }).then((r) => r.challenge);
+        Triauth.attest({sessionKey: AuthenticatorStub.SESSION_KEY, identifier: john.identifier, callbackUrl, attestations: attns }).then((r) => r.challenge);
 
       const robotAttestations = { 'not-a-robot': { label: 'I am not a robot', providers: [robot.via] } };
 
@@ -510,7 +512,7 @@ describe('Attestation API', () => {
         const challenge = await buildChallenge(robotAttestations);
         const response = Triauth.MultiSignature.generate(await userSig(challenge), await attesterSig(challenge, robot));
 
-        const res = await Triauth.attest({ challenge, response });
+        const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
 
         assert.equal(res.attested, true);
         assert.equal(res.identifier, john.identifier);
@@ -539,7 +541,7 @@ describe('Attestation API', () => {
           await attesterSig(challenge, age)
         );
 
-        const res = await Triauth.attest({ challenge, response });
+        const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
 
         assert.equal(res.attested, true);
         assert.equal(res.attestations['not-a-robot'].identifier, robot.identifier);
@@ -549,7 +551,7 @@ describe('Attestation API', () => {
       it('accepts a distinct attester whose bind.identifier, bind.via, and bind.deviceTag all bind the user', async () => {
         // Learn the user main-sig deviceTag from a plain attestation (avoids hard-coding it).
         const ch0 = await buildChallenge(robotAttestations);
-        const base = await Triauth.attest({ challenge: ch0, response: Triauth.MultiSignature.generate(await userSig(ch0), await attesterSig(ch0, robot)) });
+        const base = await Triauth.attest({ challenge: ch0, response: await AuthenticatorStub.seal(ch0, Triauth.MultiSignature.generate(await userSig(ch0), await attesterSig(ch0, robot))) });
         const userTag = base.deviceTag;
 
         const challenge = await buildChallenge(robotAttestations);
@@ -558,7 +560,7 @@ describe('Attestation API', () => {
           await attesterSig(challenge, robot, { signedMetadata: { bind: { identifier: john.identifier, via: userVia, deviceTag: userTag } } })
         );
 
-        const res = await Triauth.attest({ challenge, response });
+        const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
         assert.equal(res.attested, true);
       });
 
@@ -569,7 +571,7 @@ describe('Attestation API', () => {
           await attesterSig(challenge, robot, { signedMetadata: { bind: { deviceTag: 'not-the-users-device-tag' } } })
         );
 
-        const res = await Triauth.attest({ challenge, response });
+        const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
         assert(!res.attested);
         assert.equal(res.error.code, 401);
       });
@@ -581,7 +583,7 @@ describe('Attestation API', () => {
           await attesterSig(challenge, robot, { signedMetadata: { bind: { identifier: 'someone-else@example.com' } } })
         );
 
-        const res = await Triauth.attest({ challenge, response });
+        const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
         assert(!res.attested);
         assert.equal(res.error.code, 401);
       });
@@ -593,7 +595,7 @@ describe('Attestation API', () => {
           await attesterSig(challenge, robot, { signedMetadata: { bind: { via: 'https://wrong.example/' } } })
         );
 
-        const res = await Triauth.attest({ challenge, response });
+        const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
         assert(!res.attested);
         assert.equal(res.error.code, 401);
       });
@@ -605,7 +607,7 @@ describe('Attestation API', () => {
           await attesterSig(challenge, robot, { signedMetadata: { bind: { audience: 'https://somewhere.example/' } } })
         );
 
-        const res = await Triauth.attest({ challenge, response });
+        const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
         assert(!res.attested);
         assert.equal(res.error.code, 401);
       });
@@ -618,7 +620,7 @@ describe('Attestation API', () => {
             await attesterSig(challenge, robot, { signedMetadata: { bind } })
           );
 
-          const res = await Triauth.attest({ challenge, response });
+          const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
           assert(!res.attested, JSON.stringify(bind));
           assert.equal(res.error.code, 401, JSON.stringify(bind));
         }
@@ -631,7 +633,7 @@ describe('Attestation API', () => {
           await attesterSig(challenge, robot, { signedMetadata: { bind: { identifier: john.identifier, via: 'https://wrong.example/' } } })
         );
 
-        const res = await Triauth.attest({ challenge, response });
+        const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
         assert(!res.attested);
         assert.equal(res.error.code, 401);
       });
@@ -643,7 +645,7 @@ describe('Attestation API', () => {
           await attesterSig(challenge, robot, { signedMetadata: { bind: { identifier: 123 } } })
         );
 
-        const res = await Triauth.attest({ challenge, response });
+        const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
         assert(!res.attested);
         assert.equal(res.error.code, 401);
       });
@@ -661,7 +663,7 @@ describe('Attestation API', () => {
             await attesterSig(challenge, robot, { signedMetadata })
           );
 
-          const res = await Triauth.attest({ challenge, response });
+          const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
           assert.equal(res.attested, true, JSON.stringify(signedMetadata));
         }
       });
@@ -673,7 +675,7 @@ describe('Attestation API', () => {
           await attesterSig(challenge, robot)
         );
 
-        const res = await Triauth.attest({ challenge, response });
+        const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
         assert.equal(res.attested, true);
       });
 
@@ -684,7 +686,7 @@ describe('Attestation API', () => {
           await attesterSig(challenge, robot)
         );
 
-        const res = await Triauth.attest({ challenge, response });
+        const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
         assert(!res.attested);
         assert.equal(res.error.code, 401);
       });
@@ -701,7 +703,7 @@ describe('Attestation API', () => {
           await attesterSig(challenge, robot, { signedMetadata: { bind: { identifier: 'someone-else@example.com' } } })
         );
 
-        const res = await Triauth.attest({ challenge, response });
+        const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
         assert(!res.attested);
         assert.equal(res.error.code, 401);
       });

@@ -66,8 +66,8 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  *   }
  * );
  * // {
- * //   challenge: 'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJhdXRoIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJTSWRJaXZRRTVJbkhHQmFUWGhDb0UxMG8iLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MX0',
- * //   redirectUrl: 'https://auth.triauthdemo.org/auth.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJhdXRoIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJTSWRJaXZRRTVJbkhHQmFUWGhDb0UxMG8iLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MX0'
+ * //   challenge: 'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJhdXRoIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJTSWRJaXZRRTVJbkhHQmFUWGhDb0UxMG8iLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MSwiZWsiOiJCQXZJbDlWVDJ3Z3JoS2FBMmw3MTFhWmIxSVJlWURkX0UtdVRfcDl2VnNzZndqWG5VWjVNcVhjRTNmSUNCRlpmOElFeXJoUXVmX0F0ODlSaHBZMFlScUUifQ.-rkB18wDNcYxPU7jK3Lb8nwmQcV-fhJ-1nLCxdDgEzE',
+ * //   redirectUrl: 'https://auth.triauthdemo.org/auth.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJhdXRoIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJTSWRJaXZRRTVJbkhHQmFUWGhDb0UxMG8iLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MSwiZWsiOiJCQXZJbDlWVDJ3Z3JoS2FBMmw3MTFhWmIxSVJlWURkX0UtdVRfcDl2VnNzZndqWG5VWjVNcVhjRTNmSUNCRlpmOElFeXJoUXVmX0F0ODlSaHBZMFlScUUifQ'
  * // }
  * ```
  *
@@ -98,7 +98,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  * ```javascript
  *
  * let authenticationResult = await Triauth.authenticate({challenge, response});
- * // returns {authenticated:true, issuedAt, signedAt, verifiedAt, expires, secure, identifier, identityDomain, lookupCode, actor, actorIdentityDomain, actorLookupCode, publicProfile, groups, keys, deviceName, deviceTag, ext} upon successful authentication
+ * // returns {authenticated:true, issuedAt, signedAt, verifiedAt, expires, secure, identifier, identityDomain, lookupCode, actor, actorIdentityDomain, actorLookupCode, publicProfile, groups, keys, deviceName, deviceTag, sessionKey, ext} upon successful authentication
  * // returns {error:{code, message}} upon failed authentication
  *
  * ```
@@ -108,8 +108,8 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  * ```javascript
  * await Triauth.authenticate(
  *   {
- *    challenge:'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJhdXRoIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJTSWRJaXZRRTVJbkhHQmFUWGhDb0UxMG8iLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MX0',
- *    response:'|auth;john@triauthdemo.org;;https://example.com/;v1;1787224766683;;;S8lEY3KOYs9gsSpCJ8YnbnKHVCJcT0dXRREZCAgfIR_3dqkW3S9eUcfQZc6q2HD2sy56LwndOoSbcGyO2ZbUnw|'
+ *    challenge:'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vdHJpYXV0aC1jYWxsYmFjayIsInR5cGUiOiJhdXRoIiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJTSWRJaXZRRTVJbkhHQmFUWGhDb0UxMG8iLCJpYXQiOjE3ODcyMjQ3NDg0NDksInZlciI6MSwiZWsiOiJCQXZJbDlWVDJ3Z3JoS2FBMmw3MTFhWmIxSVJlWURkX0UtdVRfcDl2VnNzZndqWG5VWjVNcVhjRTNmSUNCRlpmOElFeXJoUXVmX0F0ODlSaHBZMFlScUUifQ.-rkB18wDNcYxPU7jK3Lb8nwmQcV-fhJ-1nLCxdDgEzE',
+ *    response:'BNh1cQjNAGfM2AT7Kee_wcSpCMPmf393GaP5h1bOOFgrH58q9CIgGz0ChLLBzLGOUGbZB46FIgY8CPljfgKTNj4.DJguMmSAhafOTygveRsBQlHfpOcc4haXughtMSANoZO3ra2IIpYviH6H4ErvaqeRb_bEBu2e0URsJUjsA4iJ1Fu_2MMnn80zA-slH6XIsReM6i7m7a74iU_hmDmUMaL6KkwDM_LVJQw71pR1qnSLEE9EWOHHe8sqOT8t42S4TX0fhmzZFrlPm969B2eopvMFvJ0HMQ0I1USB6XB-lT0arzJt9UQB6XKsi2Dm'
  *   }
  * );
  * //
@@ -144,6 +144,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  * //       "skipped": false
  * //     }
  * //   ],
+ * //   "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8",
  * //   "ext": {}
  * // }
  * //
@@ -160,7 +161,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  *
  * @param [options.identifier] {string} - (stage 1) the user provided identifier that is being authenticated
  * @param [options.callbackUrl] {string} - (stage 1) an application provided URL to which the user's web browser should be redirected with the response
- * @param [options.ext] {object} - (stage 1) an optional object of protocol extensions to use (e.g., `{signToken:true}`)
+ * @param [options.ext] {object} - (stage 1) an optional object of protocol extensions to use (e.g., `{permissions:{ping:true}}`)
  *
  * @param [options.challenge] {string} - (stage 3) a challenge as it was returned by the method after stage 1 call
  * @param [options.response] {string} - (stage 3) a received response, by default delivered as a `response` URL parameter of a GET to the `callbackUrl` (overridable via the `callbackMethod` extension)
@@ -169,11 +170,11 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  *
  * @returns {Promise<
  *     {challenge: string, redirectUrl: string}
- *   | {authenticated: true, issuedAt: number, signedAt: number, verifiedAt: number, expires: (number|undefined), secure: boolean, identifier: string, identityDomain: string, lookupCode: string, actor: string, actorIdentityDomain: string, actorLookupCode: string, publicProfile: object, groups: Array<string>, deviceName: string, deviceTag: string, keys: Array<object>, ext: object}
+ *   | {authenticated: true, issuedAt: number, signedAt: number, verifiedAt: number, expires: (number|undefined), secure: boolean, identifier: string, identityDomain: string, lookupCode: string, actor: string, actorIdentityDomain: string, actorLookupCode: string, publicProfile: object, groups: Array<string>, deviceName: string, deviceTag: string, keys: Array<object>, sessionKey: string, ext: object}
  *   | {error: {code: number, message: string}}
  * >} A promise that resolves to one of the following:
  * - `{challenge: string, redirectUrl: string}`: Returned during stage 1 when a challenge is generated. The `challenge` should be stored and the user should be redirected to the `redirectUrl`.
- * - `{authenticated: true, issuedAt: number, signedAt: number, verifiedAt: number, expires?: number, secure: boolean, identifier: string, identityDomain: string, lookupCode: string, actor: string, actorIdentityDomain: string, actorLookupCode: string, publicProfile: object, groups: Array<string>, deviceName: string, deviceTag: string, keys: Array<object>, ext: object}`: Returned during stage 3 upon successful authentication. Includes:
+ * - `{authenticated: true, issuedAt: number, signedAt: number, verifiedAt: number, expires?: number, secure: boolean, identifier: string, identityDomain: string, lookupCode: string, actor: string, actorIdentityDomain: string, actorLookupCode: string, publicProfile: object, groups: Array<string>, deviceName: string, deviceTag: string, keys: Array<object>, sessionKey: string, ext: object}`: Returned during stage 3 upon successful authentication. Includes:
  *   - `authenticated` (true): Indicates authentication was successful.
  *   - `issuedAt` (number): Unix timestamp on **your** server's clock at which you issued the challenge in stage 1 — the start of the flow's timeline.
  *   - `signedAt` (number): Unix timestamp on the **user's device** clock at which the authenticator signed the response. Verified to fall within the freshness window, but device-asserted — do not treat it as a trusted wall clock; prefer `issuedAt`/`verifiedAt` for authoritative timing.
@@ -191,6 +192,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  *   - `deviceName` (string): User-given, public name of the device that was used for authentication, as read from the DNS key records (e.g., `"mylaptop"`).
  *   - `deviceTag` (string): Unique identifier of the device (and, for delegated authentication, the delegation) used; under `mode=private` it also carries the lookup code. Store it verbatim and pass it to `Triauth.check`.
  *   - `keys` (array): Public keys that were considered and/or used during verification.
+ *   - `sessionKey` (string): A secret of this sign-in, in 43 base64url characters, that only your application and the user's authenticator know. Pass it to `Triauth.ping`, `Triauth.sign`, `Triauth.stamp` and `Triauth.attest`. Store it with the user's server-side or encrypted session, and keep it out of logs. After a delegated sign-in, it starts with the actor's domain and a colon.
  *   - `ext` (object): Data returned by the authenticator application for the requested protocol extensions. Always present - `{}` when no extension data was returned (a malformed `ext` is discarded with a logged warning and also yields `{}`).
  * - `{error: {code: number, message: string}}`: Returned during stage 1 or stage 3 when authentication fails, includes an error object with code and message.
  */
@@ -201,7 +203,7 @@ export const authenticate = async(options, config = {}) => {
   // No challenge processing needed here
   const onChallenge = async () => {};
 
-  const onResponse = async ({challenge, response}) => {
+  const onResponse = async ({challenge, response, sessionKey}) => {
 
     // Verify the response against the challenge
     const result = await ChallengeResponseFlow.verifyChallengeResponse('auth', challenge.challengeString, challenge, response, config.authTimeout, config);
@@ -243,6 +245,7 @@ export const authenticate = async(options, config = {}) => {
       deviceName: sig.deviceName,
       deviceTag: sig.deviceTag,
       keys: sig.keys,
+      sessionKey: sig.actor ? sig.actor.split('@')[1] + ':' + sessionKey : sessionKey, // A delegated session is at the authenticator of the actor's domain, so its key starts with that domain
       ext: receivedExtValid ? receivedExt : {}
     });
   };
@@ -442,12 +445,9 @@ export const check = async (options, config = {}) => {
  * Pings typically do not require any interaction from the user, and may be used as one of the signals in Continuous Authentication schemes.
  *
  * > [!NOTE]
- * > **To use this function you must request and obtain a special `pingToken`**<br/>
- * > To do so, provide the `ext:{pingToken:true}` parameter to the `Triauth.authenticate` function during the initial call (i.e., when building the challenge),
- * > and in the authentication result you will receive `ext.pingToken` property (string).
- * > You should keep the `pingToken` value private, and pass it as a `token` parameter in the initial call to the `ping` method.
- * > The token is issued by the authenticator on the device that signed in, and only that device honors it.
- * > A user with several devices holds a different token on each.
+ * > **Get the `ping` permission and use the same base callbackUrl as for authentication**<br/>
+ * > To get the permission, provide the `ext:{permissions:{ping:true}}` parameter to the `Triauth.authenticate` function during the initial call (i.e., when building the challenge).
+ * > The authentication result shows the decision in `ext.permissions`. You can call `ping` only when `ext.permissions?.ping === true` in the result.
  * >
  * > Also, the `callbackUrl` used in this method must have the **same base URL** (its origin plus the path up to and including the last `/`) as the `callbackUrl` from the initial `Triauth.authenticate` call.
  * > For example, if `callbackUrl` used for authentication was `https://example.com/dir1/callback`, the `callbackUrl` used in this method
@@ -459,7 +459,7 @@ export const check = async (options, config = {}) => {
  *
  * At first, you need to call the `Triauth.ping` method with the `identifier` option set to the user provided personal identifier (lowercase string),
  * a `callbackUrl` option set to the URL under which your application expects to receive a response (string),
- * a `token` (string) option set to the `pingToken` previously obtained via `ext.pingToken` from a `Triauth.authenticate` call,
+ * a `sessionKey` (string) option set to the `sessionKey` of a `Triauth.authenticate` result,
  * and an optional `ext` option (object) listing the [protocol extensions](#protocol-extensions) that you wish to use.
  *
  * In return, you will receive an object with the `challenge` (string) and `redirectUrl` (string).
@@ -469,7 +469,7 @@ export const check = async (options, config = {}) => {
  *
  * ```javascript
  *
- * let result = await Triauth.ping({identifier, callbackUrl, token, ext});
+ * let result = await Triauth.ping({identifier, callbackUrl, sessionKey, ext});
  * // returns {challenge, redirectUrl} the challenge should be remembered, and user redirected to the redirectUrl
  * // returns {error} on error
  *
@@ -483,20 +483,20 @@ export const check = async (options, config = {}) => {
  *   {
  *     identifier:'john@triauthdemo.org',
  *     callbackUrl:'https://example.com/callback',
- *     token:':SvUj6xL4PhtYnNEboKbJ85WW'
+ *     sessionKey:'59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8'
  *   }
  * );
  * //
  * // {
- * //   challenge: 'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2FsbGJhY2siLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoicWFvU1JnZlVnREpwZG5LX1FnQTd4SG9ZIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjF9',
- * //   redirectUrl: 'https://auth.triauthdemo.org/ping.html#?challenge=eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2FsbGJhY2siLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoicWFvU1JnZlVnREpwZG5LX1FnQTd4SG9ZIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjF9&token=:DFB4aHZqJ6zpbq8QVqQfTM4rsCkuCuyBqokCaImZelE'
+ * //   challenge: 'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2FsbGJhY2siLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoicWFvU1JnZlVnREpwZG5LX1FnQTd4SG9ZIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjEsImVrIjoiQkVoLTJGR0JOUkUyUGZvSTVsWjh4eU9KX2IzaTlaRVFadGtQOGJVajJ6VWljWDdsaTdqalBvYzVmUnczUlZKb2tjb1BZdVRLdGdGaVVENlR1LURrM3I0In0.urITupCNu0ZNV4CF692qaZs6UaBb5LNov-Z9hhB5ArU',
+ * //   redirectUrl: 'https://auth.triauthdemo.org/ping.html#?skid=wzI1sz3n1R4biw4FL_VJ3Q&request=aTO6cylS_52etdEH.hAskvAG-kqxradXNXvr3S4yxpgI3c6EdBOWOnN3UP4CjEfhkyQ1vbcYTmYQ_L3UOtIm6VwPYczazFTW7G7mXByWzAITIVkTRaQHlwyOj9CkPiOP278pc8pQdjPsCKmVHEPSqfwYlnUvNOOp_dsVRgb1zKT2QEkWFnCAH1CUvxDb4bpYqQ_YFa-q48WjkC9cDXRSKRgpN51iwPGV-koSmoIwgYLghNpUC4Cvx72ctYq1tLyP6jrXa3dS8VrSZgy5D4EFwYx22VHg1LloHgDc730QN560wpD7yGL8ylk0eENLml357QTLextpeqZ4Q_MG6JEg0fsN1XdNduNlsiQd_GfTiVwLnaXh3'
  * // }
  * //
  * ```
  *
  * **2. Redirect**
  *
- * Once the user's web browser is redirected to the `redirectUrl`, and assuming that the `token` is valid, the Triauth Authenticator web application will immediately respond to the `callbackUrl`.
+ * Once the user's web browser is redirected to the `redirectUrl`, the Triauth Authenticator web application immediately responds to the `callbackUrl`. This needs a valid session key with the `ping` permission.
  *
  * **3. Verify**
  *
@@ -526,8 +526,8 @@ export const check = async (options, config = {}) => {
  * ```javascript
  * await Triauth.ping(
  *   {
- *    challenge:'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2FsbGJhY2siLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoicWFvU1JnZlVnREpwZG5LX1FnQTd4SG9ZIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjF9',
- *    response:'|ping;john@triauthdemo.org;;https://example.com/;v1;1787224751161;;;KalL2ivLz--0voQXL-jBp58650Hj1PIUpe8W4Nfps0HnRdlXMFu6wDUCssE_dr6_BrKRtT508BRXe3228yiA_A|'
+ *    challenge:'eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2FsbGJhY2siLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoicWFvU1JnZlVnREpwZG5LX1FnQTd4SG9ZIiwiaWF0IjoxNzg3MjI0NzQ4NDQ5LCJ2ZXIiOjEsImVrIjoiQkVoLTJGR0JOUkUyUGZvSTVsWjh4eU9KX2IzaTlaRVFadGtQOGJVajJ6VWljWDdsaTdqalBvYzVmUnczUlZKb2tjb1BZdVRLdGdGaVVENlR1LURrM3I0In0.urITupCNu0ZNV4CF692qaZs6UaBb5LNov-Z9hhB5ArU',
+ *    response:'BGb9tY40nX1dXVl8KlCg8c6mSThXTM2UPWvkN_tHT8h05FIbypseeOplJNXLRH3mVtiTT4YarHDUVT5OqmHziOc.AV7MibGdeVKtc2hBh9BfpeB48dxc1xwu1bv2LtfvmHNEXUf_J_g0j3Njndh-_wiUI2sF2s_b8g9WJe5SewgFblFvdKIz6rXNL6SeCZsQeZhIvNSAvMtXgAHJtybBU5MmQJhx0zqh0Rf7Osuju8bceqMHFzuY9083btLzpU6iCbJeKGXqnwAMyCVOOwCDkJgCVRE_Mb2wADTsFpIUiQAQX-k6q0qAaBbZ1bec'
  *   }
  * );
  *
@@ -578,7 +578,7 @@ export const check = async (options, config = {}) => {
  *
  * @param [options.identifier] {string} - (stage 1) the user provided identifier
  * @param [options.callbackUrl] {string} - (stage 1) an application provided URL to which the user's web browser should be redirected with the response
- * @param [options.token] {string} - (stage 1, required) the `pingToken` previously obtained via `ext.pingToken` from a `Triauth.authenticate` call; a stage-1 request without it returns error 226
+ * @param [options.sessionKey] {string} - (stage 1, required) the `sessionKey` of a `Triauth.authenticate` result whose `ext.permissions.ping` is `true`; a stage-1 request without a valid session key returns error 226
  * @param [options.ext] {object} - (stage 1) an optional object of protocol extensions to use (e.g., `{callbackMethod:'GET'}`)
  *
  * @param [options.challenge] {string} - (stage 3) a challenge as it was returned by the method after stage 1 call

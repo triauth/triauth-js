@@ -56,6 +56,8 @@ export { IdentityDomain } from './identity_domain.js';
 export { AuthenticationEndpoint } from './authentication_endpoint.js';
 export { Challenge } from './challenge.js';
 export { Response } from './response.js';
+export { ResponseCipher } from './response_cipher.js';
+export { RequestCipher } from './request_cipher.js';
 export { Signature } from './signature.js';
 export { MultiSignature } from './multi_signature.js';
 export { ChallengeResponseFlow } from './challenge_response_flow.js';
