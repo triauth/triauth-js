@@ -1,0 +1,61 @@
+# Throwaway diagnostic: which DNS server the hosted runners use, and how that server answers an
+# oversized TXT query (40 records, ~5.2 KB) over plain UDP, EDNS UDP and TCP, twenty times over.
+# A reply over TCP that carries the TC flag with a partial record set is the resolver cutting the
+# answer. The last step runs the big-RRset zone cells five times to see how often node:dns and the
+# default composition see a short answer.
+name: DNS path probe
+
+on:
+  push:
+    branches: [dns-probe]
+  workflow_dispatch:
+
+jobs:
+  probe:
+    name: Probe ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24.x
+          cache: npm
+
+      - name: Resolver configuration (Windows)
+        if: runner.os == 'Windows'
+        run: ipconfig /all
+
+      - name: Resolver configuration (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cat /etc/resolv.conf
+          resolvectl status || true
+
+      - name: Probe the system resolver, 20 rounds
+        shell: bash
+        run: node .github/dnsprobe.mjs big.dns-test.triauthdemo.org "" 20
+
+      - name: Probe 168.63.129.16 directly, 20 rounds
+        shell: bash
+        run: node .github/dnsprobe.mjs big.dns-test.triauthdemo.org 168.63.129.16 20
+
+      - name: Probe 1.1.1.1 directly, 5 rounds (reference)
+        shell: bash
+        run: node .github/dnsprobe.mjs big.dns-test.triauthdemo.org 1.1.1.1 5
+
+      - run: npm ci
+
+      - name: Big-RRset zone cells, five runs
+        shell: bash
+        run: |
+          for i in 1 2 3 4 5; do
+            echo "=== run $i ==="
+            npx mocha --timeout 25000 --node-option=experimental-global-webcrypto --require ./test/setup.js test/test.js --grep "big.dns-test|cross-checked" || true
+          done
