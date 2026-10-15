@@ -97,7 +97,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  *       'not-a-robot': {
  *         label: 'I am not a robot',
  *         providers: [
- *           'https://attest.triauthdemo.org/not-a-robot',
+ *           'https://attest.triauth.org/proof-of-work',
  *           'https://other-provider.example.com/i-am/not-a-robot'
  *         ]
  *       }
@@ -165,25 +165,25 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  * //     "not-a-robot": {
  * //       "valid": true,
  * //       "type": "attest",
- * //       "identifier": "robot-attester@attest.triauthdemo.org",
- * //       "identityDomain": "robot-attester._at.attest.triauthdemo.org",
+ * //       "identifier": "proof-of-work@attest.triauth.org",
+ * //       "identityDomain": "proof-of-work._at.attest.triauth.org",
  * //       "lookupCode": "",
  * //       "actor": "",
  * //       "actorIdentityDomain": "",
  * //       "actorLookupCode": "",
- * //       "via": "https://attest.triauthdemo.org/not-a-robot",
+ * //       "via": "https://attest.triauth.org/proof-of-work",
  * //       "ver": 1,
  * //       "signedAt": 1787224768930,
  * //       "verifiedAt": 1787224773991,
  * //       "publicProfile": {
- * //         "name": "Robot Checker"
+ * //         "name": "Proof Of Work"
  * //       },
  * //       "groups": [],
  * //       "deviceName": "server",
  * //       "deviceTag": "NOtejuAqKHSdgvKVpw57cU_Qipj6UKcz2nNiugx0l8g",
  * //       "keys": [
  * //         {
- * //           "value": "BMR8Ug7qu9HUc9UgY_ADh8giBNmWBbSmGsR6DD6Hg5rpWeyYvu2WlQ43iR_dj0eKN99esQNMe7Gq2u2LBnRejcU",
+ * //           "value": "BAdEISRVd_8LuQe8SV6p-cDjW2t3PSa6NlRGIhfRflkvIA9rrNJWbsQllN56YpF2Q8AIHWrcWcR6hoSnXy7QLFM",
  * //           "options": {
  * //             "use": "attest",
  * //             "type": "es256"
@@ -194,7 +194,9 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  * //       ],
  * //       "secure": true,
  * //       "expires": 1787226573991,
- * //       "signedMetadata": {},
+ * //       "signedMetadata": {
+ * //         "bits": 16
+ * //       },
  * //       "unsignedMetadata": {}
  * //     }
  * //   },
