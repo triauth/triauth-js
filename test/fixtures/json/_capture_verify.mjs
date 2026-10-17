@@ -91,7 +91,7 @@ import identities from '../identities.json' with { type: 'json' };
 //     verifies (use-match).
 //   - jane: an ordinary second identity (its own keypair + DNS) used as the second signer in a
 //     multi-signature, and as a standalone success.
-import { T, LOGGER, signonly, jane, ed25519, PRIVATE, writeSuite } from './_capture_common.mjs';
+import { T, LOGGER, signonly, jane, ed25519, PRIVATE, writeSuite, compressP256 } from './_capture_common.mjs';
 // Minting only needs the private-key signer; no DNS is consulted here (the runner resolves DNS
 // from the suite's dnsEntries at verify time).
 const SignerStub = (await import('../../stubs/signer.js')).default;
@@ -495,6 +495,20 @@ const privateJohnRecords = (...extraRecords) => ({ [PRIVATE.john.identityDomain]
   ...extraRecords,
 ] } });
 
+// Compressed and malformed P-256 key forms. John's desktop key and laptop[1/2] have an odd y
+// (prefix 0x03), laptop[2/2] an even y (prefix 0x02). `withPrefix` replaces the first byte of a key,
+// which gives the other prefix (the negated point), the hybrid form, and a prefix outside SEC 1.
+const withPrefix = (publicKey, prefix) => {
+  const bytes = Triauth.Helpers.base64UrlToUint8(publicKey);
+  bytes[0] = prefix;
+  return Triauth.Helpers.arrayBufferToBase64Url(bytes);
+};
+const fromHex = (hex) => Triauth.Helpers.arrayBufferToBase64Url(Uint8Array.from(hex.match(/../g), (h) => parseInt(h, 16)));
+const JOHN_DESKTOP_COMPRESSED = compressP256(john.devices[0].keys[0].public);
+const P256_X_PLUS_P = fromHex('02ffffffff00000001000000000000000000000001000000000000000000000004');   // x = 5 + p, an alias of the valid x = 5
+const P256_X_OFF_CURVE = fromHex('0201a3be660e801c951552e2fcda9c4f6c6abcdfe64d7ca84b1cf5a47cc2e1f357'); // no point on the curve has this x
+const waKeyOnly = (publicKey) => ({ 'webauthn._at.triauthdemo.org': { TXT: ['name WebAuthn', `key wa[1/1]:${publicKey} type=webauthn-es256`] } });
+
 // Shorthand for building a verify test object (expected is filled by RECORD mode).
 //   args is the positional [message, signature, constraints?] passed straight to Triauth.verify.
 const v = (name, args, extra = {}) => ({ name, call: 'verify', args, ...extra });
@@ -760,6 +774,25 @@ const tests = [
   v('WebAuthn-Ed25519: valid assertion backed by a type=webauthn-ed25519 key verifies -> valid:true', [MSG, SIG_WAED_OK]),
   v('WebAuthn-Ed25519: structurally valid assertion with bogus crypto -> valid:false', [MSG, SIG_WAED_BADSIG]),
   v('Ed25519 multisig: heterogeneous algorithms (john es256 + ed25519 signer) in one multi-signature envelope -> multisig success', [MSG, SIG_MULTI_MIXED, { maxSignatures: 2 }]),
+
+  // ===================================================================================
+  // COMPRESSED: P-256 keys (type=es256 and type=webauthn-es256) published as the 33-byte
+  // compressed point, and the key forms that must not import. Every case signs with the key
+  // of the uncompressed fixture, so only the published form changes.
+  // ===================================================================================
+  v('COMPRESSED: john\'s desktop key published as the 33-byte compressed point (prefix 0x03) verifies -> valid:true, with a deviceTag other than that of the uncompressed form (the tag covers the published key string)', [MSG, SIG_DESKTOP], { dnsEntries: johnSingleKey(`key desktop[1/1]:${JOHN_DESKTOP_COMPRESSED}`) }),
+  v('COMPRESSED: multi-key device with both keys published compressed (laptop[1/2] prefix 0x03, laptop[2/2] prefix 0x02) verifies -> valid:true', [MSG, SIG_LAPTOP], { dnsEntries: { 'john._at.triauthdemo.org': { TXT: [
+    'initials JD', 'name John Doe',
+    `key laptop[1/2]:${compressP256(john.devices[1].keys[0].public)}`,
+    `key laptop[2/2]:${compressP256(john.devices[1].keys[1].public)}`,
+  ] } } }),
+  v('COMPRESSED: type=webauthn-es256 key published compressed verifies a valid assertion -> valid:true', [MSG, SIG_WA_OK], { dnsEntries: waKeyOnly(JOHN_DESKTOP_COMPRESSED) }),
+  v('COMPRESSED SECURITY: john\'s compressed key with the other prefix (0x02 for an odd y) is the negated point, a different key -> valid:false', [MSG, SIG_DESKTOP], { dnsEntries: johnSingleKey(`key desktop[1/1]:${withPrefix(JOHN_DESKTOP_COMPRESSED, 0x02)}`) }),
+  v('COMPRESSED SECURITY: john\'s key in the hybrid form (prefix 0x07, then x and y, 65 bytes) does not import -> valid:false, also where the Web Crypto import accepts the hybrid form', [MSG, SIG_DESKTOP], { dnsEntries: johnSingleKey(`key desktop[1/1]:${withPrefix(john.devices[0].keys[0].public, 0x07)}`) }),
+  v('COMPRESSED SECURITY: type=webauthn-es256 key in the hybrid form does not import -> valid:false', [MSG, SIG_WA_OK], { dnsEntries: waKeyOnly(withPrefix(john.devices[0].keys[0].public, 0x07)) }),
+  v('COMPRESSED SECURITY: john\'s x with the prefix 0x05 (no SEC 1 form, although its low bit is the parity of y) does not import -> valid:false, where a decoder that reads only the low bit would find john\'s key', [MSG, SIG_DESKTOP], { dnsEntries: johnSingleKey(`key desktop[1/1]:${withPrefix(JOHN_DESKTOP_COMPRESSED, 0x05)}`) }),
+  v('COMPRESSED: compressed key with x = 5 + p (x is not smaller than the field prime p) does not import -> valid:false (one key, one compressed form)', [MSG, SIG_DESKTOP], { dnsEntries: johnSingleKey(`key desktop[1/1]:${P256_X_PLUS_P}`) }),
+  v('COMPRESSED: compressed key whose x has no point on the curve does not import -> valid:false', [MSG, SIG_DESKTOP], { dnsEntries: johnSingleKey(`key desktop[1/1]:${P256_X_OFF_CURVE}`) }),
   // PUBLICPROFILE: shape and hardening of the publicProfile surfaced on verify results
   // (per-test dnsEntries publish the profile records; the envelope is the canonical minted one).
   v("PUBLICPROFILE: verify surfaces name/initials and x- extensions; unrecognized keywords (incl. former 'roles'/'title') and over-long x- keys are dropped", [MSG, SIG_DESKTOP], { dnsEntries: {
@@ -948,6 +981,8 @@ const suite = {
     '(type=webauthn-es256) success plus every structure/clientData guard and the import-failure path; ' +
     'the Ed25519 (type=ed25519) and WebAuthn-Ed25519 (type=webauthn-ed25519) verifier backends, including ' +
     'a heterogeneous es256+ed25519 multisig; ' +
+    'P-256 keys published as the 33-byte compressed point (both prefixes, es256 and webauthn-es256), the other prefix (a different key), ' +
+    'and the forms that do not import (the hybrid form, a prefix outside SEC 1, x >= p, an x with no point on the curve); ' +
     'resolveConfig record sanitization; the single-signature SUCCESS body ({valid,type,identifier,identityDomain,lookupCode,actor,' +
     'actorIdentityDomain,actorLookupCode,via,ver,signedAt,verifiedAt,publicProfile,groups,deviceName,deviceTag,keys,secure,expires,signedMetadata,' +
     'unsignedMetadata}); and the verify-UNIQUE multi-signature SUCCESS path (length>1 -> {type:\'multisig\',' +

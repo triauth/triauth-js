@@ -1,6 +1,6 @@
 {
   "title": "verify",
-  "description": "Comprehensive, branch-complete coverage of Triauth.verify(message, signature, constraints?, config?). verify takes a raw signature envelope directly and runs MultiSignature -> Signature -> Identity.resolve -> IdentityKeys.verify -> Verifiers, with no challenge/response, attachment, or callbackUrl machinery. Covered: the argument-shape guards (101) and the DNS-failure path (110) — the only {error} bodies; every other failure is {verified:true,valid:false}; MultiSignature/Signature envelope parse failures and metadata-parse rejections (caught by verify’s code>=200 arm); constraint-driven failures (type/identifier/ver/via mismatch -> false, out-of-window notBefore/notAfter -> null); generic crypto failures (bogus bytes, atob-throw, message<->signature binding, use-mismatch, partial multi-key, too many signatures); identity resolution failures (NXDOMAIN/unconfigured/ambiguous/unknown-identifier/hashed-mode errors -> valid:false; DNS SERVFAIL propagates as a retryable 110); the IdentityKeys add/verify taint & skip branches; the WebAuthn verifier (type=webauthn-es256) success plus every structure/clientData guard and the import-failure path; the Ed25519 (type=ed25519) and WebAuthn-Ed25519 (type=webauthn-ed25519) verifier backends, including a heterogeneous es256+ed25519 multisig; resolveConfig record sanitization; the single-signature SUCCESS body ({valid,type,identifier,identityDomain,lookupCode,actor,actorIdentityDomain,actorLookupCode,via,ver,signedAt,verifiedAt,publicProfile,groups,deviceName,deviceTag,keys,secure,expires,signedMetadata,unsignedMetadata}); and the verify-UNIQUE multi-signature SUCCESS path (length>1 -> {type:'multisig',valid,secure,expires,signatures}), which verify accepts only when the caller raises maxSignatures (which defaults to 1) — by default, and when only minSignatures is given, a multi-segment envelope is rejected as valid:false under verify's secure-by-default single-signature policy. A final EMERGENT-SECURITY / REGRESSION-GUARD section pins invariants that a refactor could break while keeping 100% branch coverage: cryptographic binding of every signed envelope field (tampering type/identifier/via/ts/signedMetadata on an otherwise-valid signature flips valid->false; identifier binding is isolated from key identity via a twin that republishes john's exact key); message opacity (a delimiter-laden message cannot be smuggled into the parsed fields); WebAuthn challenge<->message binding; strict (no clock-drift) freshness boundaries at notBefore===ts / notAfter===ts; exact identifier constraint matching; non-exposure of the internal minSignatures/maxSignatures constraints; and multi-signature fail-safe aggregation (earliest expiry wins; the maxMultiSignatures=5 upper boundary is accepted). Crypto-bearing fixtures (ECDSA + WebAuthn) were minted by test/fixtures/json/_capture_verify.mjs (WebCrypto ECDSA is non-deterministic to mint, deterministic to verify). See that script’s header for the exhaustive list of verify-UNREACHABLE branches left uncovered by construction. A GROUPS section pins the membership list surfaced on results (fully-qualified sorted deduplicated names; the subject's under delegation; per-segment in multisig with no aggregate-level field) and the resolution-level secure semantics: any non-DNSSEC record of the identity answer - groups, profile, or unrecognized - degrades secure. A PRIVATE MODE section covers mode=private (per-identity lookup code in signed-metadata: `lookupCode` for the subject, `actorLookupCode` for the actor; the exact-16 [A-Z0-9] grammar; the commit record with its exactly-one tripwire and the ~lookupCode deviceTag suffixes, reported from the derivation actually performed; a code is consumed only where its identity runs mode=private and is inert elsewhere; a delegated private-mode org pair verifies with both codes).",
+  "description": "Comprehensive, branch-complete coverage of Triauth.verify(message, signature, constraints?, config?). verify takes a raw signature envelope directly and runs MultiSignature -> Signature -> Identity.resolve -> IdentityKeys.verify -> Verifiers, with no challenge/response, attachment, or callbackUrl machinery. Covered: the argument-shape guards (101) and the DNS-failure path (110) — the only {error} bodies; every other failure is {verified:true,valid:false}; MultiSignature/Signature envelope parse failures and metadata-parse rejections (caught by verify’s code>=200 arm); constraint-driven failures (type/identifier/ver/via mismatch -> false, out-of-window notBefore/notAfter -> null); generic crypto failures (bogus bytes, atob-throw, message<->signature binding, use-mismatch, partial multi-key, too many signatures); identity resolution failures (NXDOMAIN/unconfigured/ambiguous/unknown-identifier/hashed-mode errors -> valid:false; DNS SERVFAIL propagates as a retryable 110); the IdentityKeys add/verify taint & skip branches; the WebAuthn verifier (type=webauthn-es256) success plus every structure/clientData guard and the import-failure path; the Ed25519 (type=ed25519) and WebAuthn-Ed25519 (type=webauthn-ed25519) verifier backends, including a heterogeneous es256+ed25519 multisig; P-256 keys published as the 33-byte compressed point (both prefixes, es256 and webauthn-es256), the other prefix (a different key), and the forms that do not import (the hybrid form, a prefix outside SEC 1, x >= p, an x with no point on the curve); resolveConfig record sanitization; the single-signature SUCCESS body ({valid,type,identifier,identityDomain,lookupCode,actor,actorIdentityDomain,actorLookupCode,via,ver,signedAt,verifiedAt,publicProfile,groups,deviceName,deviceTag,keys,secure,expires,signedMetadata,unsignedMetadata}); and the verify-UNIQUE multi-signature SUCCESS path (length>1 -> {type:'multisig',valid,secure,expires,signatures}), which verify accepts only when the caller raises maxSignatures (which defaults to 1) — by default, and when only minSignatures is given, a multi-segment envelope is rejected as valid:false under verify's secure-by-default single-signature policy. A final EMERGENT-SECURITY / REGRESSION-GUARD section pins invariants that a refactor could break while keeping 100% branch coverage: cryptographic binding of every signed envelope field (tampering type/identifier/via/ts/signedMetadata on an otherwise-valid signature flips valid->false; identifier binding is isolated from key identity via a twin that republishes john's exact key); message opacity (a delimiter-laden message cannot be smuggled into the parsed fields); WebAuthn challenge<->message binding; strict (no clock-drift) freshness boundaries at notBefore===ts / notAfter===ts; exact identifier constraint matching; non-exposure of the internal minSignatures/maxSignatures constraints; and multi-signature fail-safe aggregation (earliest expiry wins; the maxMultiSignatures=5 upper boundary is accepted). Crypto-bearing fixtures (ECDSA + WebAuthn) were minted by test/fixtures/json/_capture_verify.mjs (WebCrypto ECDSA is non-deterministic to mint, deterministic to verify). See that script’s header for the exhaustive list of verify-UNREACHABLE branches left uncovered by construction. A GROUPS section pins the membership list surfaced on results (fully-qualified sorted deduplicated names; the subject's under delegation; per-segment in multisig with no aggregate-level field) and the resolution-level secure semantics: any non-DNSSEC record of the identity answer - groups, profile, or unrecognized - degrades secure. A PRIVATE MODE section covers mode=private (per-identity lookup code in signed-metadata: `lookupCode` for the subject, `actorLookupCode` for the actor; the exact-16 [A-Z0-9] grammar; the commit record with its exactly-one tripwire and the ~lookupCode deviceTag suffixes, reported from the derivation actually performed; a code is consumed only where its identity runs mode=private and is inert elsewhere; a delegated private-mode org pair verifies with both codes).",
   "dnsEntries": {
     "triauthdemo.org": {
       "TXT": [
@@ -4263,6 +4263,305 @@
             "unsignedMetadata": {}
           }
         ]
+      }
+    },
+    {
+      "name": "COMPRESSED: john's desktop key published as the 33-byte compressed point (prefix 0x03) verifies -> valid:true, with a deviceTag other than that of the uncompressed form (the tag covers the published key string)",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;H-CuOf-xvAXBCWTWyWi10jFbRnrl2t-oIc290_QcMZsrNUQps4LemCrNSADMfsGIhdo1mpxJ6sWn9v12R8wE0Q|"
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:A3AILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HP"
+          ]
+        }
+      },
+      "expected": {
+        "valid": true,
+        "type": "sign",
+        "identifier": "john@triauthdemo.org",
+        "identityDomain": "john._at.triauthdemo.org",
+        "lookupCode": "",
+        "actor": "",
+        "actorIdentityDomain": "",
+        "actorLookupCode": "",
+        "via": "https://example.com/",
+        "ver": 1,
+        "signedAt": 1777454675000,
+        "verifiedAt": 1777454675000,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "deviceName": "desktop",
+        "deviceTag": "Yi76ziFgaLgQsmdotIVSxaWAgVX7robSGQfhdkTH02g",
+        "keys": [
+          {
+            "value": "A3AILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HP",
+            "options": {
+              "type": "es256",
+              "use": "attest,auth,ping,sign,stamp"
+            },
+            "verified": true,
+            "skipped": false
+          }
+        ],
+        "secure": true,
+        "expires": 1777456475000,
+        "signedMetadata": {},
+        "unsignedMetadata": {}
+      }
+    },
+    {
+      "name": "COMPRESSED: multi-key device with both keys published compressed (laptop[1/2] prefix 0x03, laptop[2/2] prefix 0x02) verifies -> valid:true",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;lDcJHMqWNw1h290DRSUABXrF1mgmMuc3kNIFykC2ZYAJ3ae7fCaQUJCGuWy1Bw7j1xQQORCb7L-tFPnTyJzGow;IiTkE1iFVx4NlJff8ZPSsEj6p66B-2SAgTOB7rzK_Tlyua5qOiKdKhSyfG9Qz6MXpYyv7Bu5ZgiQYg-krOlk9w|"
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key laptop[1/2]:AykB_Cr-7pvY1Y2buYRksJPb09Tqld7M3SDII36cp_C7",
+            "key laptop[2/2]:Arglw14iw47KUztRHdeKNfBBBMf5P4SsZg9O9za44mO2"
+          ]
+        }
+      },
+      "expected": {
+        "valid": true,
+        "type": "sign",
+        "identifier": "john@triauthdemo.org",
+        "identityDomain": "john._at.triauthdemo.org",
+        "lookupCode": "",
+        "actor": "",
+        "actorIdentityDomain": "",
+        "actorLookupCode": "",
+        "via": "https://example.com/",
+        "ver": 1,
+        "signedAt": 1777454675000,
+        "verifiedAt": 1777454675000,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "deviceName": "laptop",
+        "deviceTag": "L86DDvVUlPrrxrRk_2KHG0ZJGXKukUO_ow_TCtqhVyI",
+        "keys": [
+          {
+            "value": "AykB_Cr-7pvY1Y2buYRksJPb09Tqld7M3SDII36cp_C7",
+            "options": {
+              "type": "es256",
+              "use": "attest,auth,ping,sign,stamp"
+            },
+            "verified": true,
+            "skipped": false
+          },
+          {
+            "value": "Arglw14iw47KUztRHdeKNfBBBMf5P4SsZg9O9za44mO2",
+            "options": {
+              "type": "es256",
+              "use": "attest,auth,ping,sign,stamp"
+            },
+            "verified": true,
+            "skipped": false
+          }
+        ],
+        "secure": true,
+        "expires": 1777456475000,
+        "signedMetadata": {},
+        "unsignedMetadata": {}
+      }
+    },
+    {
+      "name": "COMPRESSED: type=webauthn-es256 key published compressed verifies a valid assertion -> valid:true",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;webauthn@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJzaWciOnsiMCI6eyJjbGllbnREYXRhSlNPTiI6IntcInR5cGVcIjpcIndlYmF1dGhuLmdldFwiLFwiY2hhbGxlbmdlXCI6XCJzX2VWOVRZMHRUNTlqTHhFMC11aGduSmFiejhRellwamQzMi1aNWt5U09NXCIsXCJvcmlnaW5cIjpcImh0dHBzOi8vYXV0aC50cmlhdXRoZGVtby5vcmdcIixcImNyb3NzT3JpZ2luXCI6ZmFsc2V9IiwiYXV0aGVudGljYXRvckRhdGEiOiJTWllONVlnT2pHaDBOQmNQWkhaZ1c0X2tycm1paGpMSG1Wenp1b01kbDJNQkFBQUFBdyJ9fX0;Q3NmkCrLSdOI3q1GbIVpMkO_MXhxBj3ira8ZFWu0h63EZItCb50f_OQSMtMZEvnQm-vSYYikJ9f7naLqQv5lQA|"
+      ],
+      "dnsEntries": {
+        "webauthn._at.triauthdemo.org": {
+          "TXT": [
+            "name WebAuthn",
+            "key wa[1/1]:A3AILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HP type=webauthn-es256"
+          ]
+        }
+      },
+      "expected": {
+        "valid": true,
+        "type": "sign",
+        "identifier": "webauthn@triauthdemo.org",
+        "identityDomain": "webauthn._at.triauthdemo.org",
+        "lookupCode": "",
+        "actor": "",
+        "actorIdentityDomain": "",
+        "actorLookupCode": "",
+        "via": "https://example.com/",
+        "ver": 1,
+        "signedAt": 1777454675000,
+        "verifiedAt": 1777454675000,
+        "publicProfile": {
+          "name": "WebAuthn"
+        },
+        "groups": [],
+        "deviceName": "wa",
+        "deviceTag": "_pLuQ2tZqyBXHxMM6UEKoXUoh8X6F_HAcUE1s2ClePo",
+        "keys": [
+          {
+            "value": "A3AILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HP",
+            "options": {
+              "type": "webauthn-es256",
+              "use": "attest,auth,ping,sign,stamp"
+            },
+            "verified": true,
+            "skipped": false
+          }
+        ],
+        "secure": true,
+        "expires": 1777456475000,
+        "signedMetadata": {},
+        "unsignedMetadata": {
+          "sig": {
+            "0": {
+              "clientDataJSON": "{\"type\":\"webauthn.get\",\"challenge\":\"s_eV9TY0tT59jLxE0-uhgnJabz8QzYpjd32-Z5kySOM\",\"origin\":\"https://auth.triauthdemo.org\",\"crossOrigin\":false}",
+              "authenticatorData": "SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MBAAAAAw"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "COMPRESSED SECURITY: john's compressed key with the other prefix (0x02 for an odd y) is the negated point, a different key -> valid:false",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;H-CuOf-xvAXBCWTWyWi10jFbRnrl2t-oIc290_QcMZsrNUQps4LemCrNSADMfsGIhdo1mpxJ6sWn9v12R8wE0Q|"
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:AnAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HP"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "invalid"
+      }
+    },
+    {
+      "name": "COMPRESSED SECURITY: john's key in the hybrid form (prefix 0x07, then x and y, 65 bytes) does not import -> valid:false, also where the Web Crypto import accepts the hybrid form",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;H-CuOf-xvAXBCWTWyWi10jFbRnrl2t-oIc290_QcMZsrNUQps4LemCrNSADMfsGIhdo1mpxJ6sWn9v12R8wE0Q|"
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:B3AILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "invalid"
+      }
+    },
+    {
+      "name": "COMPRESSED SECURITY: type=webauthn-es256 key in the hybrid form does not import -> valid:false",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;webauthn@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJzaWciOnsiMCI6eyJjbGllbnREYXRhSlNPTiI6IntcInR5cGVcIjpcIndlYmF1dGhuLmdldFwiLFwiY2hhbGxlbmdlXCI6XCJzX2VWOVRZMHRUNTlqTHhFMC11aGduSmFiejhRellwamQzMi1aNWt5U09NXCIsXCJvcmlnaW5cIjpcImh0dHBzOi8vYXV0aC50cmlhdXRoZGVtby5vcmdcIixcImNyb3NzT3JpZ2luXCI6ZmFsc2V9IiwiYXV0aGVudGljYXRvckRhdGEiOiJTWllONVlnT2pHaDBOQmNQWkhaZ1c0X2tycm1paGpMSG1Wenp1b01kbDJNQkFBQUFBdyJ9fX0;Q3NmkCrLSdOI3q1GbIVpMkO_MXhxBj3ira8ZFWu0h63EZItCb50f_OQSMtMZEvnQm-vSYYikJ9f7naLqQv5lQA|"
+      ],
+      "dnsEntries": {
+        "webauthn._at.triauthdemo.org": {
+          "TXT": [
+            "name WebAuthn",
+            "key wa[1/1]:B3AILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8 type=webauthn-es256"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "invalid"
+      }
+    },
+    {
+      "name": "COMPRESSED SECURITY: john's x with the prefix 0x05 (no SEC 1 form, although its low bit is the parity of y) does not import -> valid:false, where a decoder that reads only the low bit would find john's key",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;H-CuOf-xvAXBCWTWyWi10jFbRnrl2t-oIc290_QcMZsrNUQps4LemCrNSADMfsGIhdo1mpxJ6sWn9v12R8wE0Q|"
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:BXAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HP"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "invalid"
+      }
+    },
+    {
+      "name": "COMPRESSED: compressed key with x = 5 + p (x is not smaller than the field prime p) does not import -> valid:false (one key, one compressed form)",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;H-CuOf-xvAXBCWTWyWi10jFbRnrl2t-oIc290_QcMZsrNUQps4LemCrNSADMfsGIhdo1mpxJ6sWn9v12R8wE0Q|"
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:Av____8AAAABAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAE"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "invalid"
+      }
+    },
+    {
+      "name": "COMPRESSED: compressed key whose x has no point on the curve does not import -> valid:false",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;;H-CuOf-xvAXBCWTWyWi10jFbRnrl2t-oIc290_QcMZsrNUQps4LemCrNSADMfsGIhdo1mpxJ6sWn9v12R8wE0Q|"
+      ],
+      "dnsEntries": {
+        "john._at.triauthdemo.org": {
+          "TXT": [
+            "initials JD",
+            "name John Doe",
+            "key desktop[1/1]:AgGjvmYOgByVFVLi_NqcT2xqvN_mTXyoSxz1pHzC4fNX"
+          ]
+        }
+      },
+      "expected": {
+        "valid": false,
+        "reason": "invalid"
       }
     },
     {

@@ -48,6 +48,8 @@ export class Helpers {
   static #NORMAL_STRING_REGEXP = /^[\p{L}\p{N} ~!@#$%^&*()_\-+={}[\]|\\:;"'<,>.?/]+$/u; // the Unicode property escape \p{L} matches any kind of letter from any language, \p{N} any number.
   static #UNPAIRED_SURROGATE_REGEXP = /\p{Cs}/u;                                // matches only UNPAIRED surrogates - the strings UTF-8 cannot encode.
   static #LOOKUP_CODE_REGEXP = /^[A-Z0-9]{16}$/;
+  static #P256_P = 0xffffffff00000001000000000000000000000000ffffffffffffffffffffffffn; // the P-256 field prime p
+  static #P256_B = 0x5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604bn; // the P-256 curve coefficient b (a = -3)
 
   // eslint-disable-next-line no-restricted-globals
   static #ENCODER = new TextEncoder();
@@ -733,6 +735,76 @@ export class Helpers {
     );
 
     return new Uint8Array(await crypto.subtle.sign('HMAC', hmacKey, /** @type {BufferSource} */ (message)));
+  }
+
+  /**
+   * Returns a P-256 public key as the 65-byte uncompressed point (`0x04`, x, y), the form that the Web Crypto
+   * `raw` import accepts on all runtimes.
+   *
+   * Accepts the uncompressed point (65 bytes, prefix `0x04`) and returns it unchanged. Accepts the compressed
+   * point (33 bytes, prefix `0x02` or `0x03`, then x) and decodes it here, because not all Web Crypto
+   * implementations import a compressed point. Rejects all other forms, the hybrid form (prefix `0x06` or `0x07`)
+   * included, also on runtimes whose Web Crypto import accepts them. The result is therefore the same on all runtimes.
+   *
+   * @param bytes {Uint8Array} - The public key bytes.
+   * @returns {Uint8Array} the 65-byte uncompressed point.
+   *
+   * @throws {TypeError} when the bytes are not an uncompressed or a compressed point, or when the compressed point
+   *                     is not on the curve.
+   */
+  static decodeP256PublicKey(bytes) {
+    if (bytes.length === 65 && bytes[0] === 0x04) {
+      return bytes;
+    }
+
+    if (bytes.length !== 33 || (bytes[0] !== 0x02 && bytes[0] !== 0x03)) {
+      throw new TypeError('Invalid public key');
+    }
+
+    // x must be smaller than p, so that a key has one compressed form only
+    const p = Helpers.#P256_P;
+    const x = bytes.subarray(1).reduce((n, byte) => (n << 8n) | BigInt(byte), 0n);
+    if (x >= p) {
+      throw new TypeError('Invalid public key');
+    }
+
+    // y² = x³ - 3x + b (mod p). Because p = 3 (mod 4), r^((p + 1) / 4) is a square root of r when r has one.
+    const r = ((x * x % p) * x + 3n * (p - x) + Helpers.#P256_B) % p;
+    let y = Helpers.#modPow(r, (p + 1n) >> 2n, p);
+    if (y * y % p !== r) {
+      throw new TypeError('Invalid public key');
+    }
+
+    // The prefix gives the parity of y. No point on P-256 has y = 0, so p - y has the other parity.
+    if (Number(y & 1n) !== (bytes[0] & 1)) {
+      y = p - y;
+    }
+
+    const point = new Uint8Array(65);
+    point[0] = 0x04;
+    point.set(bytes.subarray(1), 1);
+    for (let i = 64; i > 32; i--, y >>= 8n) {
+      point[i] = Number(y & 0xffn);
+    }
+    return point;
+  }
+
+  /**
+   * Computes base^exponent mod modulus by square-and-multiply.
+   *
+   * @param base {bigint} - The base.
+   * @param exponent {bigint} - The exponent, zero or more.
+   * @param modulus {bigint} - The modulus.
+   * @returns {bigint} the result, from 0 to modulus - 1.
+   */
+  static #modPow(base, exponent, modulus) {
+    let result = 1n;
+    for (base %= modulus; exponent > 0n; exponent >>= 1n, base = base * base % modulus) {
+      if (exponent & 1n) {
+        result = result * base % modulus;
+      }
+    }
+    return result;
   }
 
   /**

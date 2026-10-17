@@ -42,6 +42,19 @@ export class WebAuthn extends Base {
   static verifyAlgorithm = null;
 
   /**
+   * Returns the bytes of a publishable key in the form that the `raw` import of `importAlgorithm` accepts.
+   * Subclasses whose credential algorithm has more than one key form override it.
+   *
+   * @param rawPublicKey {string} - A key as published in the DNS record.
+   * @returns {Uint8Array} the key bytes.
+   *
+   * @throws {TypeError} when the key is not in a form that the credential algorithm accepts.
+   */
+  static publicKeyBytes(rawPublicKey) {
+    return Helpers.base64UrlToUint8(rawPublicKey);
+  }
+
+  /**
    * Constructs a new instance of verifier for the given public crypto key and options.
    *
    * @param publicKey {CryptoKey} - A public key in form of CryptoKey object.
@@ -84,7 +97,7 @@ export class WebAuthn extends Base {
     }
 
     try {
-      const publicKey = (await crypto.subtle.importKey('raw', /** @type {BufferSource} */ (Helpers.base64UrlToUint8(rawPublicKey)), importAlgorithm, true, ['verify']));
+      const publicKey = (await crypto.subtle.importKey('raw', /** @type {BufferSource} */ (this.publicKeyBytes(rawPublicKey)), importAlgorithm, true, ['verify']));
 
       return new this(publicKey, options, context, config);
 
@@ -213,7 +226,8 @@ export class WebAuthn extends Base {
  * A verifier for WebAuthn signatures backed by ECDSA P-256 (ES256) credentials.
  *
  * Shares all WebAuthn assertion validation with the WebAuthn base class; this subclass
- * only binds the ES256 credential algorithm.
+ * only binds the ES256 credential algorithm. The publishable key is the 65-byte uncompressed
+ * or the 33-byte compressed P-256 point (see `Triauth.Helpers.decodeP256PublicKey`).
  *
  * @class
  * @memberof Triauth.Verifiers
@@ -223,6 +237,18 @@ export class WebAuthnEs256 extends WebAuthn {
 
   static importAlgorithm = { name: 'ECDSA', namedCurve: 'P-256', hash: 'SHA-256' };
   static verifyAlgorithm = { name: 'ECDSA', hash: 'SHA-256' };
+
+  /**
+   * Returns the publishable key as the 65-byte uncompressed P-256 point.
+   *
+   * @param rawPublicKey {string} - A key as published in the DNS record.
+   * @returns {Uint8Array} the 65-byte uncompressed point.
+   *
+   * @throws {TypeError} when the key is not an uncompressed or a compressed P-256 point.
+   */
+  static publicKeyBytes(rawPublicKey) {
+    return Helpers.decodeP256PublicKey(Helpers.base64UrlToUint8(rawPublicKey));
+  }
 
 }
 

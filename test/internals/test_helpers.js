@@ -434,4 +434,73 @@ export default function() { describe('Triauth.Helpers', () => {
       assert.equal(challenge.data.nonce, 'A'.repeat(24));
     });
   });
+
+  describe('decodeP256PublicKey', () => {
+
+    // The P-256 generator point G, its negation -G (the same x, y replaced by p - y), and the field prime p
+    const GX = '6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296';
+    const GY = '4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5';     // odd
+    const NEG_GY = 'b01cbd1c01e58065711814b583f061e9d431cca994cea1313449bf97c840ae0a'; // even
+    const P = 'ffffffff00000001000000000000000000000000ffffffffffffffffffffffff';
+    const X5 = '0000000000000000000000000000000000000000000000000000000000000005';   // x = 5 has a point on the curve
+    const X5_PLUS_P = 'ffffffff00000001000000000000000000000001000000000000000000000004';
+    const INVALID = {name: 'TypeError', message: 'Invalid public key'};
+
+    const bytes = (hex) => Uint8Array.from(hex.match(/../g) || [], (h) => parseInt(h, 16));
+    const decode = (hex) => Triauth.Helpers.decodeP256PublicKey(bytes(hex));
+
+    it('returns an uncompressed point (65 bytes, prefix 0x04) unchanged', () => {
+      const point = bytes('04' + GX + GY);
+      assert.strictEqual(Triauth.Helpers.decodeP256PublicKey(point), point);
+    });
+
+    it('decodes a compressed point: prefix 0x03 gives the odd y, prefix 0x02 the even y', () => {
+      assert.deepStrictEqual(decode('03' + GX), bytes('04' + GX + GY));
+      assert.deepStrictEqual(decode('02' + GX), bytes('04' + GX + NEG_GY));
+    });
+
+    it('decodes the compressed form of generated keys of both prefixes to the point that Web Crypto exports', async () => {
+      const prefixes = new Set();
+      for (let i = 0; prefixes.size < 2 && i < 64; i++) {
+        const keyPair = await crypto.subtle.generateKey({name: 'ECDSA', namedCurve: 'P-256'}, true, ['sign', 'verify']);
+        const raw = new Uint8Array(await crypto.subtle.exportKey('raw', keyPair.publicKey));
+        const compressed = Uint8Array.from([0x02 | (raw[64] & 1), ...raw.subarray(1, 33)]);
+
+        assert.deepStrictEqual(Triauth.Helpers.decodeP256PublicKey(compressed), raw);
+        prefixes.add(compressed[0]);
+      }
+      assert.equal(prefixes.size, 2);
+    });
+
+    it('rejects an x of p or more, so that a key has one compressed form only', () => {
+      assert.equal(decode('02' + X5).length, 65);
+      assert.throws(() => decode('02' + X5_PLUS_P), INVALID);
+      assert.throws(() => decode('02' + P), INVALID);
+    });
+
+    it('rejects an x that has no point on the curve', () => {
+      assert.throws(() => decode('0201a3be660e801c951552e2fcda9c4f6c6abcdfe64d7ca84b1cf5a47cc2e1f357'), INVALID);
+    });
+
+    it('rejects the hybrid form (prefix 0x06 or 0x07), also with the parity bit that matches y', () => {
+      assert.throws(() => decode('07' + GX + GY), INVALID);
+      assert.throws(() => decode('06' + GX + GY), INVALID);
+      assert.throws(() => decode('06' + GX + NEG_GY), INVALID);
+    });
+
+    it('rejects every other prefix and length', () => {
+      for (const hex of [
+        '',                     // empty
+        '00',                   // the point at infinity
+        '05' + GX,              // no SEC 1 form, although its low bit is the parity of y
+        '04' + GX,              // the uncompressed prefix on 33 bytes
+        '03' + GX + GY,         // a compressed prefix on 65 bytes
+        '03' + GX.slice(2),     // 32 bytes
+        '03' + GX + '00',       // 34 bytes
+        '04' + GX + GY + '00',  // 66 bytes
+      ]) {
+        assert.throws(() => decode(hex), INVALID, hex);
+      }
+    });
+  });
 }); }

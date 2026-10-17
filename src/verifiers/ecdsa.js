@@ -48,7 +48,7 @@ export class Ecdsa extends Base {
   /**
    * Builds an instance of the Verifier from the raw key information read from the DNS.
    *
-   * @param rawPublicKey {string} - A key as published in the DNS record.
+   * @param rawPublicKey {string} - A key as published in the DNS record (base64url of the 65-byte uncompressed or the 33-byte compressed P-256 point).
    * @param [options={}] {object} - Key options as read from the DNS record that contained the rawPublicKey.
    * @param [context={}] {object} - Per-verification context. Unused by this verifier.
    * @param [config={}] {object} - Optional overrides for the global Triauth.config settings
@@ -59,7 +59,7 @@ export class Ecdsa extends Base {
     config = Helpers.mergeConfig(config);
 
     try {
-      const publicKey = (await crypto.subtle.importKey('raw', /** @type {BufferSource} */ (Helpers.base64UrlToUint8(rawPublicKey)), {
+      const publicKey = (await crypto.subtle.importKey('raw', /** @type {BufferSource} */ (Helpers.decodeP256PublicKey(Helpers.base64UrlToUint8(rawPublicKey))), {
         name: 'ECDSA',
         namedCurve: 'P-256',
         hash: 'SHA-256'

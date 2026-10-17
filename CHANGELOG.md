@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Official support for compressed P-256 public keys in `es256` and `webauthn-es256` key records.
+
+### Changed
+
+- An `es256` or `webauthn-es256` key must be a 65-byte uncompressed point or a 33-byte compressed point. The library rejects all other forms, including the hybrid form that some runtimes accept.
+
 ## [1.0.0-beta.2] - 2026-10-14
 
 ### Added

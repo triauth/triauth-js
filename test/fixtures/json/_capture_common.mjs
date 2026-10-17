@@ -58,6 +58,14 @@ export const ed25519 = {
 export const asDevices = ({ identifier, keys }, deviceName = 'desktop') =>
   ({ identifier, devices: [{ deviceName, keys }] });
 
+// The compressed form (33 bytes, base64url) of an uncompressed P-256 public key: the prefix 0x02
+// or 0x03 carries the parity of y, then x follows. The fixture keys are published uncompressed,
+// and the compressed-key cases publish the same keys in this form.
+export const compressP256 = (publicKey) => {
+  const raw = Helpers.base64UrlToUint8(publicKey);
+  return Helpers.arrayBufferToBase64Url(Uint8Array.from([0x02 | (raw[64] & 1), ...raw.subarray(1, 33)]));
+};
+
 // The private-mode fixture domain (mode=private). Two identities under one
 // domain: `john` (subject cases; signs with the real john's desktop key from ../identities.json)
 // and `bot` (delegated-actor cases; signs with the `jane` keypair above as its `worker` device).
