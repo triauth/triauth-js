@@ -63,7 +63,7 @@ See **[what you can do with it](#what-you-can-do-with-it)** and the **[public AP
 
 ## Status & Version
 
-Latest release: **triauth-js 1.0.0-beta.2** - [NPM](https://www.npmjs.com/package/triauth/v/1.0.0-beta.2) - [GitHub](https://github.com/triauth/triauth-js/tags) - [jsDelivr](https://cdn.jsdelivr.net/npm/triauth@1.0.0-beta.2/)<br/>
+Latest release: **triauth-js 1.0.0-beta.3** - [NPM](https://www.npmjs.com/package/triauth/v/1.0.0-beta.3) - [GitHub](https://github.com/triauth/triauth-js/tags) - [jsDelivr](https://cdn.jsdelivr.net/npm/triauth@1.0.0-beta.3/)<br/>
 
 It is suitable for evaluation and early production use - see [Testing & Conformance](#testing--conformance) for how it's validated, and read the [Best Practices and Security Considerations](#best-practices-and-security-considerations) section before you deploy.
 
@@ -234,7 +234,7 @@ app.listen(3000, () => {
 ### Web Browser
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/triauth@1.0.0-beta.2/dist/triauth.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/triauth@1.0.0-beta.3/dist/triauth.js" crossorigin="anonymous"></script>
 <!-- For maximum privacy, self-host the file above instead of loading it from a public CDN. -->
 ```
 
