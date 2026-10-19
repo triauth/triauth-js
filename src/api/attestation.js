@@ -231,7 +231,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  *
  * @param [options.identifier] {string} - (stage 1) the user provided identifier
  * @param [options.callbackUrl] {string} - (stage 1) an application provided URL to which the user's web browser should be redirected with the response
- * @param [options.attestations] {object} - (stage 1) an object whose keys are caller-chosen attestation IDs and whose values are `{label, providers}` objects describing each requested attestation; at most 4 attestations, each listing at most 4 `https://` provider URLs (error 229 otherwise)
+ * @param [options.attestations] {object} - (stage 1) an object whose keys are caller-chosen attestation IDs (printable ASCII) and whose values are `{label, providers}` objects describing each requested attestation; at most 4 attestations, each listing at most 4 `https://` provider URLs (error 229 otherwise)
  * @param [options.sessionKey] {string} - (stage 1, required) the `sessionKey` of a `Triauth.authenticate` result; a stage-1 request without a valid session key returns error 226
  * @param [options.ext] {object} - (stage 1) an optional object of protocol extensions to use (e.g., `{callbackMethod:'GET'}`)
  *

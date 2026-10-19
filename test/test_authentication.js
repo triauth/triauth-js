@@ -66,6 +66,18 @@ describe('Authentication API', () => {
         assert.equal(authRes.error.code, 222);
       });
 
+      it('returns {error:{code:222}} for ext values that cannot round-trip through JSON', async () => {
+        // A lone surrogate has no UTF-8 encoding (safeParseJson refuses its escape at stage 3), and
+        // JSON.stringify prints a non-finite number as null
+        const invalidExts = [{a: '\uD800'}, {a: 'x\uDC00'}, {nested: {a: '\uD800'}}, {a: Infinity}, {a: -Infinity}, {a: NaN}, {nested: {a: NaN}}];
+        for (const invalidExt of invalidExts) {
+          const authRes = (await Triauth.authenticate({identifier, callbackUrl, ext: invalidExt}));
+
+          assert(!authRes.authenticated);
+          assert.equal(authRes.error.code, 222, JSON.stringify(invalidExt));
+        }
+      });
+
       it('carries the documented manifest extension shape verbatim', async () => {
         // The README's extension table: the registered manifest shape must pass the ext grammar
         const manifest = {name: 'Fabulous Example', startUrl: 'https://example.com/', iconUrl: 'https://example.com/icon.png'};

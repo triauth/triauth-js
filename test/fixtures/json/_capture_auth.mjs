@@ -266,6 +266,24 @@ console.log('RESP_DESKTOP_BOM_SIGNED_METADATA:\n' + await mintWithRawSignedMetad
   john.devices[0].keys, '77u_eyJleHQiOnsiYm9tIjp0cnVlfX0',
 ) + '\n');
 
+// signedMetadata = base64url of {"ext":{"a":"\ud800"}} - a lone-surrogate JSON ESCAPE in a string VALUE of the
+// SIGNED slot (real signature over the raw segment). An unpaired surrogate has no UTF-8 encoding, and this
+// escape is the one spelling of it that passes the strict decoder, so the Bounded-JSON string rule rejects
+// it at parse time (225), before any crypto.
+console.log('RESP_DESKTOP_SURROGATE_VALUE_SIGNED_METADATA:\n' + await mintWithRawSignedMetadata(
+  john.devices[0].keys, 'eyJleHQiOnsiYSI6Ilx1ZDgwMCJ9fQ',
+) + '\n');
+
+// signedMetadata = base64url of {"ext":{"a":1e400}} - a number literal that parses to Infinity. The ext grammar
+// admits only finite numbers (nothing else round-trips through JSON), so stage 3 discards the ext as malformed
+// and authenticates with ext:{}. Minted over `via`, as a response the flow accepts.
+{
+  const fields = ['auth', identifier, '', via, 'v1', String(Date.now()), 'eyJleHQiOnsiYSI6MWU0MDB9fQ', '', String(challenge)];
+  const sigs = await SignerStub.signUsingDeviceKeys(john.devices[0].keys)(fields.join(';'));
+  fields[8] = sigs.join(';');
+  console.log('RESP_DESKTOP_INFINITE_EXT_SIGNED_METADATA:\n|' + fields.join(';') + '|\n');
+}
+
 // unsignedMetadata = base64url of raw bytes 0x00..0x0F — control chars, no valid JSON token.
 console.log('RESP_DESKTOP_RAW_BINARY_UNSIGNED_METADATA:\n' + await mintWithRawUnsignedMetadata(
   john.devices[0].keys, 'AAECAwQFBgcICQoLDA0ODw',
@@ -349,6 +367,15 @@ console.log('RESP_DESKTOP_EKEY_UNSIGNED_METADATA:\n' + await mintWithRawUnsigned
 console.log('RESP_DESKTOP_SURROGATE_KEY_UNSIGNED_METADATA:\n' + await mintWithRawUnsignedMetadata(
   john.devices[0].keys,
   'eyJ4XHVkODAweSI6MX0',
+) + '\n');
+
+// {"ext":{"a":"\ud800"}} - the lone-surrogate JSON ESCAPE in a string VALUE. An unpaired surrogate has no UTF-8
+// encoding, and this escape is the one spelling of it that passes the strict decoder, so the Bounded-JSON
+// string rule rejects it (225). A parser that preserves the escape checks its strings, one that substitutes
+// U+FFFD checks the escapes, one that rejects it is conformant as is.
+console.log('RESP_DESKTOP_SURROGATE_VALUE_UNSIGNED_METADATA:\n' + await mintWithRawUnsignedMetadata(
+  john.devices[0].keys,
+  'eyJleHQiOnsiYSI6Ilx1ZDgwMCJ9fQ',
 ) + '\n');
 
 // --- safeParseJson null-node success path: unsignedMetadata = {"ok": null} ---------------

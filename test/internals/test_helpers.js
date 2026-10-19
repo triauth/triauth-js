@@ -72,6 +72,26 @@ export default function() { describe('Triauth.Helpers', () => {
       }
     });
 
+    it('rejects string values with an unpaired surrogate escape, in any position', () => {
+      // A lone surrogate has no UTF-8 encoding. Its \uXXXX escape is the one spelling of an ill-formed
+      // string that passes the strict UTF-8 decoder, because the JSON text itself is plain ASCII.
+      for (const str of ['{"a":"\\ud800"}', '{"a":"x\\udfffy"}', '{"a":"\\udc00\\ud800"}', '{"a":{"b":"\\ud800"}}', '{"a":["ok","\\ud800"]}']) {
+        try {
+          Triauth.Helpers.safeParseJson(str);
+          assert(false, str);
+        } catch (err) {
+          if (err?.name === 'AssertionError') {
+            throw err;
+          } else {
+            assert(true);
+          }
+        }
+      }
+
+      // A high-then-low escape pair is one code point and is accepted
+      assert.equal(Triauth.Helpers.safeParseJson('{"a":"\\ud83c\\udf89"}').a, '\u{1F389}');
+    });
+
     it('limits the nesting level', () => {
       const limit = Triauth.LIMITS.jsonMaxNestingDepth;
       let obj = {};
@@ -364,6 +384,25 @@ export default function() { describe('Triauth.Helpers', () => {
 
           assert.equal(ours, oracle, `bytes: ${Array.from(mutated).join(',')}`);
         }
+      }
+    });
+
+  });
+
+  describe('isWellFormedString', () => {
+
+    it('accepts every string without an unpaired surrogate, and no non-string', () => {
+      for (const s of ['', 'plain', 'Привет', '\u{1F389}', '퟿�', '🎉']) {
+        assert.equal(Triauth.Helpers.isWellFormedString(s), true, JSON.stringify(s));
+      }
+      for (const v of [undefined, null, 1, true, ['a'], {toString: () => 'a'}]) {
+        assert.equal(Triauth.Helpers.isWellFormedString(v), false, String(v));
+      }
+    });
+
+    it('rejects a lone, leading, trailing or mis-paired surrogate', () => {
+      for (const s of ['\uD800', '\uD800x', 'x\uDFFF', '\uDC00\uD800', '🎉\uD83C']) {
+        assert.equal(Triauth.Helpers.isWellFormedString(s), false, JSON.stringify(s));
       }
     });
 

@@ -268,6 +268,9 @@ const SIG_LONGKEY_UNSIGNED = await mintUnsignedSwap(john.devices[0].keys, {['a'.
 const SIG_NONASCII_UNSIGNED= await mintRawUnsigned(john.devices[0].keys, 'eyJy6XN1bekiOjF9'); // {"r<0xE9>sum<0xE9>":1} — raw Latin-1 é: ill-formed UTF-8, refused at decode -> malformed
 const SIG_BADUTF8_VALUE_UNSIGNED = await mintRawUnsigned(john.devices[0].keys, 'eyJleHQiOnsiYSI6IukifX0'); // {"ext":{"a":"<0xE9>"}} — raw Latin-1 é inside a string VALUE: ill-formed UTF-8, refused at decode -> malformed
 const SIG_EKEY_UNSIGNED    = await mintRawUnsigned(john.devices[0].keys, 'eyJyw6lzdW3DqSI6MX0'); // {"résumé":1} as proper C3 A9 UTF-8 — decodes fine; the Bounded-JSON ASCII-key rule rejects -> malformed
+const SIG_SURROGATE_VALUE_UNSIGNED = await mintRawUnsigned(john.devices[0].keys, 'eyJleHQiOnsiYSI6Ilx1ZDgwMCJ9fQ'); // {"ext":{"a":"\ud800"}} - a lone-surrogate JSON ESCAPE in a string VALUE: an unpaired surrogate has no UTF-8 encoding, and this escape is the one spelling of it that passes the strict decoder -> malformed
+const SIG_MISPAIRED_VALUE_UNSIGNED = await mintRawUnsigned(john.devices[0].keys, 'eyJleHQiOnsiYSI6Ilx1ZGMwMFx1ZDgwMCJ9fQ'); // {"ext":{"a":"\udc00\ud800"}} - a low-then-high escape pair does not form a code point -> malformed
+const SIG_SURROGATE_VALUE_SIGNED = await mintRawSigned(john.devices[0].keys, 'eyJleHQiOnsiYSI6Ilx1ZDgwMCJ9fQ'); // the same lone-surrogate escape in the SIGNED slot (real signature over the raw bytes) -> malformed at parse time
 const SIG_SURROGATE_KEY_UNSIGNED = await mintRawUnsigned(john.devices[0].keys, 'eyJ4XHVkODAweSI6MX0'); // {"x\ud800y":1} — a lone-surrogate JSON ESCAPE in a key; every parser behavior converges on malformed (preserve -> non-ASCII key, substitute U+FFFD -> likewise, reject -> parse failure)
 
 // WebAuthn assertions.
@@ -558,6 +561,9 @@ const tests = [
   v('SECURITY: unsignedMetadata whose bytes are not well-formed UTF-8 inside a string value -> valid:false — payload-slot bytes must be well-formed UTF-8; decoders reject rather than substitute U+FFFD', [MSG, SIG_BADUTF8_VALUE_UNSIGNED]),
   v('unsignedMetadata with a non-ASCII key in well-formed UTF-8 ({"résumé":1} as C3 A9 bytes) -> valid:false — the Bounded-JSON ASCII-key rule, distinct from the ill-formed-byte rejection', [MSG, SIG_EKEY_UNSIGNED]),
   v('SECURITY: unsignedMetadata whose JSON carries a lone-surrogate escape (\\ud800) in a key -> valid:false — parser-independent (preserve yields a non-ASCII key, substitute U+FFFD likewise, reject fails the parse); no conformance vector requires accepting a lone-surrogate escape anywhere', [MSG, SIG_SURROGATE_KEY_UNSIGNED]),
+  v('SECURITY: unsignedMetadata whose JSON carries a lone-surrogate escape (\\ud800) in a string value -> valid:false, an unpaired surrogate has no UTF-8 encoding and its escape is the one spelling of it that passes the strict UTF-8 decoder; a parser that preserves the escape checks its strings, one that substitutes U+FFFD checks the escapes, one that rejects it is conformant as is', [MSG, SIG_SURROGATE_VALUE_UNSIGNED]),
+  v('SECURITY: unsignedMetadata whose JSON carries a mis-paired surrogate escape (\\udc00\\ud800, low before high) in a string value -> valid:false, only a high-then-low escape pair forms one code point', [MSG, SIG_MISPAIRED_VALUE_UNSIGNED]),
+  v('SECURITY: signedMetadata whose JSON carries a lone-surrogate escape (\\ud800) in a string value -> valid:false, the real signature covers the raw slot and the rejection is at parse time, before any crypto', [MSG, SIG_SURROGATE_VALUE_SIGNED]),
 
   // ===================================================================================
   // Envelope identifier / via field validation (Signature ctor -> validateIdentifier /

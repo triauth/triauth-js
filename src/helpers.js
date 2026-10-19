@@ -264,7 +264,7 @@ export class Helpers {
    * Encodes the passed string into base64url encoding of its UTF-8 bytes.
    *
    * Any well-formed string is encodable (emojis, non-latin scripts, etc.). Throws a TypeError
-   * on an unpaired surrogate — ill-formed UTF-16 has no UTF-8 encoding. Unreachable through
+   * on an unpaired surrogate — a surrogate code point has no UTF-8 encoding. Unreachable through
    * the protocol surface: every internal call site encodes JSON.stringify output, which
    * escapes unpaired surrogates.
    *
@@ -294,7 +294,7 @@ export class Helpers {
   /**
    * Encodes the passed string into its UTF-8 bytes.
    *
-   * Throws a TypeError on an unpaired surrogate — ill-formed UTF-16 has no UTF-8 encoding,
+   * Throws a TypeError on an unpaired surrogate — a surrogate code point has no UTF-8 encoding,
    * and substituting U+FFFD would let two distinct strings share one byte encoding (the
    * platform encoder substitutes, so the well-formedness gate lives here).
    *
@@ -308,7 +308,7 @@ export class Helpers {
     if (typeof s !== 'string') {
       throw new TypeError('stringToUtf8Bytes expects a string');
     }
-    if (Helpers.#UNPAIRED_SURROGATE_REGEXP.test(s)) {
+    if (!Helpers.isWellFormedString(s)) {
       throw new TypeError('Unpaired surrogate');
     }
 
@@ -373,6 +373,22 @@ export class Helpers {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Checks that the passed string carries no surrogate code point (U+D800 to U+DFFF), so that it has a UTF-8 encoding.
+   *
+   * Every string takes this check before it is encoded, and every string parsed from JSON text is held to
+   * the same rule: the `\uXXXX` escape of a surrogate is the one spelling of such a string that passes the
+   * strict UTF-8 decoder, because the JSON text itself is plain ASCII. The name mirrors the ES2024
+   * `String.prototype.isWellFormed`, which performs the same test.
+   *
+   * @param string {string} - A string to check.
+   *
+   * @returns {boolean} true if the value is a string without surrogate code points, false otherwise.
+   */
+  static isWellFormedString(string) {
+    return typeof string === 'string' && !Helpers.#UNPAIRED_SURROGATE_REGEXP.test(string);
   }
 
   /**
@@ -892,6 +908,7 @@ export class Helpers {
    *   - ensures that the JSON encoded structure is an 'object',
    *   - protects against prototype poisoning attacks,
    *   - blocks non-ascii characters in property names,
+   *   - blocks surrogate code points in string values (the `\uXXXX` escape of a surrogate is the one spelling of such a string that passes the strict UTF-8 decoder),
    *   - allows a maximal object nesting depth of 8 levels (the root object counts as depth 1),
    *   - maximal key length of 256 characters.
    *
@@ -964,6 +981,12 @@ export class Helpers {
           // Do not accept non-ascii keys
           // eslint-disable-next-line no-control-regex
           if (/[^\x00-\x7F]/.test(key)){
+            throw err;
+          }
+
+          // Do not accept string values with unpaired surrogates: they have no UTF-8 encoding, and their
+          // \uXXXX escapes are the one spelling of them that the strict UTF-8 decoder lets through
+          if (typeof node[key] === 'string' && !Helpers.isWellFormedString(node[key])) {
             throw err;
           }
 

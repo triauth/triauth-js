@@ -635,6 +635,8 @@ const tests = [
   // creating the own key that this case needs. The name would bake into the challenge, which
   // stage-3 safeParseJson categorically refuses — validateAttestations fails fast instead.
   s1('Stage 1 attestation named __proto__ returns 229 — a prototype-poisoning name would bake into a challenge that stage-3 safeParseJson could never verify', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: JSON.parse('{"__proto__":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}') }),
+  s1('Stage 1 attestation entry that is null returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: null } }),
+  s1('Stage 1 attestation ID with a non-ASCII character (wiek-ż) returns 229, an attestation ID is a property name of the challenge, which stage-3 safeParseJson admits only in printable ASCII', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { 'wiek-ż': { label: 'Wiek', providers: [ROBOT_VIA] } } }),
   s1('Stage 1 more than maxMultiSignatures-1 (5) attestation IDs returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: {
     a: { label: 'a', providers: [ROBOT_VIA] }, b: { label: 'b', providers: [ROBOT_VIA] }, c: { label: 'c', providers: [ROBOT_VIA] },
     d: { label: 'd', providers: [ROBOT_VIA] }, e: { label: 'e', providers: [ROBOT_VIA] } } }),

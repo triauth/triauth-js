@@ -866,7 +866,7 @@ The result object has the following properties:
 The `attest` method obtains third-party verified attestations associated with the user's `identifier`.
 You can request attestations of almost anything, like the user age, not-a-robot status, location, role, etc., given that there is a verification provider that provides such attestation.
 
-The `attestations` argument is an object whose keys are caller-chosen attestation IDs (e.g., `'not-a-robot'`) and whose values describe each requested attestation.
+The `attestations` argument is an object whose keys are caller-chosen attestation IDs in printable ASCII (e.g., `'not-a-robot'`) and whose values describe each requested attestation.
 Each attestation consists of a `label` (string) displayed to the user (e.g., 'I am not a robot') and `providers` (an array of `https://` URL strings) from which the user can select a verification provider.
 Give each attestation its own provider URL. One signature satisfies every attestation ID whose `providers` list contains its URL, so two attestations that share a provider are satisfied together.
 

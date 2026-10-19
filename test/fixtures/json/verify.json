@@ -524,6 +524,42 @@
       }
     },
     {
+      "name": "SECURITY: unsignedMetadata whose JSON carries a lone-surrogate escape (\\ud800) in a string value -> valid:false, an unpaired surrogate has no UTF-8 encoding and its escape is the one spelling of it that passes the strict UTF-8 decoder; a parser that preserves the escape checks its strings, one that substitutes U+FFFD checks the escapes, one that rejects it is conformant as is",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJleHQiOnsiYSI6Ilx1ZDgwMCJ9fQ;ZnmLTlzbtVhyyk9qGw3npuEC9qgt1kow9Bhy3LO5E8FHN_Ewb5a4U8-oPEvathMQYRek08cupovNXbtrLRMOCQ|"
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "SECURITY: unsignedMetadata whose JSON carries a mis-paired surrogate escape (\\udc00\\ud800, low before high) in a string value -> valid:false, only a high-then-low escape pair forms one code point",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJleHQiOnsiYSI6Ilx1ZGMwMFx1ZDgwMCJ9fQ;QGSMvipWnOn7VJ_usGPC-XTiZeajDtQZndi5lkv_-oWU96kwMm22wcm8BFeodD-ly4B-aU_I8oNWp7qvStdkxA|"
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "SECURITY: signedMetadata whose JSON carries a lone-surrogate escape (\\ud800) in a string value -> valid:false, the real signature covers the raw slot and the rejection is at parse time, before any crypto",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;eyJleHQiOnsiYSI6Ilx1ZDgwMCJ9fQ;;Jz9UGGzTPJ_H4cOaEaYHol2UqYaiSh_eF9uPMCKq9z42BCHBdcIUMdCxSWZ0vXZNXJC0g0QA2Cvq6sgeqyk8rg|"
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
       "name": "envelope identifier exceeding identifierBytesize (>249) -> valid:false (validateIdentifier 212)",
       "call": "verify",
       "args": [

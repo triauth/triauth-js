@@ -949,6 +949,51 @@
       }
     },
     {
+      "name": "Stage 1 attestation entry that is null returns 229",
+      "call": "attest",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "callbackUrl": "https://example.com/cb",
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8",
+          "attestations": {
+            "a": null
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 229,
+          "message": "Invalid attestations"
+        }
+      }
+    },
+    {
+      "name": "Stage 1 attestation ID with a non-ASCII character (wiek-ż) returns 229, an attestation ID is a property name of the challenge, which stage-3 safeParseJson admits only in printable ASCII",
+      "call": "attest",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "callbackUrl": "https://example.com/cb",
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8",
+          "attestations": {
+            "wiek-ż": {
+              "label": "Wiek",
+              "providers": [
+                "https://attest.triauthdemo.org/not-a-robot"
+              ]
+            }
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 229,
+          "message": "Invalid attestations"
+        }
+      }
+    },
+    {
       "name": "Stage 1 more than maxMultiSignatures-1 (5) attestation IDs returns 229",
       "call": "attest",
       "args": [

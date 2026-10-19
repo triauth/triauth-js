@@ -90,6 +90,21 @@ describe('Attestation API', () => {
         }
       });
 
+      it('returns {error:{code:229}} when an entry is null', async () => {
+        const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations: {'not-a-robot': null}, sessionKey}));
+        assert(!attestRes?.attested);
+        assert.equal(attestRes.error.code, 229);
+      });
+
+      it('returns {error:{code:229}} for attestation IDs outside printable ASCII', async () => {
+        // An attestation ID becomes a property name of the challenge, which stage-3 safeParseJson admits only in ASCII
+        for (const id of ['wiek-ż', 'ロボット']) {
+          const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations: {[id]: {label: 'lbl', providers: ['https://triauthdemo.org/p']}}, sessionKey}));
+          assert(!attestRes?.attested, id);
+          assert.equal(attestRes.error.code, 229, id);
+        }
+      });
+
       it('returns {error:{code:229}} when an entry has an unknown property', async () => {
         const bad = {'not-a-robot': {label: 'I am not a robot', providers: ['https://triauthdemo.org/p'], extra: 'x'}};
         const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations: bad, sessionKey}));

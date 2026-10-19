@@ -151,7 +151,9 @@ export class Validator {
   /**
    * Validates the optional `ext` property for {@link Triauth.authenticate} — both as supplied in stage 1 and as received back in stage 3.
    *
-   * `ext` must be a plain object whose values are strings, numbers, booleans, or plain objects one level deep (no arrays, no deeper nesting).
+   * `ext` must be a plain object whose values are strings, finite numbers, booleans, or plain objects one level deep (no arrays, no deeper nesting).
+   * A string value carries no unpaired surrogate and a number is finite, so that the object round-trips through JSON unchanged:
+   * `Helpers.safeParseJson` rejects the escape of a lone surrogate when the ext comes back in stage 3, and `JSON.stringify` prints a non-finite number as `null`.
    * Keys must additionally be ASCII-only — `Helpers.safeParseJson` rejects non-ASCII property names when the ext round-trips back in stage 3 —
    * and never one of the prototype-poisoning names (`__proto__`, `constructor`, `prototype`)
    *
@@ -166,7 +168,7 @@ export class Validator {
 
     if (
       !ext ||
-      !(typeof ext === 'object' && !Array.isArray(ext) && Object.keys(ext).every((k) => Helpers.isNormalString(k, LIMITS.jsonMaxKeyLength) && !/[^\x20-\x7E]/.test(k) && ['__proto__', 'constructor', 'prototype'].indexOf(k) < 0) && Object.values(ext).every((e) => typeof e === 'string' || typeof e === 'number' || typeof e === 'boolean' || (depth === 0 && this.validateExt(e, depth + 1).errors.length === 0))) ||
+      !(typeof ext === 'object' && !Array.isArray(ext) && Object.keys(ext).every((k) => Helpers.isNormalString(k, LIMITS.jsonMaxKeyLength) && !/[^\x20-\x7E]/.test(k) && ['__proto__', 'constructor', 'prototype'].indexOf(k) < 0) && Object.values(ext).every((e) => (typeof e === 'string' && Helpers.isWellFormedString(e)) || (typeof e === 'number' && Number.isFinite(e)) || typeof e === 'boolean' || (depth === 0 && this.validateExt(e, depth + 1).errors.length === 0))) ||
       Helpers.byteSize(JSON.stringify(ext)) > LIMITS.extBytesize
     ) {
       errors.push(222);
@@ -180,7 +182,8 @@ export class Validator {
    *
    * `attestations` must be a plain object keyed by attestation name, where each value is `{label: string, providers: string[]}`.
    * An empty object `{}` is valid; passing it will produce `{attested: true, attestations: {}}` from stage 3.
-   * An attestation name is never one of the prototype-poisoning keys (`__proto__`, `constructor`, `prototype`).
+   * An attestation name is printable ASCII, as it becomes a property name of the challenge that `Helpers.safeParseJson` admits only in ASCII in stage 3,
+   * and never one of the prototype-poisoning keys (`__proto__`, `constructor`, `prototype`).
    *
    * @param attestations {Object} - Attestations object that should be validated.
    *
@@ -192,7 +195,7 @@ export class Validator {
     if (
       !attestations ||
       !(typeof attestations === 'object' && !Array.isArray(attestations)) ||
-      !(Object.keys(attestations).every((k) => Helpers.isNormalString(k) && ['__proto__', 'constructor', 'prototype'].indexOf(k) < 0))
+      !(Object.keys(attestations).every((k) => Helpers.isNormalString(k) && !/[^\x20-\x7E]/.test(k) && ['__proto__', 'constructor', 'prototype'].indexOf(k) < 0))
       ) {
       return this.#expandResult([229]);
     }
@@ -205,7 +208,7 @@ export class Validator {
 
     for (const entry of Object.values(attestations)) {
       if(
-        !(typeof entry === 'object' && !Array.isArray(entry)) ||
+        !(entry !== null && typeof entry === 'object' && !Array.isArray(entry)) ||
         !(Object.keys(entry).every((k) => ['label', 'providers'].indexOf(k) >= 0)) ||
         !(Helpers.isNormalString(entry.label)) ||
         !(
