@@ -273,6 +273,26 @@ const SIG_MISPAIRED_VALUE_UNSIGNED = await mintRawUnsigned(john.devices[0].keys,
 const SIG_SURROGATE_VALUE_SIGNED = await mintRawSigned(john.devices[0].keys, 'eyJleHQiOnsiYSI6Ilx1ZDgwMCJ9fQ'); // the same lone-surrogate escape in the SIGNED slot (real signature over the raw bytes) -> malformed at parse time
 const SIG_SURROGATE_KEY_UNSIGNED = await mintRawUnsigned(john.devices[0].keys, 'eyJ4XHVkODAweSI6MX0'); // {"x\ud800y":1} — a lone-surrogate JSON ESCAPE in a key; every parser behavior converges on malformed (preserve -> non-ASCII key, substitute U+FFFD -> likewise, reject -> parse failure)
 
+// JSON numbers, grammar and member names: a number is a whole number of magnitude at most 2^53-1, the grammar is strict
+// JSON, and __proto__, constructor and prototype are never member names. A duplicate name keeps its last value.
+const SIG_BIGINT_UNSIGNED      = await mintRawUnsigned(john.devices[0].keys, 'eyJuIjo5MDA3MTk5MjU0NzQwOTkzfQ'); // {"n":9007199254740993} - an integer above 2^53 -> malformed
+const SIG_POW53_UNSIGNED       = await mintRawUnsigned(john.devices[0].keys, 'eyJuIjo5MDA3MTk5MjU0NzQwOTkyfQ'); // {"n":9007199254740992} - 2^53 itself -> malformed
+const SIG_NEGPOW53_UNSIGNED    = await mintRawUnsigned(john.devices[0].keys, 'eyJuIjotOTAwNzE5OTI1NDc0MDk5Mn0'); // {"n":-9007199254740992} - -2^53 -> malformed, the bound is on the magnitude
+const SIG_SAFEBOUNDS_UNSIGNED  = await mintRawUnsigned(john.devices[0].keys, 'eyJuIjo5MDA3MTk5MjU0NzQwOTkxLCJtIjotOTAwNzE5OTI1NDc0MDk5MX0'); // {"n":9007199254740991,"m":-9007199254740991} - 2^53-1 and -(2^53-1) -> verifies with both values exact
+const SIG_WHOLEFLOAT_UNSIGNED  = await mintRawUnsigned(john.devices[0].keys, 'eyJuIjoxLjAsIm0iOjFlMn0'); // {"n":1.0,"m":1e2} - whole numbers spelled 1.0 and 1e2 -> verifies with the integers 1 and 100
+const SIG_FRACTION_UNSIGNED    = await mintRawUnsigned(john.devices[0].keys, 'eyJuIjoxLjV9'); // {"n":1.5} - a fraction -> malformed
+const SIG_OVERFLOW_UNSIGNED    = await mintRawUnsigned(john.devices[0].keys, 'eyJuIjoxZTQwMH0'); // {"n":1e400} - beyond the largest IEEE double, Infinity in JavaScript -> malformed
+const SIG_NAN_UNSIGNED         = await mintRawUnsigned(john.devices[0].keys, 'eyJuIjpOYU59'); // {"n":NaN} - the bare word NaN, no JSON value -> malformed
+const SIG_COMMENT_UNSIGNED     = await mintRawUnsigned(john.devices[0].keys, 'eyJuIjoxLypjKi99'); // {"n":1/*c*/} - a comment, outside the JSON grammar -> malformed
+const SIG_BADESCAPE_UNSIGNED   = await mintRawUnsigned(john.devices[0].keys, 'eyJzIjoiXHgifQ'); // {"s":"\x"} - an unknown string escape -> malformed
+const SIG_CONSTRUCTOR_UNSIGNED = await mintRawUnsigned(john.devices[0].keys, 'eyJjb25zdHJ1Y3RvciI6NX0'); // {"constructor":5} - the member name constructor with a number -> malformed
+const SIG_PROTOTYPE_UNSIGNED   = await mintRawUnsigned(john.devices[0].keys, 'eyJwcm90b3R5cGUiOnt9fQ'); // {"prototype":{}} - the member name prototype -> malformed
+const SIG_NULL8_UNSIGNED       = await mintRawUnsigned(john.devices[0].keys, 'eyJhIjp7ImEiOnsiYSI6eyJhIjp7ImEiOnsiYSI6eyJhIjp7ImgiOm51bGx9fX19fX19fQ'); // {"a":{"a":{"a":{"a":{"a":{"a":{"a":{"h":null}}}}}}}} - a null inside the 8th level -> verifies, a null adds no nesting level
+const SIG_ARRAYS9_UNSIGNED     = await mintRawUnsigned(john.devices[0].keys, 'eyJhIjpbW1tbW1tbW11dXV1dXV1dfQ'); // {"a":[[[[[[[[]]]]]]]]} - arrays nested 9 levels deep -> malformed
+const SIG_DUPLAST_UNSIGNED     = await mintRawUnsigned(john.devices[0].keys, 'eyJuIjoxLCJuIjoxLjV9'); // {"n":1,"n":1.5} - a duplicate name whose last value is a fraction -> malformed
+const SIG_BIGINT_SIGNED        = await mintRawSigned(john.devices[0].keys, 'eyJhbW91bnQiOjkwMDcxOTkyNTQ3NDA5OTN9'); // {"amount":9007199254740993} - an integer above 2^53 in the SIGNED slot (real signature over the raw bytes) -> malformed at parse time
+const SIG_MAXSAFE_SIGNED       = await mintRawSigned(john.devices[0].keys, 'eyJhbW91bnQiOjkwMDcxOTkyNTQ3NDA5OTF9'); // {"amount":9007199254740991} - 2^53-1 in the SIGNED slot -> verifies with the exact value
+
 // WebAuthn assertions.
 const SIG_WA_OK        = await mkWebAuthn();                                                                 // valid assertion -> success
 const SIG_WA_BADSIG    = await mkWebAuthn({ sign: false });                                                  // structure/clientData valid, crypto false
@@ -564,6 +584,23 @@ const tests = [
   v('SECURITY: unsignedMetadata whose JSON carries a lone-surrogate escape (\\ud800) in a string value -> valid:false, an unpaired surrogate has no UTF-8 encoding and its escape is the one spelling of it that passes the strict UTF-8 decoder; a parser that preserves the escape checks its strings, one that substitutes U+FFFD checks the escapes, one that rejects it is conformant as is', [MSG, SIG_SURROGATE_VALUE_UNSIGNED]),
   v('SECURITY: unsignedMetadata whose JSON carries a mis-paired surrogate escape (\\udc00\\ud800, low before high) in a string value -> valid:false, only a high-then-low escape pair forms one code point', [MSG, SIG_MISPAIRED_VALUE_UNSIGNED]),
   v('SECURITY: signedMetadata whose JSON carries a lone-surrogate escape (\\ud800) in a string value -> valid:false, the real signature covers the raw slot and the rejection is at parse time, before any crypto', [MSG, SIG_SURROGATE_VALUE_SIGNED]),
+  v('unsignedMetadata with an integer above 2^53 ({"n":9007199254740993}) -> valid:false, a JSON number is a whole number of magnitude at most 2^53-1, the range that every JSON parser reads exactly', [MSG, SIG_BIGINT_UNSIGNED]),
+  v('unsignedMetadata with the integer 2^53 ({"n":9007199254740992}) -> valid:false, the largest magnitude is 2^53-1', [MSG, SIG_POW53_UNSIGNED]),
+  v('unsignedMetadata with the integer -2^53 ({"n":-9007199254740992}) -> valid:false, the bound applies to the magnitude', [MSG, SIG_NEGPOW53_UNSIGNED]),
+  v('unsignedMetadata with the integers 2^53-1 and -(2^53-1) verifies and keeps both values exact', [MSG, SIG_SAFEBOUNDS_UNSIGNED]),
+  v('unsignedMetadata with the whole numbers spelled 1.0 and 1e2 verifies, and the values are the integers 1 and 100', [MSG, SIG_WHOLEFLOAT_UNSIGNED]),
+  v('unsignedMetadata with a fraction ({"n":1.5}) -> valid:false, a JSON number is a whole number', [MSG, SIG_FRACTION_UNSIGNED]),
+  v('unsignedMetadata with the number 1e400 -> valid:false, it is beyond the largest IEEE double and JavaScript reads it as Infinity', [MSG, SIG_OVERFLOW_UNSIGNED]),
+  v('unsignedMetadata with the bare word NaN ({"n":NaN}) -> valid:false, NaN is no JSON value', [MSG, SIG_NAN_UNSIGNED]),
+  v('unsignedMetadata with a comment ({"n":1/*c*/}) -> valid:false, the JSON grammar has no comments', [MSG, SIG_COMMENT_UNSIGNED]),
+  v('unsignedMetadata with an unknown string escape ({"s":"\\x"}) -> valid:false, the JSON grammar knows only its own escapes', [MSG, SIG_BADESCAPE_UNSIGNED]),
+  v('unsignedMetadata with a member named constructor ({"constructor":5}) -> valid:false, __proto__, constructor and prototype are never member names, whatever the value', [MSG, SIG_CONSTRUCTOR_UNSIGNED]),
+  v('unsignedMetadata with a member named prototype ({"prototype":{}}) -> valid:false', [MSG, SIG_PROTOTYPE_UNSIGNED]),
+  v('unsignedMetadata whose 8th nesting level holds a null verifies, only objects and arrays count as nesting levels', [MSG, SIG_NULL8_UNSIGNED]),
+  v('unsignedMetadata with arrays nested 9 levels deep -> valid:false, an array is a nesting level like an object', [MSG, SIG_ARRAYS9_UNSIGNED]),
+  v('unsignedMetadata with a duplicate name whose last value is a fraction ({"n":1,"n":1.5}) -> valid:false, a receiver keeps the last value of a duplicate name or rejects the text, never the first value', [MSG, SIG_DUPLAST_UNSIGNED]),
+  v('SECURITY: signedMetadata with an integer above 2^53 ({"amount":9007199254740993}) -> valid:false, so that every implementation that accepts signed metadata reads the same numbers', [MSG, SIG_BIGINT_SIGNED]),
+  v('signedMetadata with the integer 2^53-1 ({"amount":9007199254740991}) verifies and returns the exact value', [MSG, SIG_MAXSAFE_SIGNED]),
 
   // ===================================================================================
   // Envelope identifier / via field validation (Signature ctor -> validateIdentifier /

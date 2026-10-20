@@ -4,7 +4,8 @@
 
 ### Changed
 
-- Improve handling of unpaired surrogates and non-finite numbers.
+- Improve handling of unpaired surrogates and prototype-poisoning names in JSON.
+- JSON numbers must be safe integers.
 - Attestation entry that is `null` is rejected with error 229 at stage 1.
 
 ## [1.0.0-beta.3] - 2026-10-17

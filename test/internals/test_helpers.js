@@ -41,8 +41,8 @@ export default function() { describe('Triauth.Helpers', () => {
       }
     });
 
-    it('throws on attempted JS prototype poisoning', () => {
-      for (const str of ['{"__proto__": {"isAdmin": true}}', '{"constructor": {"prototype": {"isAdmin": true}}}', '{"a":{"constructor": {"prototype": {"isAdmin": true}}}}']) {
+    it('rejects the prototype-poisoning member names, whatever their value', () => {
+      for (const str of ['{"__proto__": {"isAdmin": true}}', '{"constructor": {"prototype": {"isAdmin": true}}}', '{"a":{"constructor": {"prototype": {"isAdmin": true}}}}', '{"constructor": 5}', '{"prototype": {}}', '{"a":[{"constructor": null}]}']) {
         try {
           Triauth.Helpers.safeParseJson(str);
           assert(false);
@@ -92,6 +92,27 @@ export default function() { describe('Triauth.Helpers', () => {
       assert.equal(Triauth.Helpers.safeParseJson('{"a":"\\ud83c\\udf89"}').a, '\u{1F389}');
     });
 
+    it('accepts only whole numbers of magnitude up to 2^53 - 1', () => {
+      // Every JSON parser reads these numbers to the same value: each one is an exact IEEE double,
+      // and a parser that keeps integers exact reads the same integer
+      for (const [str, value] of [['{"n":9007199254740991}', 9007199254740991], ['{"n":-9007199254740991}', -9007199254740991], ['{"n":0}', 0], ['{"n":1.0}', 1], ['{"n":1e2}', 100], ['{"n":[{"m":-7}]}', [{m: -7}]]]) {
+        assert.deepStrictEqual(Triauth.Helpers.safeParseJson(str).n, value, str);
+      }
+
+      for (const str of ['{"n":9007199254740992}', '{"n":-9007199254740992}', '{"n":9007199254740993}', '{"n":1.5}', '{"n":1e-7}', '{"n":1e400}', '{"n":-1e400}', '{"a":{"n":0.5}}', '{"a":[1,2.5]}']) {
+        try {
+          Triauth.Helpers.safeParseJson(str);
+          assert(false, str);
+        } catch (err) {
+          if (err?.name === 'AssertionError') {
+            throw err;
+          } else {
+            assert(true);
+          }
+        }
+      }
+    });
+
     it('limits the nesting level', () => {
       const limit = Triauth.LIMITS.jsonMaxNestingDepth;
       let obj = {};
@@ -105,6 +126,11 @@ export default function() { describe('Triauth.Helpers', () => {
       }
 
       let jsonResult = Triauth.Helpers.safeParseJson(JSON.stringify(root));
+      assert.equal(typeof jsonResult, 'object');
+
+      // A null at the deepest level adds no level: only objects and arrays count.
+      obj['n'] = null;
+      jsonResult = Triauth.Helpers.safeParseJson(JSON.stringify(root));
       assert.equal(typeof jsonResult, 'object');
 
       // Adding one more nested object pushes the depth past the limit — should be rejected.

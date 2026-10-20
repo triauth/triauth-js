@@ -48,6 +48,7 @@ export class Helpers {
   static #NORMAL_STRING_REGEXP = /^[\p{L}\p{N} ~!@#$%^&*()_\-+={}[\]|\\:;"'<,>.?/]+$/u; // the Unicode property escape \p{L} matches any kind of letter from any language, \p{N} any number.
   static #UNPAIRED_SURROGATE_REGEXP = /\p{Cs}/u;                                // matches only UNPAIRED surrogates - the strings UTF-8 cannot encode.
   static #LOOKUP_CODE_REGEXP = /^[A-Z0-9]{16}$/;
+  static #PROTOTYPE_NAMES = ['__proto__', 'constructor', 'prototype'];          // the prototype-poisoning names, never a JSON member name
   static #P256_P = 0xffffffff00000001000000000000000000000000ffffffffffffffffffffffffn; // the P-256 field prime p
   static #P256_B = 0x5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604bn; // the P-256 curve coefficient b (a = -3)
 
@@ -901,16 +902,21 @@ export class Helpers {
   }
 
   /**
-   * Parses the provided json text source and returns original object.
+   * Parses the provided JSON text and returns the object it encodes.
    *
-   * This method is a wrapper around the native JSON parser with some added security-focused validations and limits:
-   *   - accepts only source strings smaller than 256KB,
-   *   - ensures that the JSON encoded structure is an 'object',
-   *   - protects against prototype poisoning attacks,
-   *   - blocks non-ascii characters in property names,
-   *   - blocks surrogate code points in string values (the `\uXXXX` escape of a surrogate is the one spelling of such a string that passes the strict UTF-8 decoder),
-   *   - allows a maximal object nesting depth of 8 levels (the root object counts as depth 1),
-   *   - maximal key length of 256 characters.
+   * The native JSON parser reads the text, then one walk over the parsed value applies the rules below, so that
+   * a value which passes them reads the same in every language:
+   *   - the source is a string of at most 256KB, and its root is an object,
+   *   - a number is a whole number of magnitude at most 2^53 - 1 (`Number.isSafeInteger`), the range that every
+   *     JSON parser reads exactly: `1.0` and `1e2` are the whole numbers 1 and 100, while a fraction, a larger
+   *     integer or a literal that overflows to Infinity is rejected,
+   *   - a string carries no surrogate code point (the JSON escape of a surrogate is the one spelling of such a
+   *     string that passes the strict UTF-8 decoder),
+   *   - a member name is ASCII, at most 255 characters long, and never `__proto__`, `constructor` or `prototype`,
+   *   - objects and arrays nest at most 8 levels deep: the root object is level 1, and other values add no level.
+   *
+   * A member name that occurs twice in one object keeps its last value, as the native parser reads it, and the
+   * rules apply to that last value.
    *
    * @param source {string} - A source string that contains json encoded data.
    *
@@ -934,70 +940,52 @@ export class Helpers {
       throw err;
     }
 
-    const {
-      jsonMaxNestingDepth,
-      jsonMaxKeyLength
-    } = LIMITS;
-
-    // Keep track of nesting depth, capped at jsonMaxNestingDepth
-    let currentDepth = 0;
-
-    let queue = [jsonObject];
-
-    while (queue.length) {
-
-      if (jsonMaxNestingDepth && currentDepth >= jsonMaxNestingDepth) {
-        throw err;
-      }
-      currentDepth += 1;
-
-      let nodes = queue;
-      queue = [];
-
-      for (const node of nodes) {
-
-        if (node === undefined || node === null) {
-          continue;
-        }
-
-        // Defend against prototype poisoning
-        if (
-          Object.prototype.hasOwnProperty.call(node, '__proto__') ||
-          (
-            Object.prototype.hasOwnProperty.call(node, 'constructor') &&
-            Object.prototype.hasOwnProperty.call(node.constructor, 'prototype')
-          )
-        ) {
-          throw err;
-        }
-
-        for (const key in node) {
-
-          // Limit the maximal length of a key
-          if (key.length > jsonMaxKeyLength){
-            throw err;
-          }
-
-          // Do not accept non-ascii keys
-          // eslint-disable-next-line no-control-regex
-          if (/[^\x00-\x7F]/.test(key)){
-            throw err;
-          }
-
-          // Do not accept string values with unpaired surrogates: they have no UTF-8 encoding, and their
-          // \uXXXX escapes are the one spelling of them that the strict UTF-8 decoder lets through
-          if (typeof node[key] === 'string' && !Helpers.isWellFormedString(node[key])) {
-            throw err;
-          }
-
-          if (typeof node[key] === 'object') {
-            queue.push(node[key]);
-          }
-        }
-      }
+    if (!Helpers.#isBoundedJsonValue(jsonObject, 1)) {
+      throw err;
     }
 
     return jsonObject;
+  }
+
+  /**
+   * Checks one value produced by `JSON.parse`, and every value inside it, against the rules of `Helpers.safeParseJson`.
+   *
+   * The walk goes at most one level past the nesting limit, so its recursion depth stays bounded whatever the parser built.
+   *
+   * @param value {*} - A value produced by `JSON.parse`.
+   * @param depth {number} - The nesting level of the value if it is an object or an array (the root object is level 1).
+   *
+   * @returns {boolean} true if the value and every value inside it follow the rules, false otherwise.
+   */
+  static #isBoundedJsonValue(value, depth) {
+    if (typeof value === 'number') {
+      return Number.isSafeInteger(value);
+    }
+
+    if (typeof value === 'string') {
+      return Helpers.isWellFormedString(value);
+    }
+
+    // true, false and null add no nesting level
+    if (value === null || typeof value !== 'object') {
+      return true;
+    }
+
+    if (depth > LIMITS.jsonMaxNestingDepth) {
+      return false;
+    }
+
+    if (Array.isArray(value)) {
+      return value.every((item) => Helpers.#isBoundedJsonValue(item, depth + 1));
+    }
+
+    return Object.keys(value).every((name) => (
+      name.length <= LIMITS.jsonMaxKeyLength &&
+      // eslint-disable-next-line no-control-regex
+      !/[^\x00-\x7F]/.test(name) &&
+      !Helpers.#PROTOTYPE_NAMES.includes(name) &&
+      Helpers.#isBoundedJsonValue(value[name], depth + 1)
+    ));
   }
 
   /**

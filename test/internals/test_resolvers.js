@@ -820,7 +820,7 @@ export default function() { describe('DNS Resolvers', () => {
         { name: 'config.test.', type: 16, TTL: 30,  data: 'key absolute' },  // the queried name in absolute form: kept
         { name: 'config.test',  type: 16, TTL: 30,  data: 42 },              // data must be a string
         { name: 'config.test',  type: 16, TTL: -1,  data: 'key negative' },  // TTL must be a non-negative integer
-        { name: 'config.test',  type: 16, TTL: 1.5, data: 'key fraction' },
+        { name: 'config.test',  type: 16, TTL: '30', data: 'key string TTL' },
         { name: 'config.test',  type: 16, TTL: 30,  data: 'key good' }
       ] }).resolve('config.test', 'TXT');
 

@@ -274,14 +274,33 @@ console.log('RESP_DESKTOP_SURROGATE_VALUE_SIGNED_METADATA:\n' + await mintWithRa
   john.devices[0].keys, 'eyJleHQiOnsiYSI6Ilx1ZDgwMCJ9fQ',
 ) + '\n');
 
-// signedMetadata = base64url of {"ext":{"a":1e400}} - a number literal that parses to Infinity. The ext grammar
-// admits only finite numbers (nothing else round-trips through JSON), so stage 3 discards the ext as malformed
-// and authenticates with ext:{}. Minted over `via`, as a response the flow accepts.
+// signedMetadata = base64url of {"ext":{"a":1e400}} - a number literal beyond the largest IEEE double. A JSON
+// number is a whole number of magnitude at most 2^53-1, so the metadata is malformed (225) at parse time. Minted
+// over `via`, as a response the flow would otherwise accept.
 {
   const fields = ['auth', identifier, '', via, 'v1', String(Date.now()), 'eyJleHQiOnsiYSI6MWU0MDB9fQ', '', String(challenge)];
   const sigs = await SignerStub.signUsingDeviceKeys(john.devices[0].keys)(fields.join(';'));
   fields[8] = sigs.join(';');
   console.log('RESP_DESKTOP_INFINITE_EXT_SIGNED_METADATA:\n|' + fields.join(';') + '|\n');
+}
+
+// signedMetadata = base64url of {"ext":{"a":9007199254740993}} - an integer above 2^53, which JavaScript rounds
+// to 9007199254740992 while an exact parser keeps it. The metadata is malformed (225) at parse time, so no two
+// implementations return different ext values for the same signed bytes.
+{
+  const fields = ['auth', identifier, '', via, 'v1', String(Date.now()), 'eyJleHQiOnsiYSI6OTAwNzE5OTI1NDc0MDk5M319', '', String(challenge)];
+  const sigs = await SignerStub.signUsingDeviceKeys(john.devices[0].keys)(fields.join(';'));
+  fields[8] = sigs.join(';');
+  console.log('RESP_DESKTOP_BIGINT_EXT_SIGNED_METADATA:\n|' + fields.join(';') + '|\n');
+}
+
+// signedMetadata = base64url of {"ext":{"a":9007199254740991}} - the largest safe integer, 2^53-1. The flow
+// authenticates and returns it exactly in ext.
+{
+  const fields = ['auth', identifier, '', via, 'v1', String(Date.now()), 'eyJleHQiOnsiYSI6OTAwNzE5OTI1NDc0MDk5MX19', '', String(challenge)];
+  const sigs = await SignerStub.signUsingDeviceKeys(john.devices[0].keys)(fields.join(';'));
+  fields[8] = sigs.join(';');
+  console.log('RESP_DESKTOP_MAXSAFE_EXT_SIGNED_METADATA:\n|' + fields.join(';') + '|\n');
 }
 
 // unsignedMetadata = base64url of raw bytes 0x00..0x0F — control chars, no valid JSON token.
@@ -378,9 +397,8 @@ console.log('RESP_DESKTOP_SURROGATE_VALUE_UNSIGNED_METADATA:\n' + await mintWith
   'eyJleHQiOnsiYSI6Ilx1ZDgwMCJ9fQ',
 ) + '\n');
 
-// --- safeParseJson null-node success path: unsignedMetadata = {"ok": null} ---------------
-//     typeof null === 'object' → null is pushed to the BFS queue → next iteration hits
-//     `if (node === null) continue` → processing skips past it without error.
+// --- safeParseJson null value: unsignedMetadata = {"ok": null} ----------------------------
+//     A null is a value and adds no nesting level, so the parse succeeds.
 //     Auth still succeeds because unsignedMetadata is parsed fine (null values are valid),
 //     and authenticate() does not surface unsignedMetadata in its result.
 console.log('RESP_DESKTOP_NULL_VALUE_UNSIGNED_METADATA:\n' + await mintWithGarbageUnsignedMetadata(

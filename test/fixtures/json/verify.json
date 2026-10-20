@@ -560,6 +560,362 @@
       }
     },
     {
+      "name": "unsignedMetadata with an integer above 2^53 ({\"n\":9007199254740993}) -> valid:false, a JSON number is a whole number of magnitude at most 2^53-1, the range that every JSON parser reads exactly",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJuIjo5MDA3MTk5MjU0NzQwOTkzfQ;xMeAzuBhFa61PFISGWtWsf_xkcsCZqtE1glozA183fT2a8Oy5-zlxRFfK8MbUk571XAfxvgxVKAXU1CqF2t46Q|"
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "unsignedMetadata with the integer 2^53 ({\"n\":9007199254740992}) -> valid:false, the largest magnitude is 2^53-1",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJuIjo5MDA3MTk5MjU0NzQwOTkyfQ;l1Qw7K3aZbu-SRg_58-9N5kpIvyI-u_fjZPHobE4J5LBZEEGnoXJkjOm51KKLW_tNUpr3gaiNpnmFXeDZgZVkg|"
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "unsignedMetadata with the integer -2^53 ({\"n\":-9007199254740992}) -> valid:false, the bound applies to the magnitude",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJuIjotOTAwNzE5OTI1NDc0MDk5Mn0;9FF1xzFeuyu5tsc9pT2MtsKcdXRDtvuNBs3kbwf2LgSL3vLTx6B-Y_QRAzWsPEaJy9Tvvms9YRGjd-UGMg9SAQ|"
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "unsignedMetadata with the integers 2^53-1 and -(2^53-1) verifies and keeps both values exact",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJuIjo5MDA3MTk5MjU0NzQwOTkxLCJtIjotOTAwNzE5OTI1NDc0MDk5MX0;0Xc8P11bhHTRhJe8ot9JK37QnGxJa2qIMN-bu32vXV2vecoZxgL0r2eTCpNUjCFXpEG4N4zBVbumfAsKtzOJIg|"
+      ],
+      "expected": {
+        "valid": true,
+        "type": "sign",
+        "identifier": "john@triauthdemo.org",
+        "identityDomain": "john._at.triauthdemo.org",
+        "lookupCode": "",
+        "actor": "",
+        "actorIdentityDomain": "",
+        "actorLookupCode": "",
+        "via": "https://example.com/",
+        "ver": 1,
+        "signedAt": 1777454675000,
+        "verifiedAt": 1777454675000,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "deviceName": "desktop",
+        "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+        "keys": [
+          {
+            "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "options": {
+              "type": "es256",
+              "use": "attest,auth,ping,sign,stamp"
+            },
+            "verified": true,
+            "skipped": false
+          }
+        ],
+        "secure": true,
+        "expires": 1777456475000,
+        "signedMetadata": {},
+        "unsignedMetadata": {
+          "n": 9007199254740991,
+          "m": -9007199254740991
+        }
+      }
+    },
+    {
+      "name": "unsignedMetadata with the whole numbers spelled 1.0 and 1e2 verifies, and the values are the integers 1 and 100",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJuIjoxLjAsIm0iOjFlMn0;q3QPI9NFnd_wiMip-EureOTJi1TXwaS_cfuq4niaH8ZbyR7TdTlR8KgwhHXK_Et4KDW_JYBcvTAD0T84FrkCXQ|"
+      ],
+      "expected": {
+        "valid": true,
+        "type": "sign",
+        "identifier": "john@triauthdemo.org",
+        "identityDomain": "john._at.triauthdemo.org",
+        "lookupCode": "",
+        "actor": "",
+        "actorIdentityDomain": "",
+        "actorLookupCode": "",
+        "via": "https://example.com/",
+        "ver": 1,
+        "signedAt": 1777454675000,
+        "verifiedAt": 1777454675000,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "deviceName": "desktop",
+        "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+        "keys": [
+          {
+            "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "options": {
+              "type": "es256",
+              "use": "attest,auth,ping,sign,stamp"
+            },
+            "verified": true,
+            "skipped": false
+          }
+        ],
+        "secure": true,
+        "expires": 1777456475000,
+        "signedMetadata": {},
+        "unsignedMetadata": {
+          "n": 1,
+          "m": 100
+        }
+      }
+    },
+    {
+      "name": "unsignedMetadata with a fraction ({\"n\":1.5}) -> valid:false, a JSON number is a whole number",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJuIjoxLjV9;aHoqCMB2lx63szGoJmXt2a--uugBzksChkprYZ60YFNTrTQ7Y-aBHTku6iwb3lC8PPmxWQBscVQtkqku_gvhFg|"
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "unsignedMetadata with the number 1e400 -> valid:false, it is beyond the largest IEEE double and JavaScript reads it as Infinity",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJuIjoxZTQwMH0;wX3Blv07Bov2dUa0IdJxHSFuzHggcGHdnrqGFX4MWC5b3gkhTifVlkTDzoMTjarhlXIIU3LXJn7IE2CXl64oyg|"
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "unsignedMetadata with the bare word NaN ({\"n\":NaN}) -> valid:false, NaN is no JSON value",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJuIjpOYU59;C1EmC0G5w3Bx5nj8otWn3tWyHLE2jBjm8Shd62SNfPA74-8hwoqMw1nW-HR2U6Dheuj4JYibUIomuYpqvSHPfA|"
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "unsignedMetadata with a comment ({\"n\":1/*c*/}) -> valid:false, the JSON grammar has no comments",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJuIjoxLypjKi99;uBawndrUvFSGlRPabeQw3wEs1PoNrSLn1wH2kbZ5EafXswimmpFzfWgAv_EzwPgCTY4VV33ECd2tzOUHF2WBNw|"
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "unsignedMetadata with an unknown string escape ({\"s\":\"\\x\"}) -> valid:false, the JSON grammar knows only its own escapes",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJzIjoiXHgifQ;z5s0OdfWLnIRDUDfC0Al4gX0G4c61LOSN46G0SE3OJGQf7iFdOnb2kFe-Zw7QcWOcMZAdcM_nndUJ-behnecCA|"
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "unsignedMetadata with a member named constructor ({\"constructor\":5}) -> valid:false, __proto__, constructor and prototype are never member names, whatever the value",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJjb25zdHJ1Y3RvciI6NX0;TfkVQevxp4A_VwpvbH5sOP0WP13YseodU6igvpRE_gLp44bkXEieZH6DpQCp7Gdn4jQIGEQdX_3BTUWft8AA_w|"
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "unsignedMetadata with a member named prototype ({\"prototype\":{}}) -> valid:false",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJwcm90b3R5cGUiOnt9fQ;s7stNvc7KTbDfVqfiwltYg2WhHFOx_jAqdXMHWABCrQtXLtCBqfBXBf34gcIr8vKbGcY4BtU9ioWABrM96Lsvg|"
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "unsignedMetadata whose 8th nesting level holds a null verifies, only objects and arrays count as nesting levels",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJhIjp7ImEiOnsiYSI6eyJhIjp7ImEiOnsiYSI6eyJhIjp7ImgiOm51bGx9fX19fX19fQ;PsPsAdO2KjlE7nP94fUSiHPXjuPOt2tudobbNL5WTAb83kNybQHRMI858J7rgfiOnVFgICGkjVyYi1UJ_zLWvQ|"
+      ],
+      "expected": {
+        "valid": true,
+        "type": "sign",
+        "identifier": "john@triauthdemo.org",
+        "identityDomain": "john._at.triauthdemo.org",
+        "lookupCode": "",
+        "actor": "",
+        "actorIdentityDomain": "",
+        "actorLookupCode": "",
+        "via": "https://example.com/",
+        "ver": 1,
+        "signedAt": 1777454675000,
+        "verifiedAt": 1777454675000,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "deviceName": "desktop",
+        "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+        "keys": [
+          {
+            "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "options": {
+              "type": "es256",
+              "use": "attest,auth,ping,sign,stamp"
+            },
+            "verified": true,
+            "skipped": false
+          }
+        ],
+        "secure": true,
+        "expires": 1777456475000,
+        "signedMetadata": {},
+        "unsignedMetadata": {
+          "a": {
+            "a": {
+              "a": {
+                "a": {
+                  "a": {
+                    "a": {
+                      "a": {
+                        "h": null
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "unsignedMetadata with arrays nested 9 levels deep -> valid:false, an array is a nesting level like an object",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJhIjpbW1tbW1tbW11dXV1dXV1dfQ;S9TKTeeUVS8rnY88Nwu9YS9wJpAxQ_v5knIeXBW3hvrDlk0FdE4p94buTbzBfo9eOPKf3IxgrVsjF8SzI8BlaA|"
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "unsignedMetadata with a duplicate name whose last value is a fraction ({\"n\":1,\"n\":1.5}) -> valid:false, a receiver keeps the last value of a duplicate name or rejects the text, never the first value",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;;eyJuIjoxLCJuIjoxLjV9;fu6jTYwVRjopDP9005FRu7uYPl1y3DdbWLs1C2EnSkKWEGHgW_6QDTkez6sggfGbjVchUSl9NWi8u3wPjevS5g|"
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "SECURITY: signedMetadata with an integer above 2^53 ({\"amount\":9007199254740993}) -> valid:false, so that every implementation that accepts signed metadata reads the same numbers",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;eyJhbW91bnQiOjkwMDcxOTkyNTQ3NDA5OTN9;;LctTjJbl6fXfw4JLPf1awErX5j9e5cLSR0TxhYmBE3z-3CLZuEuwoeOG6VO6XRiVPQYzBDYsjYMg2YMSI7EHDg|"
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "signedMetadata with the integer 2^53-1 ({\"amount\":9007199254740991}) verifies and returns the exact value",
+      "call": "verify",
+      "args": [
+        "Please verify this signed statement",
+        "|sign;john@triauthdemo.org;;https://example.com/;v1;1777454675000;eyJhbW91bnQiOjkwMDcxOTkyNTQ3NDA5OTF9;;JGoZlc-b_vnBMJaKLU6AQ69a4jHKMmA8ZHa4xhcuUlMys8PPBCpartL_IyngOA4VTd9PQkcD_LdkYlr4U9UIPA|"
+      ],
+      "expected": {
+        "valid": true,
+        "type": "sign",
+        "identifier": "john@triauthdemo.org",
+        "identityDomain": "john._at.triauthdemo.org",
+        "lookupCode": "",
+        "actor": "",
+        "actorIdentityDomain": "",
+        "actorLookupCode": "",
+        "via": "https://example.com/",
+        "ver": 1,
+        "signedAt": 1777454675000,
+        "verifiedAt": 1777454675000,
+        "publicProfile": {
+          "initials": "JD",
+          "name": "John Doe"
+        },
+        "groups": [],
+        "deviceName": "desktop",
+        "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ",
+        "keys": [
+          {
+            "value": "BHAILL142prn8rQsHm5ZlMPUFeMc6niVXXIM8biVY3HPjmaw4tfUD-YZ5unkRve1S9P70Mmgk7IBzgVgQPDRnk8",
+            "options": {
+              "type": "es256",
+              "use": "attest,auth,ping,sign,stamp"
+            },
+            "verified": true,
+            "skipped": false
+          }
+        ],
+        "secure": true,
+        "expires": 1777456475000,
+        "signedMetadata": {
+          "amount": 9007199254740991
+        },
+        "unsignedMetadata": {}
+      }
+    },
+    {
       "name": "envelope identifier exceeding identifierBytesize (>249) -> valid:false (validateIdentifier 212)",
       "call": "verify",
       "args": [

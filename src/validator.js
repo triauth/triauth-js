@@ -151,9 +151,9 @@ export class Validator {
   /**
    * Validates the optional `ext` property for {@link Triauth.authenticate} — both as supplied in stage 1 and as received back in stage 3.
    *
-   * `ext` must be a plain object whose values are strings, finite numbers, booleans, or plain objects one level deep (no arrays, no deeper nesting).
-   * A string value carries no unpaired surrogate and a number is finite, so that the object round-trips through JSON unchanged:
-   * `Helpers.safeParseJson` rejects the escape of a lone surrogate when the ext comes back in stage 3, and `JSON.stringify` prints a non-finite number as `null`.
+   * `ext` must be a plain object whose values are strings, whole numbers, booleans, or plain objects one level deep (no arrays, no deeper nesting).
+   * A string value carries no unpaired surrogate and a number is a whole number of magnitude at most 2^53 - 1, the rules that
+   * `Helpers.safeParseJson` applies to every JSON value when the ext comes back in stage 3.
    * Keys must additionally be ASCII-only — `Helpers.safeParseJson` rejects non-ASCII property names when the ext round-trips back in stage 3 —
    * and never one of the prototype-poisoning names (`__proto__`, `constructor`, `prototype`)
    *
@@ -168,7 +168,7 @@ export class Validator {
 
     if (
       !ext ||
-      !(typeof ext === 'object' && !Array.isArray(ext) && Object.keys(ext).every((k) => Helpers.isNormalString(k, LIMITS.jsonMaxKeyLength) && !/[^\x20-\x7E]/.test(k) && ['__proto__', 'constructor', 'prototype'].indexOf(k) < 0) && Object.values(ext).every((e) => (typeof e === 'string' && Helpers.isWellFormedString(e)) || (typeof e === 'number' && Number.isFinite(e)) || typeof e === 'boolean' || (depth === 0 && this.validateExt(e, depth + 1).errors.length === 0))) ||
+      !(typeof ext === 'object' && !Array.isArray(ext) && Object.keys(ext).every((k) => Helpers.isNormalString(k, LIMITS.jsonMaxKeyLength) && !/[^\x20-\x7E]/.test(k) && ['__proto__', 'constructor', 'prototype'].indexOf(k) < 0) && Object.values(ext).every((e) => (typeof e === 'string' && Helpers.isWellFormedString(e)) || Number.isSafeInteger(e) || typeof e === 'boolean' || (depth === 0 && this.validateExt(e, depth + 1).errors.length === 0))) ||
       Helpers.byteSize(JSON.stringify(ext)) > LIMITS.extBytesize
     ) {
       errors.push(222);
