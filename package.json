@@ -1,6 +1,6 @@
 {
   "name": "triauth",
-  "version": "1.0.0-beta.3",
+  "version": "1.0.0-beta.4",
   "description": "Authentication for modern web - a client library for the triauth protocol.",
   "keywords": [
     "triauth",
