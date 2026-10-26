@@ -65,8 +65,9 @@ export class IdentityIncludes {
    * @returns {Promise<boolean>} true when the include was successfully added, false when it was ignored (e.g., unrecognized ref or options, or the `LIMITS.maxIncludes` cap was exceeded)
    */
   async add(value, options = {}, metadata = {}) {
-    // Work on a private copy of `options`
-    options = Object.assign({}, options);
+    // Work on a private copy of `options`. A spread copies an own `__proto__` key as data, so the options
+    // schema below judges it like any other unknown option
+    options = {...options};
 
     // Normalize value to downcase
     value = Helpers.asciiLowercase(String(value));   // ASCII-only: a non-ASCII uppercase letter must fail the ref grammar, not fold into it

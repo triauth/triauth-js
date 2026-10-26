@@ -266,7 +266,7 @@
       }
     },
     {
-      "name": "unknown option on the triauth record (color=blue) is retained in authenticationEndpoint.options and selects nothing — unknown endpoint options are non-critical in protocol v1",
+      "name": "unknown option on the triauth record (color=blue) is ignored and absent from authenticationEndpoint.options - a record that spells a future option still configures a verifier that predates it",
       "call": "whois",
       "args": [
         {
@@ -286,7 +286,65 @@
         "authenticationEndpoint": {
           "url": "https://auth.colorful.example/",
           "options": {
-            "color": "blue",
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "user._at.colorful.example"
+      }
+    },
+    {
+      "name": "x- extension on the triauth record (x-color=blue) is kept in authenticationEndpoint.options as published",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "user@colorful.example"
+        }
+      ],
+      "dnsEntries": {
+        "colorful.example": {
+          "TXT": [
+            "triauth auth.colorful.example x-color=blue mode=public"
+          ]
+        }
+      },
+      "expected": {
+        "status": 0,
+        "identifier": "user@colorful.example",
+        "authenticationEndpoint": {
+          "url": "https://auth.colorful.example/",
+          "options": {
+            "x-color": "blue",
+            "mode": "public",
+            "include": "any"
+          },
+          "secure": true
+        },
+        "identityDomain": "user._at.colorful.example"
+      }
+    },
+    {
+      "name": "SECURITY: endpoint options named after JavaScript object members (hasOwnProperty, toString, valueOf, __proto__) are ignored, so a result map never carries a name that shadows a member",
+      "call": "whois",
+      "args": [
+        {
+          "identifier": "user@colorful.example"
+        }
+      ],
+      "dnsEntries": {
+        "colorful.example": {
+          "TXT": [
+            "triauth auth.colorful.example hasOwnProperty=1 toString=x valueOf=y __proto__=evil mode=public"
+          ]
+        }
+      },
+      "expected": {
+        "status": 0,
+        "identifier": "user@colorful.example",
+        "authenticationEndpoint": {
+          "url": "https://auth.colorful.example/",
+          "options": {
             "mode": "public",
             "include": "any"
           },

@@ -19,6 +19,11 @@
 import { Helpers } from './helpers.js';
 import { DEFAULT_MODE, DEFAULT_INCLUDE } from './protocol.js';
 
+// The option keys the `triauth` record defines. The endpoint keeps these and the `x-` extensions and ignores
+// every other option of the record, so a record that spells a future option still configures a verifier that
+// predates it, and no other published name reaches a result.
+const ENDPOINT_OPTIONS = Object.freeze(['mode', 'include']);
+
 /**
  * Holds information about authentication endpoint for a given domain.
  *
@@ -60,7 +65,8 @@ export class AuthenticationEndpoint {
     this.host = null;
 
     /**
-     * The options as read from the `triauth` DNS record, with defaults filed in if missing.
+     * The `mode` and `include` options as read from the `triauth` DNS record, with the defaults filled in when
+     * absent, and its `x-` extension options as published. Every other option of the record is ignored.
      * Empty until resolved.
      * @type {object}
      */
@@ -83,6 +89,26 @@ export class AuthenticationEndpoint {
     this.expires = undefined;
 
     this.resolved = undefined;
+  }
+
+  /**
+   * Keeps the options the `triauth` record defines, `mode` and `include`, and its `x-` extensions, and
+   * leaves every other option of the record out.
+   *
+   * @param options {object} - The options of the record, as parsed.
+   *
+   * @returns {object} the kept options, in a map without a prototype.
+   */
+  static knownOptions(options) {
+    const known = Object.create(null);
+
+    for (const [key, value] of Object.entries(options)) {
+      if (ENDPOINT_OPTIONS.includes(key) || (key[0] === 'x' && key[1] === '-')) {
+        known[key] = value;
+      }
+    }
+
+    return known;
   }
 
   /**
@@ -144,7 +170,7 @@ export class AuthenticationEndpoint {
             }
 
             this.host = entry.value.toLowerCase();
-            this.options = entry.options;
+            this.options = AuthenticationEndpoint.knownOptions(entry.options);
             this.secure = !!entry.dnssec;
             this.expires = Number.isInteger(entry.ttl) ? Date.now() + entry.ttl * 1000 : undefined;
 

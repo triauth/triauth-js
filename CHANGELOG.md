@@ -16,6 +16,7 @@
 - At stage 3, `Triauth.authenticate`, `ping`, `sign`, `stamp` and `attest` reject the stage-1 options (`ext`, `sessionKey`, `message`, `attachments`, `attestations`) with the error `invalid_arguments`.
 - `Triauth.check` reports a `deviceTag` outside the device-tag format as `{valid:false, reason:'revoked'}` without a DNS lookup.
 - The DNS-over-HTTPS resolvers compare the owner name of an answer without regard to ASCII case.
+- Unknown options of the `triauth` record are ignored. `Triauth.whois` reports its `mode`, `include` and `x-` options only.
 
 ## [1.0.0-beta.3] - 2026-10-17
 

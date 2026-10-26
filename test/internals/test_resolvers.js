@@ -101,7 +101,7 @@ export default function() { describe('DNS Resolvers', () => {
       assert.equal(Object.keys(records[5].options).length, 0);
     });
 
-    it('discards reserved option keys while keeping the record and its remaining options', async () => {
+    it('keeps a prototype-poisoning name as an ordinary key of a map without a prototype, for the record family to judge', async () => {
       const dnsResolver = new DnsResolverStub(
         {'config.test': {'TXT':
               [
@@ -120,21 +120,18 @@ export default function() { describe('DNS Resolvers', () => {
       for (const record of records) {
         assert.equal(record.value, 'John');
 
-        // The bag inherits nothing an attacker-controlled key could reach or shadow;
-        // direct reads double as tripwires (on an ordinary object, ['__proto__'] and
-        // ['constructor'] resolve through the prototype chain to non-undefined values).
+        // The map inherits nothing, so the name is a data key, never a setter or a shadowed member
         assert.equal(Object.getPrototypeOf(record.options), null);
-        assert.equal(record.options['__proto__'], undefined);
-        assert.equal(record.options['constructor'], undefined);
-        assert.equal(record.options['prototype'], undefined);
       }
 
-      assert.equal(Object.keys(records[0].options).length, 0);
-      assert.equal(Object.keys(records[1].options).length, 0);
-      assert.equal(Object.keys(records[2].options).length, 0);
+      assert.deepStrictEqual(Object.entries(records[0].options), [['__proto__', 'evil']]);
+      assert.deepStrictEqual(Object.entries(records[1].options), [['constructor', 'evil']]);
+      assert.deepStrictEqual(Object.entries(records[2].options), [['prototype', 'evil']]);
+      assert.deepStrictEqual(Object.entries(records[3].options), [['__proto__', 'evil'], ['x-a', '1']]);
 
-      assert.equal(Object.keys(records[3].options).length, 1);
-      assert.equal(records[3].options['x-a'], '1');
+      // A spread copy keeps its own prototype: the key travels as data
+      assert.equal(Object.getPrototypeOf({...records[0].options}), Object.prototype);
+      assert.equal(Object.hasOwn({...records[0].options}, '__proto__'), true);
     });
 
     it('keeps the value verbatim between the key and the option run', async () => {

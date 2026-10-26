@@ -62,8 +62,9 @@ export class IdentityKeys {
    * @returns {Promise<boolean>} true when key was successfully added, false if there are problems with the key structure (e.g., invalid group index)
    */
   async add(keyData, options = {}, keyMetadata = {}) {
-    // Work on a private copy of `options`
-    options = Object.assign({}, options);
+    // Work on a private copy of `options`. A spread copies an own `__proto__` key as data, so the options
+    // schema below judges it like any other unknown option
+    options = {...options};
 
     const matchData = keyData.match(/^(?<deviceName>[a-z0-9-]{1,20})\[(?<keyIdx>[0-9]{1,6})\/(?<keyCount>[0-9]{1,6})\]:(?<keyVal>\S+)$/);
 

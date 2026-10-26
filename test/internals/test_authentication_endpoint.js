@@ -43,6 +43,16 @@ export default function() { describe('Triauth.AuthenticationEndpoint', () => {
     assert.deepStrictEqual({...ae.options}, {include: 'local', mode: 'private'});
   });
 
+  it('keeps mode, include and the x- extensions, and ignores every other option of the record', async () => {
+    const stub = new DnsResolverStub({
+      'example.com': {TXT: ['triauth auth.example.com mode=public color=blue x-color=blue hasOwnProperty=1 toString=x __proto__=evil']}
+    });
+    const ae = new Triauth.AuthenticationEndpoint('example.com', {resolver: stub});
+    assert.strictEqual(await ae.resolve(), true);
+    assert.strictEqual(Object.getPrototypeOf(ae.options), null);
+    assert.deepStrictEqual({...ae.options}, {mode: 'public', include: 'any', 'x-color': 'blue'});
+  });
+
   it('resolves under any mode value and reports it verbatim - the vocabulary is enforced at identity-domain derivation, not here', async () => {
     for (const mode of ['banana', 'Public', 'PRIVATE', 'public,private']) {
       const stub = new DnsResolverStub({

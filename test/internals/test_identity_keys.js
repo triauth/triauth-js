@@ -189,6 +189,18 @@ export default function() { describe('Triauth.IdentityKeys', () => {
       assert.equal(ik.count, 0);
     });
 
+    it('judges a prototype-poisoning option name like any other unknown critical option and taints the whole group', async () => {
+      for (const name of ['__proto__', 'constructor', 'prototype', 'toString']) {
+        const ik = new Triauth.IdentityKeys();
+        const options = Object.create(null);
+        options[name] = 'evil';
+
+        assert.equal(await ik.add(`device[1/1]:${keyVal}`, options), false, name);
+        assert.equal(ik.keyGroups['device'].tainted, true, name);
+        assert.equal(ik.count, 0, name);
+      }
+    });
+
     it('skips over unknown x- experimental options for future compatibility', async () => {
       const ik = new Triauth.IdentityKeys();
 

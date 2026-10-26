@@ -131,10 +131,9 @@ export class Base {
               return;
             }
 
-            // Protect against JS specific prototype poisoning attacks
-            if (optionKey !== '__proto__' && optionKey !== 'constructor' && optionKey !== 'prototype') {
-              entry.options[optionKey] = optionValue;
-            }
+            // The map has no prototype, so a name such as `__proto__` is an ordinary key here, and the rules of
+            // each record family judge it like any other unknown option
+            entry.options[optionKey] = optionValue;
           }
 
           // The text before the option run is the value. An options-only record has none and is ignored below.
