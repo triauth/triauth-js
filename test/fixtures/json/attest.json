@@ -1700,6 +1700,46 @@
       }
     },
     {
+      "name": "Stage 1 SECURITY requireSecure: endpoint record served without DNSSEC returns dnssec_required - the policy gates the redirect at issue, so a user is never sent to an endpoint read from a non-validated answer",
+      "call": "attest",
+      "args": [
+        {
+          "identifier": "john@triauthdemo.org",
+          "callbackUrl": "https://example.com/cb",
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8",
+          "attestations": {
+            "not-a-robot": {
+              "label": "I am not a robot",
+              "providers": [
+                "https://attest.triauthdemo.org/not-a-robot"
+              ]
+            }
+          }
+        },
+        {
+          "requireSecure": true
+        }
+      ],
+      "random": "00112233445566778899aabbccddeeff00112233",
+      "dnsEntries": {
+        "triauthdemo.org": {
+          "TXT": [
+            {
+              "value": "triauth auth.triauthdemo.org mode=public",
+              "ttl": 1800,
+              "dnssec": false
+            }
+          ]
+        }
+      },
+      "expected": {
+        "error": {
+          "code": "dnssec_required",
+          "message": "Your domain does not support DNSSEC, which is required to continue."
+        }
+      }
+    },
+    {
       "name": "Stage 1 endpoint with an unknown mode still builds a challenge - an unresolvable mode surfaces only once a response is verified",
       "call": "attest",
       "args": [
