@@ -1,6 +1,6 @@
 {
   "title": "validate",
-  "description": "Format validation behavior of Triauth.validate({identifier?, deviceName?}). validate is synchronous and pure - it touches no DNS, clock, or randomness - so dnsEntries/currentTime are present only for schema parity and are ignored. These cases alone exercise every reachable branch of validate() (validation.js. NOTE: the null/non-object/array early-return inside hasOnlyKnownProperties is unreachable from validate (the code invalid_arguments guard rejects those inputs first), and the 'whitelisted-key-with-undefined-value' rejection inside it is not expressible in JSON (JSON has no undefined); both are therefore intentionally uncovered by this JSON suite.",
+  "description": "Format validation behavior of Triauth.validate({identifier?, deviceName?, groupName?, lookupCode?, deviceTag?}). validate is synchronous and pure - it touches no DNS, clock, or randomness - so dnsEntries/currentTime are present only for schema parity and are ignored. These cases alone exercise every reachable branch of validate() (validation.js. NOTE: the null/non-object/array early-return inside hasOnlyKnownProperties is unreachable from validate (the code invalid_arguments guard rejects those inputs first), and the 'whitelisted-key-with-undefined-value' rejection inside it is not expressible in JSON (JSON has no undefined); both are therefore intentionally uncovered by this JSON suite.",
   "dnsEntries": {},
   "currentTime": 1777454675000,
   "tests": [
@@ -71,6 +71,33 @@
       "name": "ARG GUARD invalid_arguments: an otherwise valid identifier plus a stray key is still rejected",
       "call": "validate",
       "args": [{ "identifier": "john@example.com", "extra": 1 }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_arguments", "message": "Unrecognized function argument" }]
+      }
+    },
+    {
+      "name": "ARG GUARD invalid_arguments: a wrong-case key (groupname) is unrecognized - key names are case-sensitive",
+      "call": "validate",
+      "args": [{ "groupname": "admins" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_arguments", "message": "Unrecognized function argument" }]
+      }
+    },
+    {
+      "name": "ARG GUARD invalid_arguments: a wrong-case key (lookupcode) is unrecognized - key names are case-sensitive",
+      "call": "validate",
+      "args": [{ "lookupcode": "K7QJ3FB9M2WZX0C4" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_arguments", "message": "Unrecognized function argument" }]
+      }
+    },
+    {
+      "name": "ARG GUARD invalid_arguments: a wrong-case key (devicetag) is unrecognized - key names are case-sensitive",
+      "call": "validate",
+      "args": [{ "devicetag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ" }],
       "expected": {
         "valid": false,
         "errors": [{ "code": "invalid_arguments", "message": "Unrecognized function argument" }]
@@ -362,6 +389,489 @@
     },
 
     {
+      "name": "GROUPNAME invalid_group_name/invalid: not a string (number) -> validateGroupName typeof guard (early return)",
+      "call": "validate",
+      "args": [{ "groupName": 123 }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_group_name", "reason": "invalid", "message": "Group name is invalid" }]
+      }
+    },
+    {
+      "name": "GROUPNAME invalid_group_name/invalid: null value reaches the validator (null !== undefined passes the invalid_arguments guard) and fails the typeof check",
+      "call": "validate",
+      "args": [{ "groupName": null }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_group_name", "reason": "invalid", "message": "Group name is invalid" }]
+      }
+    },
+    {
+      "name": "GROUPNAME invalid_group_name/empty(+invalid_characters): empty string is empty AND fails the [a-z0-9-]+ class",
+      "call": "validate",
+      "args": [{ "groupName": "" }],
+      "expected": {
+        "valid": false,
+        "errors": [
+          { "code": "invalid_group_name", "reason": "empty", "message": "Group name must not be empty" },
+          { "code": "invalid_group_name", "reason": "invalid_characters", "message": "Group name must include only letters, numbers, and hyphens" }
+        ]
+      }
+    },
+    {
+      "name": "GROUPNAME invalid_group_name/too_long: too long (21 bytes > 20), isolated from the other checks",
+      "call": "validate",
+      "args": [{ "groupName": "engineering-platforms" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_group_name", "reason": "too_long", "message": "Group name is too long" }]
+      }
+    },
+    {
+      "name": "GROUPNAME invalid_group_name/too_long: 11 characters but 22 UTF-8 bytes (U+00E9 x 11) - the cap counts bytes, not characters",
+      "call": "validate",
+      "args": [{ "groupName": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_group_name", "reason": "too_long", "message": "Group name is too long" }]
+      }
+    },
+    {
+      "name": "GROUPNAME valid: exactly 20 bytes (the cap) passes - strict-greater check, boundary companion of the invalid_group_name/too_long case",
+      "call": "validate",
+      "args": [{ "groupName": "engineering-platform" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "GROUPNAME invalid_group_name/invalid(+invalid_characters): contains whitespace (also breaks the [a-z0-9-]+ class)",
+      "call": "validate",
+      "args": [{ "groupName": "dev ops" }],
+      "expected": {
+        "valid": false,
+        "errors": [
+          { "code": "invalid_group_name", "reason": "invalid", "message": "Group name is invalid" },
+          { "code": "invalid_group_name", "reason": "invalid_characters", "message": "Group name must include only letters, numbers, and hyphens" }
+        ]
+      }
+    },
+    {
+      "name": "GROUPNAME invalid_group_name/not_lowercase(+invalid_characters): not lowercase (uppercase also breaks the [a-z0-9-]+ class)",
+      "call": "validate",
+      "args": [{ "groupName": "Admins" }],
+      "expected": {
+        "valid": false,
+        "errors": [
+          { "code": "invalid_group_name", "reason": "not_lowercase", "message": "Group name must be provided in lowercase" },
+          { "code": "invalid_group_name", "reason": "invalid_characters", "message": "Group name must include only letters, numbers, and hyphens" }
+        ]
+      }
+    },
+    {
+      "name": "GROUPNAME invalid_group_name/invalid_characters: the fully-qualified form found in results (admins@example.com) is not a bare group name",
+      "call": "validate",
+      "args": [{ "groupName": "admins@example.com" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_group_name", "reason": "invalid_characters", "message": "Group name must include only letters, numbers, and hyphens" }]
+      }
+    },
+    {
+      "name": "GROUPNAME invalid_group_name/invalid_characters: a comma is not a group-name character - one groupName is one name, not a groups record value",
+      "call": "validate",
+      "args": [{ "groupName": "admins,dev" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_group_name", "reason": "invalid_characters", "message": "Group name must include only letters, numbers, and hyphens" }]
+      }
+    },
+    {
+      "name": "GROUPNAME valid: simple lowercase name",
+      "call": "validate",
+      "args": [{ "groupName": "admins" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "GROUPNAME valid: hyphens and digits within the length limit",
+      "call": "validate",
+      "args": [{ "groupName": "dev-ops-2" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "GROUPNAME invalid_group_name/invalid_characters: leading hyphen (must start on an alphanumeric)",
+      "call": "validate",
+      "args": [{ "groupName": "-admins" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_group_name", "reason": "invalid_characters", "message": "Group name must include only letters, numbers, and hyphens" }]
+      }
+    },
+    {
+      "name": "GROUPNAME invalid_group_name/invalid_characters: trailing hyphen (must end on an alphanumeric)",
+      "call": "validate",
+      "args": [{ "groupName": "admins-" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_group_name", "reason": "invalid_characters", "message": "Group name must include only letters, numbers, and hyphens" }]
+      }
+    },
+    {
+      "name": "GROUPNAME invalid_group_name/invalid_characters: consecutive hyphens (also rejects the 'xn--' Punycode marker)",
+      "call": "validate",
+      "args": [{ "groupName": "dev--ops" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_group_name", "reason": "invalid_characters", "message": "Group name must include only letters, numbers, and hyphens" }]
+      }
+    },
+
+    {
+      "name": "LOOKUPCODE valid: 16 uppercase letters and digits",
+      "call": "validate",
+      "args": [{ "lookupCode": "K7QJ3FB9M2WZX0C4" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "LOOKUPCODE valid: digits only - a lookup code need not contain a letter",
+      "call": "validate",
+      "args": [{ "lookupCode": "0123456789012345" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "LOOKUPCODE valid: letters only - a lookup code need not contain a digit",
+      "call": "validate",
+      "args": [{ "lookupCode": "ABCDEFGHIJKLMNOP" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "LOOKUPCODE valid: the range ends A, Z, 0 and 9 are all lookup-code characters",
+      "call": "validate",
+      "args": [{ "lookupCode": "AZ09AZ09AZ09AZ09" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "LOOKUPCODE invalid_lookup_code/invalid: not a string - a 16-digit number is never coerced to a string",
+      "call": "validate",
+      "args": [{ "lookupCode": 1234567890123456 }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_lookup_code", "reason": "invalid", "message": "Invalid lookup code" }]
+      }
+    },
+    {
+      "name": "LOOKUPCODE invalid_lookup_code/invalid: null value reaches the validator (null !== undefined passes the invalid_arguments guard) and fails the string check",
+      "call": "validate",
+      "args": [{ "lookupCode": null }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_lookup_code", "reason": "invalid", "message": "Invalid lookup code" }]
+      }
+    },
+    {
+      "name": "LOOKUPCODE invalid_lookup_code/invalid: empty string",
+      "call": "validate",
+      "args": [{ "lookupCode": "" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_lookup_code", "reason": "invalid", "message": "Invalid lookup code" }]
+      }
+    },
+    {
+      "name": "LOOKUPCODE invalid_lookup_code/invalid: 15 characters, one short of the fixed length",
+      "call": "validate",
+      "args": [{ "lookupCode": "K7QJ3FB9M2WZX0C" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_lookup_code", "reason": "invalid", "message": "Invalid lookup code" }]
+      }
+    },
+    {
+      "name": "LOOKUPCODE invalid_lookup_code/invalid: 17 characters, one over the fixed length",
+      "call": "validate",
+      "args": [{ "lookupCode": "K7QJ3FB9M2WZX0C4A" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_lookup_code", "reason": "invalid", "message": "Invalid lookup code" }]
+      }
+    },
+    {
+      "name": "LOOKUPCODE invalid_lookup_code/invalid: lowercase - rejected, never uppercased on the caller's behalf",
+      "call": "validate",
+      "args": [{ "lookupCode": "k7qj3fb9m2wzx0c4" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_lookup_code", "reason": "invalid", "message": "Invalid lookup code" }]
+      }
+    },
+    {
+      "name": "LOOKUPCODE invalid_lookup_code/invalid: one lowercase letter among uppercase - every character is checked",
+      "call": "validate",
+      "args": [{ "lookupCode": "K7QJ3FB9M2WZX0c4" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_lookup_code", "reason": "invalid", "message": "Invalid lookup code" }]
+      }
+    },
+    {
+      "name": "LOOKUPCODE invalid_lookup_code/invalid: a trailing newline after 16 valid characters - the end anchor matches only at the end of the string (a Ruby or Python $ port hazard)",
+      "call": "validate",
+      "args": [{ "lookupCode": "K7QJ3FB9M2WZX0C4\n" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_lookup_code", "reason": "invalid", "message": "Invalid lookup code" }]
+      }
+    },
+    {
+      "name": "LOOKUPCODE invalid_lookup_code/invalid: a valid code on a second line - the start anchor matches only at the start of the string (a Ruby ^ port hazard)",
+      "call": "validate",
+      "args": [{ "lookupCode": "X\nK7QJ3FB9M2WZX0C4" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_lookup_code", "reason": "invalid", "message": "Invalid lookup code" }]
+      }
+    },
+    {
+      "name": "LOOKUPCODE invalid_lookup_code/invalid: a leading space - whitespace is never trimmed",
+      "call": "validate",
+      "args": [{ "lookupCode": " K7QJ3FB9M2WZX0C4" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_lookup_code", "reason": "invalid", "message": "Invalid lookup code" }]
+      }
+    },
+    {
+      "name": "LOOKUPCODE invalid_lookup_code/invalid: a hyphen at the fixed length (16 characters) - the character class alone rejects it",
+      "call": "validate",
+      "args": [{ "lookupCode": "K7QJ3FB9-M2WZX0C" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_lookup_code", "reason": "invalid", "message": "Invalid lookup code" }]
+      }
+    },
+    {
+      "name": "LOOKUPCODE invalid_lookup_code/invalid: the grouped display spelling (K7QJ-3FB9-M2WZ-X0C4) is rejected, never stripped of its hyphens",
+      "call": "validate",
+      "args": [{ "lookupCode": "K7QJ-3FB9-M2WZ-X0C4" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_lookup_code", "reason": "invalid", "message": "Invalid lookup code" }]
+      }
+    },
+    {
+      "name": "LOOKUPCODE invalid_lookup_code/invalid: a non-ASCII uppercase letter (U+00C4) at the fixed length - the letters are ASCII A-Z only",
+      "call": "validate",
+      "args": [{ "lookupCode": "K7QJ3FB9M2WZX0C\u00c4" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_lookup_code", "reason": "invalid", "message": "Invalid lookup code" }]
+      }
+    },
+    {
+      "name": "LOOKUPCODE invalid_lookup_code/invalid: a fullwidth digit (U+FF14) at the fixed length - the digits are ASCII 0-9 only (a Unicode-aware digit class port hazard)",
+      "call": "validate",
+      "args": [{ "lookupCode": "K7QJ3FB9M2WZX0C\uff14" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_lookup_code", "reason": "invalid", "message": "Invalid lookup code" }]
+      }
+    },
+
+    {
+      "name": "DEVICETAG valid: a plain device tag (a 43-character base64url digest)",
+      "call": "validate",
+      "args": [{ "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "DEVICETAG valid: a plain device tag with a lookup code suffix (mode=private)",
+      "call": "validate",
+      "args": [{ "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ~K7QJ3FB9M2WZX0C4" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "DEVICETAG valid: a composite device tag (grantTag:actor:actorDeviceTag) from a delegated sign-in, with - and _ from the base64url alphabet",
+      "call": "validate",
+      "args": [{ "deviceTag": "E8DWO4URKwSU-AsdaU5jASItOTxl5cEb_oXihAWV_9c:jane@triauthdemo.org:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "DEVICETAG valid: a composite device tag whose two tags each carry their own lookup code",
+      "call": "validate",
+      "args": [{ "deviceTag": "E8DWO4URKwSU-AsdaU5jASItOTxl5cEb_oXihAWV_9c~K7QJ3FB9M2WZX0C4:jane@triauthdemo.org:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk~P2M8XCV4KQ0RZJ5T" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "DEVICETAG invalid_device_tag/invalid: not a string (number)",
+      "call": "validate",
+      "args": [{ "deviceTag": 123 }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }]
+      }
+    },
+    {
+      "name": "DEVICETAG invalid_device_tag/invalid: null value reaches the validator (null !== undefined passes the invalid_arguments guard) and fails the string check",
+      "call": "validate",
+      "args": [{ "deviceTag": null }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }]
+      }
+    },
+    {
+      "name": "DEVICETAG invalid_device_tag/invalid: empty string",
+      "call": "validate",
+      "args": [{ "deviceTag": "" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }]
+      }
+    },
+    {
+      "name": "DEVICETAG invalid_device_tag/invalid: 42 characters, one short of a digest",
+      "call": "validate",
+      "args": [{ "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bK" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }]
+      }
+    },
+    {
+      "name": "DEVICETAG invalid_device_tag/invalid: 44 characters, one over a digest",
+      "call": "validate",
+      "args": [{ "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQA" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }]
+      }
+    },
+    {
+      "name": "DEVICETAG invalid_device_tag/invalid: the standard-base64 character + at the fixed length - the alphabet is base64url",
+      "call": "validate",
+      "args": [{ "deviceTag": "E8DWO4URKwSU+AsdaU5jASItOTxl5cEb_oXihAWV_9c" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }]
+      }
+    },
+    {
+      "name": "DEVICETAG invalid_device_tag/invalid: a padding character = at the fixed length - base64url digests carry no padding",
+      "call": "validate",
+      "args": [{ "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bK=" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }]
+      }
+    },
+    {
+      "name": "DEVICETAG invalid_device_tag/invalid: nonzero unused bits in the last character (R in place of Q) - no encoder emits this spelling of a digest",
+      "call": "validate",
+      "args": [{ "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKR" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }]
+      }
+    },
+    {
+      "name": "DEVICETAG invalid_device_tag/invalid: a ~ with no lookup code after it",
+      "call": "validate",
+      "args": [{ "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ~" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }]
+      }
+    },
+    {
+      "name": "DEVICETAG invalid_device_tag/invalid: a lowercase lookup code suffix",
+      "call": "validate",
+      "args": [{ "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ~k7qj3fb9m2wzx0c4" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }]
+      }
+    },
+    {
+      "name": "DEVICETAG invalid_device_tag/invalid: two lookup code suffixes on one tag",
+      "call": "validate",
+      "args": [{ "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ~K7QJ3FB9M2WZX0C4~K7QJ3FB9M2WZX0C4" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }]
+      }
+    },
+    {
+      "name": "DEVICETAG invalid_device_tag/invalid: a trailing newline after a valid tag - the end anchor matches only at the end of the string (a Ruby or Python $ port hazard)",
+      "call": "validate",
+      "args": [{ "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ\n" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }]
+      }
+    },
+    {
+      "name": "DEVICETAG invalid_device_tag/invalid: two colon-separated parts are neither the plain nor the composite form",
+      "call": "validate",
+      "args": [{ "deviceTag": "E8DWO4URKwSU-AsdaU5jASItOTxl5cEb_oXihAWV_9c:jane@triauthdemo.org" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }]
+      }
+    },
+    {
+      "name": "DEVICETAG invalid_device_tag/invalid: four colon-separated parts are neither the plain nor the composite form",
+      "call": "validate",
+      "args": [{ "deviceTag": "E8DWO4URKwSU-AsdaU5jASItOTxl5cEb_oXihAWV_9c:jane@triauthdemo.org:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }]
+      }
+    },
+    {
+      "name": "DEVICETAG invalid_device_tag/invalid: a composite with an empty grant tag",
+      "call": "validate",
+      "args": [{ "deviceTag": ":jane@triauthdemo.org:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }]
+      }
+    },
+    {
+      "name": "DEVICETAG invalid_device_tag/invalid: a composite with an empty actor device tag",
+      "call": "validate",
+      "args": [{ "deviceTag": "E8DWO4URKwSU-AsdaU5jASItOTxl5cEb_oXihAWV_9c:jane@triauthdemo.org:" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }]
+      }
+    },
+    {
+      "name": "DEVICETAG invalid_device_tag/invalid: a composite whose actor is not a canonical identifier (uppercase)",
+      "call": "validate",
+      "args": [{ "deviceTag": "E8DWO4URKwSU-AsdaU5jASItOTxl5cEb_oXihAWV_9c:Jane@triauthdemo.org:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }]
+      }
+    },
+    {
+      "name": "DEVICETAG invalid_device_tag/invalid: a lookup code suffix on the actor identifier - ~ is outside the identifier grammar",
+      "call": "validate",
+      "args": [{ "deviceTag": "E8DWO4URKwSU-AsdaU5jASItOTxl5cEb_oXihAWV_9c:jane@triauthdemo.org~P2M8XCV4KQ0RZJ5T:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }]
+      }
+    },
+    {
+      "name": "DEVICETAG invalid_device_tag/invalid: an identifier passed as the device tag",
+      "call": "validate",
+      "args": [{ "deviceTag": "john@triauthdemo.org" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }]
+      }
+    },
+
+    {
       "name": "COMBINED: both keys present and valid -> both if-blocks taken, neither concatenates",
       "call": "validate",
       "args": [{ "identifier": "john@example.com", "deviceName": "laptop" }],
@@ -394,6 +904,64 @@
         "errors": [
           { "code": "invalid_identifier", "reason": "invalid_format", "message": "Identifier must include one @ sign" },
           { "code": "invalid_device_name", "reason": "invalid_characters", "message": "Device name must include only letters, numbers, and hyphens" }
+        ]
+      }
+    },
+    {
+      "name": "COMBINED: every key present and valid -> every if-block taken, none concatenates",
+      "call": "validate",
+      "args": [{ "identifier": "john@example.com", "deviceName": "laptop", "groupName": "admins", "lookupCode": "K7QJ3FB9M2WZX0C4", "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ~K7QJ3FB9M2WZX0C4" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "COMBINED: identifier and deviceName valid + groupName invalid -> only groupName concatenates",
+      "call": "validate",
+      "args": [{ "identifier": "john@example.com", "deviceName": "laptop", "groupName": "admins@example.com" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_group_name", "reason": "invalid_characters", "message": "Group name must include only letters, numbers, and hyphens" }]
+      }
+    },
+    {
+      "name": "COMBINED: identifier and deviceTag valid (the check input pair) -> valid:true",
+      "call": "validate",
+      "args": [{ "identifier": "john@triauthdemo.org", "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "COMBINED: identifier valid + lookupCode invalid (the whois input pair) -> only lookupCode concatenates",
+      "call": "validate",
+      "args": [{ "identifier": "john@example.com", "lookupCode": "k7qj3fb9m2wzx0c4" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_lookup_code", "reason": "invalid", "message": "Invalid lookup code" }]
+      }
+    },
+    {
+      "name": "COMBINED: the same invalid value under deviceName and groupName reports under each key's own code (shared grammar, separate codes)",
+      "call": "validate",
+      "args": [{ "deviceName": "dev.ice", "groupName": "dev.ice" }],
+      "expected": {
+        "valid": false,
+        "errors": [
+          { "code": "invalid_device_name", "reason": "invalid_characters", "message": "Device name must include only letters, numbers, and hyphens" },
+          { "code": "invalid_group_name", "reason": "invalid_characters", "message": "Group name must include only letters, numbers, and hyphens" }
+        ]
+      }
+    },
+    {
+      "name": "COMBINED: every key invalid -> errors accumulate in identifier, deviceName, groupName, lookupCode, deviceTag order regardless of argument key order",
+      "call": "validate",
+      "args": [{ "deviceTag": "3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ~", "lookupCode": "K7QJ3FB9M2WZX0C", "groupName": "Admins", "deviceName": "dev.ice", "identifier": "john" }],
+      "expected": {
+        "valid": false,
+        "errors": [
+          { "code": "invalid_identifier", "reason": "invalid_format", "message": "Identifier must include one @ sign" },
+          { "code": "invalid_device_name", "reason": "invalid_characters", "message": "Device name must include only letters, numbers, and hyphens" },
+          { "code": "invalid_group_name", "reason": "not_lowercase", "message": "Group name must be provided in lowercase" },
+          { "code": "invalid_group_name", "reason": "invalid_characters", "message": "Group name must include only letters, numbers, and hyphens" },
+          { "code": "invalid_lookup_code", "reason": "invalid", "message": "Invalid lookup code" },
+          { "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }
         ]
       }
     },

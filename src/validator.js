@@ -53,12 +53,21 @@ export class Validator {
     invalid_message: {invalid: 'Invalid message'},
     invalid_attachments: {invalid: 'Invalid attachments'},
     invalid_attestations: {invalid: 'Invalid attestations'},
+    invalid_lookup_code: {invalid: 'Invalid lookup code'},
+    invalid_device_tag: {invalid: 'Invalid device tag'},
     invalid_device_name: {
       invalid: 'Device name is invalid',
       empty: 'Device name must not be empty',
       too_long: 'Device name is too long',
       not_lowercase: 'Device name must be provided in lowercase',
       invalid_characters: 'Device name must include only letters, numbers, and hyphens'
+    },
+    invalid_group_name: {
+      invalid: 'Group name is invalid',
+      empty: 'Group name must not be empty',
+      too_long: 'Group name is too long',
+      not_lowercase: 'Group name must be provided in lowercase',
+      invalid_characters: 'Group name must include only letters, numbers, and hyphens'
     }
   };
 
@@ -460,35 +469,130 @@ export class Validator {
    * @returns {{valid: boolean, errors: Array<{code: string, reason: string, message: string}>}}
    */
   static validateDeviceName(deviceName) {
+    return this.#expandResult('invalid_device_name', this.#nameErrors(deviceName));
+  }
+
+  /**
+   * Validates the provided group name's format, and returns human-friendly error messages if problems are found.
+   *
+   * Group names follow the device-name grammar: lowercase letters, numbers, and single hyphens between alphanumerics
+   * (no leading, trailing, or consecutive hyphens), within the allowed byte size. The name is the bare name as published
+   * in a `groups` record (e.g., `admins`), not the fully-qualified form found in results (e.g., `admins@example.com`).
+   *
+   * @param groupName {String} - Group name that should be validated.
+   *
+   * @returns {{valid: boolean, errors: Array<{code: string, reason: string, message: string}>}}
+   */
+  static validateGroupName(groupName) {
+    return this.#expandResult('invalid_group_name', this.#nameErrors(groupName));
+  }
+
+  /**
+   * Validates the provided lookup code's format.
+   *
+   * A lookup code is exactly 16 uppercase letters and digits (e.g., `K7QJ3FB9M2WZX0C4`). It addresses the records
+   * of an identity under a `mode=private` domain.
+   *
+   * @param lookupCode {String} - Lookup code that should be validated.
+   *
+   * @returns {{valid: boolean, errors: Array<{code: string, reason: string, message: string}>}}
+   */
+  static validateLookupCode(lookupCode) {
     const reasons = [];
 
-    if (typeof deviceName !== 'string') {
-      return this.#expandResult('invalid_device_name', ['invalid']);
-    }
-
-    if (deviceName.length <= 0) {
-      reasons.push('empty');
-    }
-
-    if (deviceName.length > LIMITS.deviceNameBytesize || Helpers.byteSize(deviceName) > LIMITS.deviceNameBytesize) {
-      return this.#expandResult('invalid_device_name', ['too_long']);
-    }
-
-    // deviceName must not contain any whitespace characters and/or NULL
-    if (deviceName.match(/[\s\0]/g)) {
+    if (!Helpers.isLookupCode(lookupCode)) {
       reasons.push('invalid');
     }
 
-    if (deviceName !== deviceName.toLowerCase()) {
+    return this.#expandResult('invalid_lookup_code', reasons);
+  }
+
+  /**
+   * Validates the provided device tag's format.
+   *
+   * A device tag is the `deviceTag` of a result: a 43-character base64url digest (e.g., `3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ`),
+   * suffixed with `~` and a lookup code under a `mode=private` domain. After a delegated sign-in it is
+   * `<grantTag>:<actorIdentifier>:<actorDeviceTag>`, and each of its two tags may carry such a suffix.
+   *
+   * @param deviceTag {String} - Device tag that should be validated.
+   *
+   * @returns {{valid: boolean, errors: Array<{code: string, reason: string, message: string}>}}
+   */
+  static validateDeviceTag(deviceTag) {
+    const reasons = [];
+    const parts = typeof deviceTag === 'string' ? deviceTag.split(':') : [];
+
+    if (
+      !(parts.length === 1 && this.#isReportedTag(parts[0])) &&
+      !(parts.length === 3 && this.#isReportedTag(parts[0]) && this.validateIdentifier(parts[1]).valid && this.#isReportedTag(parts[2]))
+    ) {
+      reasons.push('invalid');
+    }
+
+    return this.#expandResult('invalid_device_tag', reasons);
+  }
+
+  /**
+   * Checks one tag component of a device tag: a 43-character base64url digest, optionally suffixed with `~` and a lookup code.
+   *
+   * @param component {string} - Tag component that should be checked.
+   *
+   * @returns {boolean} true when the component is a well-formed tag
+   */
+  static #isReportedTag(component) {
+    const [tag, lookupCode, ...rest] = component.split('~');
+
+    if (rest.length > 0 || tag.length !== 43 || (lookupCode !== undefined && !Helpers.isLookupCode(lookupCode))) {
+      return false;
+    }
+
+    // The canonical base64url of a 32-byte digest has no data in the unused bits of its last character
+    try {
+      Helpers.base64UrlToUint8(tag);
+    } catch {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Checks a name against the device-name grammar, shared by device names and group names.
+   *
+   * @param name {*} - Name that should be validated.
+   *
+   * @returns {Array<string>} The reasons found, empty when the name is valid.
+   */
+  static #nameErrors(name) {
+    const reasons = [];
+
+    if (typeof name !== 'string') {
+      return ['invalid'];
+    }
+
+    if (name.length <= 0) {
+      reasons.push('empty');
+    }
+
+    if (name.length > LIMITS.deviceNameBytesize || Helpers.byteSize(name) > LIMITS.deviceNameBytesize) {
+      return ['too_long'];
+    }
+
+    // The name must not contain any whitespace characters and/or NULL
+    if (name.match(/[\s\0]/g)) {
+      reasons.push('invalid');
+    }
+
+    if (name !== name.toLowerCase()) {
       reasons.push('not_lowercase');
     }
 
     // Lowercase alphanumerics joined by single hyphens: the name must start and end on an alphanumeric
     // and carry no consecutive hyphens.
-    if (!deviceName.match(/^[a-z0-9]+(-[a-z0-9]+)*$/)) {
+    if (!name.match(/^[a-z0-9]+(-[a-z0-9]+)*$/)) {
       reasons.push('invalid_characters');
     }
 
-    return this.#expandResult('invalid_device_name', reasons);
+    return reasons;
   }
 }

@@ -4011,7 +4011,7 @@
       }
     },
     {
-      "name": "API: a lowercase lookup code (k7qj3fb9m2wzx0c4) fails the lookup-code grammar and is rejected with error invalid_arguments before any DNS lookup (the endpoint answer is a SERVFAIL that would surface as dns_unavailable) - a caller-supplied code is never repaired, no case folding",
+      "name": "API: a lowercase lookup code (k7qj3fb9m2wzx0c4) fails the lookup-code grammar and is rejected with error invalid_lookup_code before any DNS lookup (the endpoint answer is a SERVFAIL that would surface as dns_unavailable) - a caller-supplied code is never repaired, no case folding",
       "call": "whois",
       "args": [
         {
@@ -4026,13 +4026,14 @@
       },
       "expected": {
         "error": {
-          "code": "invalid_arguments",
-          "message": "Invalid or missing function arguments"
+          "code": "invalid_lookup_code",
+          "reason": "invalid",
+          "message": "Invalid lookup code"
         }
       }
     },
     {
-      "name": "API: a 15-character lookup code (K7QJ3FB9M2WZX0C) is rejected with error invalid_arguments before any DNS lookup - the grammar is exactly 16 characters of [A-Z0-9]",
+      "name": "API: a 15-character lookup code (K7QJ3FB9M2WZX0C) is rejected with error invalid_lookup_code before any DNS lookup - the grammar is exactly 16 characters of [A-Z0-9]",
       "call": "whois",
       "args": [
         {
@@ -4047,8 +4048,9 @@
       },
       "expected": {
         "error": {
-          "code": "invalid_arguments",
-          "message": "Invalid or missing function arguments"
+          "code": "invalid_lookup_code",
+          "reason": "invalid",
+          "message": "Invalid lookup code"
         }
       }
     },

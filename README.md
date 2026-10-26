@@ -1652,12 +1652,15 @@ await Triauth.verify(
 
 <a name="triauth-validate"></a>
 
-### Triauth.validate ({identifier?, deviceName?})
+### Triauth.validate ({identifier?, deviceName?, groupName?, lookupCode?, deviceTag?})
 
 The validate method can be used to perform a basic format validation on the given objects.
 It is fast, synchronous, and does not perform any DNS requests.
 
-Currently, it supports validation of personal identifiers (`identifier`) and device names (`deviceName`).
+Currently, it supports validation of personal identifiers (`identifier`), device names (`deviceName`), group names (`groupName`), lookup codes (`lookupCode`), and device tags (`deviceTag`).
+A group name is the bare name as published in a `groups` record (e.g., `admins`).
+A lookup code is the 16-character code of an identity under a `mode=private` domain (e.g., `K7QJ3FB9M2WZX0C4`).
+A device tag is the `deviceTag` of a result, as you pass it to [`Triauth.check`](#user-content-triauth-check).
 At least one of the supported objects must be provided, and unrecognized (e.g., misspelled) keys are rejected
 with `{valid:false}`, so that nothing silently passes as valid without being validated.
 
@@ -1681,6 +1684,18 @@ Triauth.validate({identifier: 'john@triauthdemo.org'});
 
 Triauth.validate({identifier: 'john'});
 // {valid: false, errors: [{code: 'invalid_identifier', reason: 'invalid_format', message: 'Identifier must include one @ sign'}]}
+
+Triauth.validate({groupName: 'Admins'});
+// {valid: false, errors: [
+//   {code: 'invalid_group_name', reason: 'not_lowercase', message: 'Group name must be provided in lowercase'},
+//   {code: 'invalid_group_name', reason: 'invalid_characters', message: 'Group name must include only letters, numbers, and hyphens'}
+// ]}
+
+Triauth.validate({lookupCode: 'k7qj3fb9m2wzx0c4'});
+// {valid: false, errors: [{code: 'invalid_lookup_code', reason: 'invalid', message: 'Invalid lookup code'}]}
+
+Triauth.validate({deviceTag: '3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ~K7QJ3FB9M2WZX0C4'});
+// {valid: true, errors: []}
 ```
 
 </details>
@@ -1728,7 +1743,10 @@ Use `code` and `reason` to provide custom or localized versions of the error mes
 | `invalid_message`               |                                                                                                                                                   | "Invalid message"                                                         |
 | `invalid_attachments`           |                                                                                                                                                   | "Invalid attachments"                                                     |
 | `invalid_attestations`          |                                                                                                                                                   | "Invalid attestations"                                                    |
+| `invalid_lookup_code`           |                                                                                                                                                   | "Invalid lookup code"                                                     |
+| `invalid_device_tag`            |                                                                                                                                                   | "Invalid device tag"                                                      |
 | `invalid_device_name`           | The device name is invalid.                                                                                                                       |                                                                           |
+| `invalid_group_name`            | The group name is invalid.                                                                                                                        |                                                                           |
 | **Identity errors**             |                                                                                                                                                   |                                                                           |
 | `domain_not_configured`         | Authentication endpoint for the given identifier is not configured.                                                                               | "Domain is not configured for triauth"                                    |
 | **Authentication errors**       |                                                                                                                                                   |                                                                           |
@@ -1740,18 +1758,18 @@ Use `code` and `reason` to provide custom or localized versions of the error mes
 ### Validation error reasons
 
 A validation error also has a `reason`, which shows the rule that the value breaks.
-The codes from `invalid_callback_url` to `invalid_attestations` always have the reason `invalid`. The other validation errors have these reasons and default messages.
+The codes from `invalid_callback_url` to `invalid_device_tag` always have the reason `invalid`. The other validation errors have these reasons and default messages.
 
-| Reason               | `invalid_identifier`                       | `invalid_device_name`                                         |
-|----------------------|--------------------------------------------|---------------------------------------------------------------|
-| `invalid`            | "Identifier is invalid"                    | "Device name is invalid"                                      |
-| `empty`              | "Identifier must not be empty"             | "Device name must not be empty"                               |
-| `too_long`           | "Identifier is too long"                   | "Device name is too long"                                     |
-| `not_lowercase`      | "Identifier must be provided in lowercase" | "Device name must be provided in lowercase"                   |
-| `invalid_format`     | "Identifier must include one @ sign"       |                                                               |
-| `invalid_username`   | "Identifier contains invalid username"     |                                                               |
-| `invalid_domain`     | "Identifier contains invalid domain name"  |                                                               |
-| `invalid_characters` |                                            | "Device name must include only letters, numbers, and hyphens" |
+| Reason               | `invalid_identifier`                       | `invalid_device_name`                                         | `invalid_group_name`                                         |
+|----------------------|--------------------------------------------|---------------------------------------------------------------|--------------------------------------------------------------|
+| `invalid`            | "Identifier is invalid"                    | "Device name is invalid"                                      | "Group name is invalid"                                      |
+| `empty`              | "Identifier must not be empty"             | "Device name must not be empty"                               | "Group name must not be empty"                               |
+| `too_long`           | "Identifier is too long"                   | "Device name is too long"                                     | "Group name is too long"                                     |
+| `not_lowercase`      | "Identifier must be provided in lowercase" | "Device name must be provided in lowercase"                   | "Group name must be provided in lowercase"                   |
+| `invalid_format`     | "Identifier must include one @ sign"       |                                                               |                                                              |
+| `invalid_username`   | "Identifier contains invalid username"     |                                                               |                                                              |
+| `invalid_domain`     | "Identifier contains invalid domain name"  |                                                               |                                                              |
+| `invalid_characters` |                                            | "Device name must include only letters, numbers, and hyphens" | "Group name must include only letters, numbers, and hyphens" |
 
 [Back to TOC](#table-of-contents)
 

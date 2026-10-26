@@ -27,6 +27,7 @@ import { KNOWN_CONFIG_KEYS } from '../config.js';
 import { Helpers } from '../helpers.js';
 import { TriauthError } from '../error.js';
 import { Identity } from '../identity.js';
+import { Validator } from '../validator.js';
 
 /**
  * The whois method can be used to check if a given personal identifier exists, and obtain public details stored in its identity records.
@@ -136,9 +137,9 @@ import { Identity } from '../identity.js';
  *   | {identifier: string, status: 0, authenticationEndpoint: {url: string, options: object, secure: boolean}, identityDomain: string|null}
  *   | {identifier: string, status: 1, authenticationEndpoint: {url: string, options: object, secure: boolean}, identityDomain: string, secure: boolean, publicProfile: object, groups: Array<string>, devices: Array<{deviceName: string, deviceTag: string, keys: Array<{value: string, options: object}>}>, includes: Array<{ref: string, options: object, tag: string}>}
  * >} A promise that resolves into one of the following:
- * - `{error: {code, message}}` — the arguments were rejected (`invalid_arguments` for a missing `identifier`, a malformed `lookupCode`, or an unrecognized option key — a bare identifier string or a config object in the options position included, `invalid_config` for an unrecognized config key, `invalid_identifier` for an invalid identifier) or the DNS resolution failed (`dns_unavailable`).
+ * - `{error: {code, message}}` — the arguments were rejected (`invalid_arguments` for a missing `identifier` or an unrecognized option key — a bare identifier string or a config object in the options position included, `invalid_config` for an unrecognized config key, `invalid_lookup_code` for a malformed `lookupCode`, `invalid_identifier` for an invalid identifier) or the DNS resolution failed (`dns_unavailable`).
  * - `{identifier, status: -1}` — the identity domain does not exist or is not configured for triauth (no `authenticationEndpoint` could be resolved).
- * - `{identifier, status: 0, authenticationEndpoint, identityDomain}` — the domain is triauth-configured but no identity records exist for this identifier. Under `mode=private` this is also the answer when the call carries no `lookupCode` (then `identityDomain` is `null`, as no identity domain could be derived) or a wrong one (a malformed `lookupCode` is instead rejected with the error `invalid_arguments`).
+ * - `{identifier, status: 0, authenticationEndpoint, identityDomain}` — the domain is triauth-configured but no identity records exist for this identifier. Under `mode=private` this is also the answer when the call carries no `lookupCode` (then `identityDomain` is `null`, as no identity domain could be derived) or a wrong one (a malformed `lookupCode` is instead rejected with the error `invalid_lookup_code`).
  * - `{identifier, status: 1, authenticationEndpoint, identityDomain, secure, publicProfile, groups, devices, includes}` — the identifier was fully resolved. The `secure` flag is resolution-level: true only when DNSSEC was reported for the domain's `triauth` configuration record and for every well-formed record of the identity answer (DNSSEC validates answers, not individual records, so one flag describes the identity answer; `authenticationEndpoint.secure` isolates the endpoint record's own status). The `groups` array lists the identity's fully-qualified group-membership claims (sorted, deduplicated; e.g., `['admins@triauthdemo.org']`). Each entry in `devices` carries:
  *   - `deviceName` {string} — a user given name of the device,
  *   - `deviceTag` {string} — a unique tag identifying the device by its associated public keys,
@@ -169,8 +170,16 @@ export const whois = async function(options, config = {}) {
 
     const {identifier, lookupCode} = options;
 
-    if (typeof identifier !== 'string' || (lookupCode !== undefined && !Helpers.isLookupCode(lookupCode))) {
+    if (typeof identifier !== 'string') {
       throw new TriauthError({code: 'invalid_arguments', message: 'Invalid or missing function arguments'});
+    }
+
+    // A malformed lookup code is a caller error, never repaired, and rejected before any DNS lookup
+    if (lookupCode !== undefined) {
+      const validationResult = Validator.validateLookupCode(lookupCode);
+      if (!validationResult.valid) {
+        throw new TriauthError(validationResult.errors[0]);
+      }
     }
 
     const retval = {status:null, identifier};

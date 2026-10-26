@@ -191,7 +191,7 @@ export class Identity {
 
             // Group names follow the device-name grammar; a record with any malformed name is ignored as a whole, never repaired.
             const names = Helpers.asciiLowercase(entry.value).split(',');
-            if (!names.every((name) => Validator.validateDeviceName(name).valid)) {
+            if (!names.every((name) => Validator.validateGroupName(name).valid)) {
               this.config.logger?.debug?.('Ignoring groups record with a malformed group name', {identifier:this.identifier});
               continue;
             }

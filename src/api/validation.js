@@ -31,14 +31,17 @@ import { Validator } from '../validator.js';
  * The validate method can be used to perform a basic format validation on the given objects.
  * It is fast, synchronous, and does not perform any DNS requests.
  *
- * Currently, it supports validation of personal identifiers (`identifier`) and device names (`deviceName`).
+ * Currently, it supports validation of personal identifiers (`identifier`), device names (`deviceName`),
+ * group names (`groupName`, the bare name as published in a `groups` record, e.g., `admins`),
+ * lookup codes (`lookupCode`, the 16-character code of an identity under a `mode=private` domain),
+ * and device tags (`deviceTag`, as reported in results and passed to {@link Triauth.check}).
  * At least one of the supported objects must be provided, and unrecognized (e.g., misspelled)
  * keys are rejected, so that nothing silently passes as valid without being validated.
  *
  * Synopsis:
  *
  * ```javascript
- * let validationResult = Triauth.validate({identifier?, deviceName?});
+ * let validationResult = Triauth.validate({identifier?, deviceName?, groupName?, lookupCode?, deviceTag?});
  * // returns {valid:true, errors:[]} if all the objects passed validation
  * // returns {valid:false, errors:[{code:..., reason:..., message:...}, ...]} if at least one the objects failed validation
  * // returns {valid:false, errors:[{code:'invalid_arguments', ...}]} when objects is empty or not an object, contains an unrecognized key, or an undefined value
@@ -54,6 +57,15 @@ import { Validator } from '../validator.js';
  *
  * Triauth.validate({identifier: 'john'});
  * // {valid: false, errors: [{code: 'invalid_identifier', reason: 'invalid_format', message: 'Identifier must include one @ sign'}]}
+ *
+ * Triauth.validate({groupName: 'admins@example.com'});
+ * // {valid: false, errors: [{code: 'invalid_group_name', reason: 'invalid_characters', message: 'Group name must include only letters, numbers, and hyphens'}]}
+ *
+ * Triauth.validate({lookupCode: 'k7qj3fb9m2wzx0c4'});
+ * // {valid: false, errors: [{code: 'invalid_lookup_code', reason: 'invalid', message: 'Invalid lookup code'}]}
+ *
+ * Triauth.validate({deviceTag: '3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ~K7QJ3FB9M2WZX0C4'});
+ * // {valid: true, errors: []}
  * ```
  *
  * > [!NOTE]
@@ -63,6 +75,9 @@ import { Validator } from '../validator.js';
  * @param objects {object} - one or more objects to validate
  * @param [objects.identifier] {string} - an identifier to validate
  * @param [objects.deviceName] {string} - a deviceName to validate
+ * @param [objects.groupName] {string} - a bare group name to validate (e.g., `admins`)
+ * @param [objects.lookupCode] {string} - a lookup code to validate (e.g., `K7QJ3FB9M2WZX0C4`)
+ * @param [objects.deviceTag] {string} - a device tag to validate, plain or composite (e.g., `3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ`)
  * @param [config={}] {object} - optional overrides for the global Triauth.config settings; unrecognized keys are rejected (`invalid_config`)
  *
  * @returns {{valid: boolean, errors: Array<{code: string, reason?: string, message: string}>}}
@@ -82,7 +97,7 @@ export const validate = function(objects, config = {}) {
   }
 
   // Ensure only recognized objects with defined values are present to help avoid misspellings.
-  if (!Helpers.hasOnlyKnownProperties(objects, ['identifier', 'deviceName'])) {
+  if (!Helpers.hasOnlyKnownProperties(objects, ['identifier', 'deviceName', 'groupName', 'lookupCode', 'deviceTag'])) {
     return {
       valid: false,
       errors: [{code: 'invalid_arguments', message: 'Unrecognized function argument'}]
@@ -114,6 +129,30 @@ export const validate = function(objects, config = {}) {
 
   if (keys.indexOf('deviceName') >= 0){
     let vr = Validator.validateDeviceName(objects['deviceName']);
+    if (!vr.valid) {
+      retval.valid = false;
+      retval.errors = retval.errors.concat(vr.errors);
+    }
+  }
+
+  if (keys.indexOf('groupName') >= 0){
+    let vr = Validator.validateGroupName(objects['groupName']);
+    if (!vr.valid) {
+      retval.valid = false;
+      retval.errors = retval.errors.concat(vr.errors);
+    }
+  }
+
+  if (keys.indexOf('lookupCode') >= 0){
+    let vr = Validator.validateLookupCode(objects['lookupCode']);
+    if (!vr.valid) {
+      retval.valid = false;
+      retval.errors = retval.errors.concat(vr.errors);
+    }
+  }
+
+  if (keys.indexOf('deviceTag') >= 0){
+    let vr = Validator.validateDeviceTag(objects['deviceTag']);
     if (!vr.valid) {
       retval.valid = false;
       retval.errors = retval.errors.concat(vr.errors);

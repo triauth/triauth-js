@@ -2,12 +2,17 @@
 
 ## [Unreleased]
 
+### Added
+
+- `Triauth.validate` validates group names (`groupName`), lookup codes (`lookupCode`), and device tags (`deviceTag`).
+
 ### Changed
 
 - Improve handling of unpaired surrogates and prototype-poisoning names in JSON.
 - JSON numbers must be safe integers.
 - Attestation entry that is `null` is rejected with the error `invalid_attestations` at stage 1.
 - Error codes are strings (e.g., `request_denied`) in place of numbers. A validation error also has a `reason` (e.g., `too_long`). See [Error codes](README.md#error-codes).
+- `Triauth.whois` rejects a malformed `lookupCode` with the error `invalid_lookup_code`.
 
 ## [1.0.0-beta.3] - 2026-10-17
 
