@@ -74,7 +74,8 @@ describe('Attestation API', () => {
 
       it('returns {error:{code:invalid_session_key}} for invalid session keys', async () => {
         const invalidSessionKeys = ['short', 123, '', 'A'.repeat(42), 'A'.repeat(44), ':' + 'a'.repeat(16), 'A'.repeat(42) + '+', 'A'.repeat(42) + 'B',
-          ':' + 'A'.repeat(43), 'Issuer.Example:' + 'A'.repeat(43), 'not_a_domain:' + 'A'.repeat(43), 'a.example:b.example:' + 'A'.repeat(43)];
+          ':' + 'A'.repeat(43), 'Issuer.Example:' + 'A'.repeat(43), 'not_a_domain:' + 'A'.repeat(43), 'a.example:b.example:' + 'A'.repeat(43),
+          'a'.repeat(254) + ':' + 'A'.repeat(43), ':'.repeat(8 * 1024 * 1024)];
         for (const invalidSessionKey of invalidSessionKeys) {
           const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations, sessionKey: invalidSessionKey}));
           assert(!attestRes?.attested);

@@ -700,6 +700,21 @@
       "expected": { "valid": true, "errors": [] }
     },
     {
+      "name": "DEVICETAG valid: the longest well-formed tag (242 characters) - two tag components with lookup codes around a 120-byte actor identifier",
+      "call": "validate",
+      "args": [{ "deviceTag": "E8DWO4URKwSU-AsdaU5jASItOTxl5cEb_oXihAWV_9c~K7QJ3FB9M2WZX0C4:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk~P2M8XCV4KQ0RZJ5T" }],
+      "expected": { "valid": true, "errors": [] }
+    },
+    {
+      "name": "DEVICETAG invalid_device_tag/invalid: 243 characters, one over the longest well-formed tag, is rejected on length alone, ahead of the split",
+      "call": "validate",
+      "args": [{ "deviceTag": "E8DWO4URKwSU-AsdaU5jASItOTxl5cEb_oXihAWV_9c~K7QJ3FB9M2WZX0C4:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com:3To5QOC3_zczxrXBc4_1tRzgV2rKcVJVMZq5VU0y8Mk~P2M8XCV4KQ0RZJ5T" }],
+      "expected": {
+        "valid": false,
+        "errors": [{ "code": "invalid_device_tag", "reason": "invalid", "message": "Invalid device tag" }]
+      }
+    },
+    {
       "name": "DEVICETAG invalid_device_tag/invalid: not a string (number)",
       "call": "validate",
       "args": [{ "deviceTag": 123 }],

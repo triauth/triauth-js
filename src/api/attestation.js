@@ -124,7 +124,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  * The method that is used to pass the response to your application can be configured with [callbackMethod extension](#protocol-extensions).
  *
  * Once you extract the `response` (string), you should pass it to the `Triauth.attest` function together with the previously stored `challenge` (string) to obtain attestation result.
- * If you decide to also pass the `identifier` and/or `callbackUrl` together with `challenge` and `response`, it will be additionally verified that they are the same as embedded in the `challenge`.
+ * If you decide to also pass the `identifier` and/or `callbackUrl` together with `challenge` and `response`, it will be additionally verified that they are the same as embedded in the `challenge`. Every other option belongs to stage 1 and is rejected here with `invalid_arguments`.
  *
  * Synopsis:
  *
@@ -272,7 +272,6 @@ export const attest = async(options, config = {}) => {
 
   options = Object.assign({}, options);
   const attestationsOption = options.attestations;
-  delete options.attestations;
 
   const validateAttestations = (attestations) => {
     const validationError = Validator.validateAttestations(attestations).errors[0];
@@ -403,5 +402,5 @@ export const attest = async(options, config = {}) => {
     }
   };
 
-  return ChallengeResponseFlow.perform('attest', options, {onChallenge, onResponse}, config);
+  return ChallengeResponseFlow.perform('attest', options, {onChallenge, onResponse}, config, ['attestations']);
 };

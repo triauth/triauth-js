@@ -827,6 +827,29 @@ export default function() { describe('DNS Resolvers', () => {
       assert.deepStrictEqual(records.map((r) => r.value).sort(), ['key absolute', 'key good']);
     });
 
+    it('compares the owner name without regard to ASCII case, as DNS does (RFC 4343)', async () => {
+      const records = await answering({ Status: 0, AD: true, Answer: [
+        { name: '_4gibdu53b3._at.private.test.', type: 16, TTL: 30, data: 'key lowercase absolute' },  // the queried private label, lowercased by the server
+        { name: '_4GIBDU53B3._AT.PRIVATE.TEST',  type: 16, TTL: 30, data: 'key uppercase' },
+        { name: '_4GIBDU53B4._at.private.test',  type: 16, TTL: 30, data: 'key other label' },         // another name: dropped
+        { name: 42,                              type: 16, TTL: 30, data: 'key non-string name' }      // a name must be a string
+      ] }).resolve('_4GIBDU53B3._at.private.test', 'TXT');
+
+      assert.deepStrictEqual(records.map((r) => r.value).sort(), ['key lowercase absolute', 'key uppercase']);
+    });
+
+    it('keeps a record in the MultiResolver intersection when one resolver spells the owner name in another case', async () => {
+      const spelling = (name) => answering({ Status: 0, AD: true, Answer: [{ name, type: 16, TTL: 30, data: 'key private' }] });
+      const multiResolver = new Triauth.Resolvers.MultiResolver([
+        spelling('_4gibdu53b3._at.private.test.'),
+        spelling('_4GIBDU53B3._at.private.test')
+      ], {maxFailures: 0});
+
+      const records = await multiResolver.resolve('_4GIBDU53B3._at.private.test', 'TXT');
+
+      assert.deepStrictEqual(records.map((r) => r.value), ['key private']);
+    });
+
     it('drops every answer of a response whose AD flag is not a boolean', async () => {
       const records = await answering({ Status: 0, AD: 'true', Answer: [
         { name: 'config.test', type: 16, TTL: 30, data: 'key good' }

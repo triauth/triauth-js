@@ -63,6 +63,18 @@ export class DnsJson extends Base {
   }
 
   /**
+   * Folds a DNS name for comparison: ASCII-lowercased, without the trailing dot of the absolute form.
+   * DNS names compare without regard to ASCII case, and a server may spell the owner name of an answer
+   * in another case than the query.
+   *
+   * @param name {string} - A DNS name as queried, or as returned in an answer.
+   * @returns {string} The folded name.
+   */
+  static foldName(name) {
+    return Helpers.asciiLowercase(name.endsWith('.') ? name.slice(0, -1) : name);
+  }
+
+  /**
    * Converts a TXT record's presentation form into its logical content.
    *
    * DoH JSON providers that emit presentation form wrap each 255-octet character-string in
@@ -312,10 +324,12 @@ export class DnsJson extends Base {
           'CNAME': 5
         }
 
+        const queriedName = DnsJson.foldName(domainName);
+
         for (const a of (json['Answer'] || [])) {
 
           // Ensure the response is for the correct domain
-          if (a['name'] !== domainName && a['name'] !== domainName + '.') {
+          if (typeof a['name'] !== 'string' || DnsJson.foldName(a['name']) !== queriedName) {
             continue;
           }
 

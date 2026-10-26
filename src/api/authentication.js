@@ -86,7 +86,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  * The callback method that is used to pass the response to the client application can be configured with [callbackMethod extension](#protocol-extensions).
  *
  * Once you extract the `response` (string), you should pass it to the `Triauth.authenticate` function together with the previously stored `challenge` (string) to obtain authentication result.
- * If you decide to also pass the `identifier` and/or `callbackUrl` together with `challenge` and `response`, it will be additionally verified that they are the same as embedded in the `challenge`.
+ * If you decide to also pass the `identifier` and/or `callbackUrl` together with `challenge` and `response`, it will be additionally verified that they are the same as embedded in the `challenge`. Every other option belongs to stage 1 and is rejected here with `invalid_arguments`.
  *
  * > [!WARNING]
  * > **Invalidate the challenge after every authentication attempt.**
@@ -307,7 +307,7 @@ export const authenticate = async(options, config = {}) => {
  *   | {error: {code: string, reason?: string, message: string}}
  * >} A promise that resolves to one of the following:
  * - `{valid: true, secure: boolean, expires?: number, groups: Array<string>}`: Indicates that the user may remain authenticated. The `secure` property is `true` only when the domain's `triauth` configuration record and every well-formed record of the identity answer (for composite device tags, of both identities' answers) were DNSSEC-validated. The `expires` property, when a number, is the Unix timestamp until which the `check` method need not be called again; it is `undefined` when the DNS records carry no TTL (e.g., under the NodeDns resolver) - in that case apply your own minimum re-check interval. The `groups` property carries the identity's **current** fully-qualified group names — replace any session-cached groups with this list on every check, so membership changes take effect within the same bound as key revocation.
- * - `{valid: false, reason: 'revoked'|'unresolved'}`: Indicates that the device may no longer remain authenticated and should be logged out (call `Triauth.authenticate` again to re-authenticate). The `reason` is diagnostic only: `'revoked'` - the device's keys are no longer published in the DNS; `'unresolved'` - the identity itself (or, for a delegated `deviceTag`, the actor's identity) no longer resolves (e.g., the domain is no longer configured for triauth, or has no identity records).
+ * - `{valid: false, reason: 'revoked'|'unresolved'}`: Indicates that the device may no longer remain authenticated and should be logged out (call `Triauth.authenticate` again to re-authenticate). The `reason` is diagnostic only: `'revoked'` - the device's keys are no longer published in the DNS; `'unresolved'` - the identity itself (or, for a delegated `deviceTag`, the actor's identity) no longer resolves (e.g., the domain is no longer configured for triauth, or has no identity records). A `deviceTag` outside the format of a device tag is reported as `'revoked'` without a DNS lookup.
  * - `{error: {code: string, reason?: string, message: string}}`: Indicates that there was some problem, and the status cannot be determined at the moment, including an `error` message with more details.
  */
 export const check = async (options, config = {}) => {
@@ -338,7 +338,19 @@ export const check = async (options, config = {}) => {
       throw new TriauthError({code: 'invalid_arguments', message: 'Invalid or missing function arguments'});
     }
 
-    // Parse the composite deviceTag
+    // A malformed identifier is a caller error, reported ahead of the device tag verdict
+    const identifierError = Validator.validateIdentifier(identifier).errors[0];
+    if (identifierError) {
+      throw new TriauthError(identifierError);
+    }
+
+    // A device tag outside the closed grammar was never minted by a result, so it reads as revoked, with no DNS lookup
+    if (!Validator.validateDeviceTag(deviceTag).valid) {
+      config.logger?.debug?.('Check failed - malformed deviceTag', {identifier});
+      return { valid: false, reason: 'revoked' };
+    }
+
+    // Decompose the deviceTag: a direct tag is one component, a delegated tag is three
     const parts = deviceTag.split(':');
     const [subjectComponent, subjectLookupCode] = parts[0].split('~');
 
@@ -378,18 +390,8 @@ export const check = async (options, config = {}) => {
       // Decompose the deviceTag for delegated/actor flows into the `include` statement tag, actor's identifier,
       // and actor's device tag; the device component resolves in the actor's zone, so it carries the actor's salt
       const includeTag = subjectComponent;
-      const [, actorIdentifier, actorDeviceTagComponent, rest] = parts;
-      const [actorDeviceTag, actorLookupCode] = (actorDeviceTagComponent ?? '').split('~');
-
-      // Validate the device tag format - return {valid: false} as with any other invalid deviceTag
-      if (
-        !includeTag ||
-        !Validator.validateIdentifier(actorIdentifier).valid ||
-        !actorDeviceTag ||
-        rest !== undefined
-      ) {
-        return { valid: false, reason: 'revoked' };
-      }
+      const [, actorIdentifier, actorDeviceTagComponent] = parts;
+      const [actorDeviceTag, actorLookupCode] = actorDeviceTagComponent.split('~');
 
       const actorIdentity = new Identity(actorIdentifier, {lookupCode:actorLookupCode}, config);
 
@@ -504,7 +506,7 @@ export const check = async (options, config = {}) => {
  * The method that is used to pass the response to your application can be configured with [callbackMethod extension](#protocol-extensions).
  *
  * Once you extract the `response` (string), you should pass it to the `Triauth.ping` function together with the previously stored `challenge` (string) to obtain ping result.
- * If you decide to also pass the `identifier` and/or `callbackUrl` together with `challenge` and `response`, it will be additionally verified that they are the same as embedded in the `challenge`.
+ * If you decide to also pass the `identifier` and/or `callbackUrl` together with `challenge` and `response`, it will be additionally verified that they are the same as embedded in the `challenge`. Every other option belongs to stage 1 and is rejected here with `invalid_arguments`.
  *
  * > [!WARNING]
  * > **Invalidate the challenge after every ping attempt.**

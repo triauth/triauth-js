@@ -52,6 +52,18 @@ describe('Validation API', () => {
       assert.deepEqual(identifier.errors.map((e) => [e.code, e.reason]), [['invalid_identifier', 'too_long']]);
     });
 
+    it('rejects an oversized device tag on length alone, ahead of the split', () => {
+      const started = Date.now();
+
+      for (const deviceTag of [':'.repeat(8 * 1024 * 1024), '~'.repeat(8 * 1024 * 1024), 'A'.repeat(243)]) {
+        const result = Triauth.validate({deviceTag});
+        assert.deepEqual(result.errors.map((e) => [e.code, e.reason]), [['invalid_device_tag', 'invalid']]);
+      }
+
+      // Splitting 16 MiB of delimiters takes hundreds of milliseconds and allocates millions of array entries
+      assert(Date.now() - started < 200, 'an oversized device tag is rejected ahead of any split');
+    });
+
     it('returns {valid:false, errors:[{code:invalid_arguments}]} for an empty object (nothing to validate)', () => {
       const result = Triauth.validate({});
       assert.equal(result.valid, false);

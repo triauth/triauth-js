@@ -165,6 +165,23 @@
       }
     },
     {
+      "name": "Stage 3 message option returns invalid_arguments - the signed message is read from the stored challenge, so a re-supplied message is refused rather than ignored",
+      "call": "sign",
+      "args": [
+        {
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic2lnbiIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIiwibXNnIjoiUGxlYXNlIHJlYWQgYW5kIGFjY2VwdCB0aGUgVGVybXMgb2YgU2VydmljZSIsImF0dGFjaG1lbnRzIjpbXX0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BBMMFlFCrZf8QNB4SrIDUNyGq35b-OUSvU1gpbj4j991hx18oejxZhTd1lpFDVm62Q_L7JYWpVpw8oEFKBmB9ng.BZU99Wul0A6HRqU8Brye_f-HItmZUqlVvl6lkXDZ21SK-oE9bJfr-8RWZWDz3kdL4SxVHfJaaroXPSiiI7zu2w1UNocR2MMtQdBkVk9fwryIs1uuoV-bEGXK2komYzfodkpzUEkJ9PTydGCnKYhl8YJHcmlYKSWiv-Ieov2tkCC5caICB06ID8yRV53mDFUmEvtDCn--K5k9q-wVqJQlG3ZsZYwDRMrEJvQt",
+          "message": "Please read and accept the Terms of Service"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": "invalid_arguments",
+          "message": "Unrecognized function argument"
+        }
+      }
+    },
+    {
       "name": "Stage 1 non-string identifier returns invalid_identifier/invalid",
       "call": "sign",
       "args": [

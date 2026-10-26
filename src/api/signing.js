@@ -50,11 +50,8 @@ const _perform = async(type, options = {}, config = {}) => {
   options = Object.assign({}, options);
 
   const messageOption = options.message;
-  delete options.message;
-
   const attachmentsProvided = 'attachments' in options;
   const attachmentsOption = options.attachments;
-  delete options.attachments;
 
   const validateMessage = (message) => {
     const validationError = Validator.validateMessage(message).errors[0];
@@ -160,7 +157,7 @@ const _perform = async(type, options = {}, config = {}) => {
     return Helpers.clone(retval);
   };
 
-  return ChallengeResponseFlow.perform(type, options, {onChallenge, onResponse}, config);
+  return ChallengeResponseFlow.perform(type, options, {onChallenge, onResponse}, config, ['message', 'attachments']);
 };
 
 /**
@@ -266,7 +263,7 @@ const _perform = async(type, options = {}, config = {}) => {
  * The method that is used to pass the response to your application can be configured with [callbackMethod extension](#protocol-extensions).
  *
  * Once you extract the `response` (string), you should pass it to the `Triauth.sign` function together with the previously stored `challenge` (string) to obtain signing result.
- * If you decide to also pass the `identifier` and/or `callbackUrl` together with `challenge` and `response`, it will be additionally verified that they are the same as embedded in the `challenge`.
+ * If you decide to also pass the `identifier` and/or `callbackUrl` together with `challenge` and `response`, it will be additionally verified that they are the same as embedded in the `challenge`. Every other option belongs to stage 1 and is rejected here with `invalid_arguments`.
  *
  * Synopsis:
  *
@@ -454,7 +451,7 @@ export const sign = async(options = {}, config = {}) => {
  * The method that is used to pass the response to your application can be configured with [callbackMethod extension](#protocol-extensions).
  *
  * Once you extract the `response` (string), you should pass it to the `Triauth.stamp` function together with the previously stored `challenge` (string) to obtain stamping result.
- * If you decide to also pass the `identifier` and/or `callbackUrl` together with `challenge` and `response`, it will be additionally verified that they are the same as embedded in the `challenge`.
+ * If you decide to also pass the `identifier` and/or `callbackUrl` together with `challenge` and `response`, it will be additionally verified that they are the same as embedded in the `challenge`. Every other option belongs to stage 1 and is rejected here with `invalid_arguments`.
  *
  * Synopsis:
  *

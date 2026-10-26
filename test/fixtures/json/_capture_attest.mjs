@@ -581,6 +581,7 @@ const tests = [
   s1('Stage 1 unrecognized option returns invalid_arguments', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, unknownKey: 'x' }),
   s1('Stage 1 ATTEST-DISTINCT: attachments are a sign-only input — supplying them (even empty) to attest is a misplaced input, invalid_arguments', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY, attachments: [] }),
   s3('Stage 3 unrecognized option returns invalid_arguments', { challenge: CH, response: RESP_OK, unknownKey: 1 }),
+  s3('Stage 3 attestations option returns invalid_arguments - the attestation request is read from the stored challenge, so a re-supplied list is refused rather than ignored', { challenge: CH, response: RESP_OK, attestations: ATT_ROBOT }),
 
   // ===================================================================================
   // Stage 1 — identifier validation (invalid_identifier)

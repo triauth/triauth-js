@@ -180,6 +180,11 @@ app.get('/', (req, res) => {
 });
 
 app.post('/login', async (req, res) => {
+  // Start a sign-in only from this site's own pages, so that another site cannot sign the user in as an attacker
+  if (req.get('sec-fetch-site') && req.get('sec-fetch-site') !== 'same-origin') {
+    return res.sendStatus(403);
+  }
+
   const identifier = req.body.identifier;
 
   // Demo only: in production replace with your own static URL
@@ -403,7 +408,7 @@ If the user declines the authentication request, the Triauth Authenticator sends
 **3. Verify**
 
 Once you receive the callback request under `callbackUrl` and extract the `response` (string), you should pass it to the `Triauth.authenticate` function together with the previously stored `challenge` (string) to obtain authentication result.
-If you decide to also pass the `identifier` and/or `callbackUrl` together with `challenge` and `response`, it will be additionally verified that they are the same as embedded in the `challenge`. 
+If you decide to also pass the `identifier` and/or `callbackUrl` together with `challenge` and `response`, it will be additionally verified that they are the same as embedded in the `challenge`. Every other option belongs to stage 1 and is rejected here with `invalid_arguments`. 
 
 > [!WARNING]
 > **Invalidate the challenge after every authentication attempt.**
@@ -557,7 +562,7 @@ The result object has the following properties:
 | Property Name | Type      | Description |
 |---------------|-----------|-------------|
 | `valid`       | `boolean` | `true` when the keys and the delegation behind `deviceTag` are still published and the device may remain authenticated. `false` when the device must be signed out. |
-| `reason`      | `string`  | Only when `valid` is `false`. `'revoked'` means that the keys of the device, or its delegation, are no longer published. `'unresolved'` means that the identifier itself no longer resolves. |
+| `reason`      | `string`  | Only when `valid` is `false`. `'revoked'` means that the keys of the device, or its delegation, are no longer published. `'unresolved'` means that the identifier itself no longer resolves. A `deviceTag` outside the format of a device tag is reported as `'revoked'` without a DNS lookup. |
 | `secure`      | `boolean` | Only when `valid` is `true`. `true` only when DNSSEC protected every DNS record that this result depends on. |
 | `expires`     | `number`  | Only when `valid` is `true`. Unix timestamp until which the DNS records behind this result are considered fresh, so that you need not call `Triauth.check` again before it. It may be `undefined` when the records have no TTL, or arbitrarily low. Apply your own minimum re-check interval. Example: `1737547197157`. |
 | `groups`      | `array`   | Only when `valid` is `true`. The current fully-qualified group names that the identity records of `identifier` claim membership in, sorted and deduplicated. Replace any session-cached groups with this list on every check. Example: `['admins@example.com']`. |
@@ -647,7 +652,8 @@ The method that is used to pass the response to your application can be configur
 **3. Verify**
 
 Once you extract the `response` (string), you should pass it to the `Triauth.ping` function together with the previously stored `challenge` (string) to obtain ping result.
-If you decide to also pass the `identifier` and/or `callbackUrl` together with `challenge` and `response`, it will be additionally verified that they are the same as embedded in the `challenge`.
+If you decide to also pass the `identifier` and/or `callbackUrl` together with `challenge` and `response`, it will be additionally verified that they are the same as embedded in the `challenge`. Every other option belongs to stage 1 and is rejected here with `invalid_arguments`.
+Only a `pinged:true` result proves that the user still has the keys. An `error` result, `request_denied` included, can come from anyone who sends a `response` to your `callbackUrl`. Treat it as a failed ping and not as the user's decision.
 
 Synopsis:
 
@@ -959,7 +965,7 @@ The Triauth Authenticator application redirects the user's web browser to the pr
 The method that is used to pass the response to your application can be configured with the [callbackMethod extension](#protocol-extensions).
 
 Once you extract the `response` (string), you should pass it to the `Triauth.attest` function together with the previously stored `challenge` (string) to obtain attestation result.
-If you decide to also pass the `identifier` and/or `callbackUrl` together with `challenge` and `response`, it will be additionally verified that they are the same as embedded in the `challenge`.
+If you decide to also pass the `identifier` and/or `callbackUrl` together with `challenge` and `response`, it will be additionally verified that they are the same as embedded in the `challenge`. Every other option belongs to stage 1 and is rejected here with `invalid_arguments`.
 
 Synopsis:
 
@@ -1199,7 +1205,7 @@ After the user approves the signing request, the Triauth Authenticator applicati
 The method that is used to pass the response to your application can be configured with the [callbackMethod extension](#protocol-extensions).
 
 Once you extract the `response` (string), you should pass it to the `Triauth.sign` function together with the previously stored `challenge` (string) to obtain signing result.
-If you decide to also pass the `identifier` and/or `callbackUrl` together with `challenge` and `response`, it will be additionally verified that they are the same as embedded in the `challenge`.
+If you decide to also pass the `identifier` and/or `callbackUrl` together with `challenge` and `response`, it will be additionally verified that they are the same as embedded in the `challenge`. Every other option belongs to stage 1 and is rejected here with `invalid_arguments`.
 
 Synopsis:
 
@@ -1388,7 +1394,7 @@ The Triauth Authenticator application redirects the user's web browser to the pr
 The method that is used to pass the response to your application can be configured with the [callbackMethod extension](#protocol-extensions).
 
 Once you extract the `response` (string), you should pass it to the `Triauth.stamp` function together with the previously stored `challenge` (string) to obtain stamping result.
-If you decide to also pass the `identifier` and/or `callbackUrl` together with `challenge` and `response`, it will be additionally verified that they are the same as embedded in the `challenge`.
+If you decide to also pass the `identifier` and/or `callbackUrl` together with `challenge` and `response`, it will be additionally verified that they are the same as embedded in the `challenge`. Every other option belongs to stage 1 and is rejected here with `invalid_arguments`.
 
 Synopsis:
 
@@ -2039,6 +2045,10 @@ DNS queries for identity records and authentication endpoints.
   The Triauth Authenticator identifies and remembers each site by the **base URL** of its `callbackUrl` (its origin plus the path up to and including the last `/`), 
   and binds the session key of every sign-in, with its permissions, to that base URL and to the device that signed in.
 
+* **Start stage 1 only from your own pages.**
+  Protect the stage-1 endpoint as you would any form that changes state.
+  Require a CSRF token, or reject the request when its `Sec-Fetch-Site` header is present and is not `same-origin`, as in the Node.js example above. Never start stage 1 from a GET request.
+
 * When you send the user to `redirectUrl`, **don't strip the `Referer`** - the referring origin is a security signal, and the Triauth Authenticator may reject a request that arrives without it, so it must see at least your origin (a full path isn't required).
   The browser default is fine; just avoid `rel="noreferrer"` and a `no-referrer`/`same-origin` `Referrer-Policy` (such as [Helmet](https://helmetjs.github.io/)'s default). See [Preserve the referrer when redirecting](#user-content-preserve-referrer).
   Make the redirect a top-level navigation, so that the user sees the authenticator's origin in the address bar.
@@ -2061,16 +2071,17 @@ DNS queries for identity records and authentication endpoints.
   Under `mode=private` the `deviceTag` carries a lookup code, which lets anyone who also knows the identifier read the identity's records, but not authenticate as it. For delegated authentication it also carries the actor's identifier. 
   Do not display it, except to the user it belongs to.
 
-* Count a ping or a stamp that does not return within your time limit, for example 30 seconds, as a failure, and sign the user out.
+* Count a ping or a stamp that does not return within your time limit, for example 30 seconds, as a failure.
   The authenticator does not answer a request that it cannot open, for example after the user made it forget your website.
+  Only a success result is authenticated. The authenticator answers a denial with `false`. Anyone who knows your `callbackUrl` can send the same `false`, or any other string, to it from the user's browser.
 
 * It is good practice to store the `deviceTag` and the `sessionKey` with the server-side, or encrypted cookie based user session, and to periodically call the `Triauth.check` or `Triauth.ping` to re-authenticate the user.
 
 * Context-escape strings before rendering.
   Returned values (e.g., `ext.publicProfile.name`, `groups` entries, device key's `options`, etc.) are returned verbatim, so an unescaped value rendered into HTML (or interpolated into a shell command, SQL query, etc.) is an injection vector. Apply the appropriate output encoding at the point of use.
 
-* **Refresh session groups on every `Triauth.check`.**
-  `check` returns the identity's current `groups` - replace any session-cached lists with it. Also, groups are read at verification time, so re-verifying a stored `sign`/`stamp` envelope yields the signer's *current* groups.
+* **Refresh session groups on every `Triauth.check` and `Triauth.ping`.**
+  Both return the identity's current `groups` - replace any session-cached lists with it. Also, groups are read at verification time, so re-verifying a stored `sign`/`stamp` envelope yields the signer's *current* groups.
  
 * **Triauth is not a complete replacement for a full, risk-adjusted, multi-step authentication system.** 
   You should consider your website risk profile, and when needed, implement additional security measures such as two-step verification, and/or out-of-band multifactor authentication.

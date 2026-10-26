@@ -50,9 +50,10 @@ export class ChallengeResponseFlow {
    *
    * @param type {string} - Flow type: `'auth'`, `'ping'`, `'attest'`, `'sign'`, or `'stamp'`.
    * @param [options={}] {object} - User-facing options. Stage 1 expects `{identifier, callbackUrl, ext?, sessionKey?}`
-   *                                 (`sessionKey` is required for every flow except `'auth'`, where it is rejected). Stage 3 expects
-   *                                 `{challenge, response, identifier?, callbackUrl?}` (the optional ones, if
-   *                                 provided, are additionally checked against the values embedded in the challenge).
+   *                                 plus the flow's own options (`sessionKey` is required for every flow except `'auth'`,
+   *                                 where it is rejected). Stage 3 expects `{challenge, response, identifier?, callbackUrl?}`
+   *                                 (the optional ones, if provided, are additionally checked against the values embedded
+   *                                 in the challenge) and rejects every other option as unrecognized.
    * @param [callbacks] {{onChallenge: function, onResponse: function}} -
    *        `onChallenge({challenge})` runs after the `Triauth.Challenge` is built (stage 1), giving the caller
    *        a chance to populate `challenge.data` (e.g., `msg`, `attest`, `attachments`).
@@ -60,6 +61,8 @@ export class ChallengeResponseFlow {
    *        success object, `null` for expired-style failures, or `false` for generic verification failures.
    *        `sessionKey` is the session key from opening the sealed response (see `ResponseCipher.open`).
    * @param [config={}] {object} - Optional overrides for the global Triauth.config settings.
+   * @param [flowOptions=[]] {Array<string>} - Names of the flow's own stage-1 options (e.g., `message`), which `onChallenge`
+   *                                           reads from `options` and which stage 3 rejects like any unrecognized option.
    *
    * @returns {Promise<{challenge: string, redirectUrl: string}|{error: {code: string, reason?: string, message: string}}|*>}
    *          A promise resolving to `{challenge, redirectUrl}` (stage 1), whatever `onResponse` returned
@@ -67,18 +70,20 @@ export class ChallengeResponseFlow {
    *          `config.requireSecure` is set, a stage-3 result that is not DNSSEC-secure is rejected with
    *          `{error:{code:'dnssec_required',…}}` instead of being returned (see `assertSecure`).
    */
-  static async perform(type, options={}, callbacks={onChallenge:null, onResponse:null}, config={}) {
+  static async perform(type, options={}, callbacks={onChallenge:null, onResponse:null}, config={}, flowOptions=[]) {
     config.logger?.info?.('Processing Triauth.' + type);
     const ts = Helpers.now();
 
     try {
 
-      // Ensure only recognized options are present to help avoid misspellings.
-      // `sessionKey` is only meaningful for the flows that follow a sign-in (ping/attest/sign/stamp), not for auth.
-      const allowedOptions = ['identifier', 'callbackUrl', 'challenge', 'response', 'ext'];
-      if (type !== 'auth') {
-        allowedOptions.push('sessionKey');
-      }
+      // Ensure only recognized options are present to help avoid misspellings. Stage 3 reads the challenge and the
+      // response, and cross-checks an identifier and a callbackUrl against the challenge. Every other option shapes
+      // the challenge at stage 1: `ext`, the flow's own options, and `sessionKey` for the flows that follow a sign-in
+      // (ping/attest/sign/stamp), not for auth.
+      const stage3 = options !== null && typeof options === 'object' && options.challenge != null && options.response != null;
+      const allowedOptions = stage3
+        ? ['challenge', 'response', 'identifier', 'callbackUrl']
+        : ['identifier', 'callbackUrl', 'challenge', 'response', 'ext', ...flowOptions, ...(type !== 'auth' ? ['sessionKey'] : [])];
 
       if (!Helpers.hasOnlyKnownProperties(options, allowedOptions)) {
         throw new TriauthError({code: 'invalid_arguments', message: 'Unrecognized function argument'});

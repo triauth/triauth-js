@@ -456,6 +456,7 @@ const tests = [
     { _argsOverride: [[]] }),
   s1('Stage 1 unrecognized option returns invalid_arguments', { identifier: ID, callbackUrl: CB, message: MSG, unknownKey: 'x' }),
   s3('Stage 3 unrecognized option returns invalid_arguments', { challenge: CH, response: RESP_DESKTOP, unknownKey: 1 }),
+  s3('Stage 3 message option returns invalid_arguments - the signed message is read from the stored challenge, so a re-supplied message is refused rather than ignored', { challenge: CH, response: RESP_DESKTOP, message: MSG }),
 
   // ===================================================================================
   // Stage 1 — identifier validation (invalid_identifier)

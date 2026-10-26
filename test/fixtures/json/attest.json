@@ -221,6 +221,30 @@
       }
     },
     {
+      "name": "Stage 3 attestations option returns invalid_arguments - the attestation request is read from the stored challenge, so a re-supplied list is refused rather than ignored",
+      "call": "attest",
+      "args": [
+        {
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoiYXR0ZXN0IiwiaWRlbnRpZmllciI6ImpvaG5AdHJpYXV0aGRlbW8ub3JnIiwibm9uY2UiOiJBQkVpTTBSVlpuZUltYXE3ek4zdV93QVIiLCJpYXQiOjE3Nzc0NTQ2NzUwMDAsInZlciI6MSwiZWsiOiJCQmhrWEdvNVV5MnEyemo0QUFaTmkzMF9aTGZjY0p5emk4eHUwQmxyM1ZDRkVGLURvUHF1MXVmS0Q3bkQyWndvMjJUR2dwWEhLaU5UaVgwWWpYZ1R6NU0iLCJhdHRlc3QiOnsibm90LWEtcm9ib3QiOnsibGFiZWwiOiJJIGFtIG5vdCBhIHJvYm90IiwicHJvdmlkZXJzIjpbImh0dHBzOi8vYXR0ZXN0LnRyaWF1dGhkZW1vLm9yZy9ub3QtYS1yb2JvdCJdfX19.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BGehSaLIuX6WYuVnHuqdaMXM13bIGpHBxrf-fUZc_06oZWRZ4YbYkhYXq2O_Pkk1pQ5_kq_NHsQCp1cNukHB5Ok.rVINQR9EtMFKChhO_x2OxxGM0D3o58N_Y3DYIKxGZt-hdbMgIm_Rm3FS572_5qfe4y_V-cWeySH7kxVZ3L4D4kOI7i-U27hp10YhAGGMFCfrhLUscLBt4a4S2uzeoWFdRYvsPulSBAywTdYZH6mWV8gOtYKpk1kGHpMx_B0WzK9lmHXSGBDxtGo6DcJZ2l1dyxET_ok-0w2tfSXnWtLeeLUKz5rsaN9tnT4Ac9MXeb5j-q3Y0wNZFaeUFXWqIF_RwMb_hPXxDxl9bEBgYEhGb5-sRaHSXqqJ-XHBNiZ6hA_DAyu37N7AwLptVq9_8kNirMcoO514kawzZlWt5lsOck4sp70PAOuI2dn5DBkCZH8oN2qqtHI6pgIPYiGZ-CZ3JZnusj_V155JAgqGiV1e5Mnm9fiAWpWNMwnPZj1jWwiZegiKECvBAhCfsu2fXTNXL7JHjDtUAaAGRNNc9m7VHoZhiWh187CkA08DEhTt1Pw",
+          "attestations": {
+            "not-a-robot": {
+              "label": "I am not a robot",
+              "providers": [
+                "https://attest.triauthdemo.org/not-a-robot"
+              ]
+            }
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": "invalid_arguments",
+          "message": "Unrecognized function argument"
+        }
+      }
+    },
+    {
       "name": "Stage 1 non-string identifier returns invalid_identifier/invalid",
       "call": "attest",
       "args": [

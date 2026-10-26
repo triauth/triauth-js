@@ -13,6 +13,9 @@
 - Attestation entry that is `null` is rejected with the error `invalid_attestations` at stage 1.
 - Error codes are strings (e.g., `request_denied`) in place of numbers. A validation error also has a `reason` (e.g., `too_long`). See [Error codes](README.md#error-codes).
 - `Triauth.whois` rejects a malformed `lookupCode` with the error `invalid_lookup_code`.
+- At stage 3, `Triauth.authenticate`, `ping`, `sign`, `stamp` and `attest` reject the stage-1 options (`ext`, `sessionKey`, `message`, `attachments`, `attestations`) with the error `invalid_arguments`.
+- `Triauth.check` reports a `deviceTag` outside the device-tag format as `{valid:false, reason:'revoked'}` without a DNS lookup.
+- The DNS-over-HTTPS resolvers compare the owner name of an answer without regard to ASCII case.
 
 ## [1.0.0-beta.3] - 2026-10-17
 

@@ -1,6 +1,6 @@
 {
   "title": "check",
-  "description": "Coverage of Triauth.check: argument validation (invalid_arguments/invalid_arguments), identifier validation (invalid_identifier/invalid-invalid_identifier/invalid_domain), DNS resolution failure (dns_unavailable), and the success/failure paths through Identity.resolve() + IdentityKeys.findByTag().",
+  "description": "Coverage of Triauth.check: argument validation (invalid_arguments/invalid_arguments), identifier validation (invalid_identifier/invalid-invalid_identifier/invalid_domain), DNS resolution failure (dns_unavailable), the device-tag grammar gate that reports a malformed deviceTag as revoked ahead of any DNS lookup, and the success/failure paths through Identity.resolve() + IdentityKeys.findByTag().",
   "dnsEntries": {
     "triauthdemo.org": {
       "TXT": [
@@ -648,7 +648,7 @@
       }
     },
     {
-      "name": "empty deviceTag returns valid:false — passes the typeof guard (empty string is still a string) but findByTag returns null",
+      "name": "empty deviceTag returns valid:false reason:revoked - passes the typeof guard (empty string is still a string) and fails the device-tag grammar ahead of any DNS lookup",
       "call": "check",
       "args": [
         {
@@ -1504,7 +1504,7 @@
       "args": [
         {
           "identifier": "john@triauthdemo.org",
-          "deviceTag": "OE2z5Q9GaYPfwkEg8dprJBabMYLeoSZQ55s_2VQA14w:ghost@dead.example:CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+          "deviceTag": "OE2z5Q9GaYPfwkEg8dprJBabMYLeoSZQ55s_2VQA14w:ghost@dead.example:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
         }
       ],
       "expected": {
@@ -2016,7 +2016,7 @@
       }
     },
     {
-      "name": "PRIVATE: a 15-character lookup-code suffix (one under the exact 16) returns valid:false reason:unresolved",
+      "name": "PRIVATE: a 15-character lookup-code suffix (one under the exact 16) is outside the device-tag grammar and returns valid:false reason:revoked ahead of any DNS lookup",
       "call": "check",
       "args": [
         {
@@ -2026,7 +2026,7 @@
       ],
       "expected": {
         "valid": false,
-        "reason": "unresolved"
+        "reason": "revoked"
       },
       "dnsEntries": {
         "private.triauthdemo.org": {
@@ -2050,7 +2050,7 @@
       }
     },
     {
-      "name": "PRIVATE: a lowercase lookup-code suffix returns valid:false reason:unresolved - the [A-Z0-9]{16} grammar is strict, with no case folding",
+      "name": "PRIVATE: a lowercase lookup-code suffix returns valid:false reason:revoked ahead of any DNS lookup - the [A-Z0-9]{16} grammar is strict, with no case folding",
       "call": "check",
       "args": [
         {
@@ -2060,7 +2060,7 @@
       ],
       "expected": {
         "valid": false,
-        "reason": "unresolved"
+        "reason": "revoked"
       },
       "dnsEntries": {
         "private.triauthdemo.org": {

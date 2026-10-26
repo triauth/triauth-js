@@ -1071,7 +1071,8 @@ describe('Authentication API', () => {
 
       it('returns {error:{code:invalid_session_key}} for invalid session keys', async () => {
         const invalidSessionKeys = ['short', 123, '', 'A'.repeat(42), 'A'.repeat(44), ':' + 'a'.repeat(16), 'A'.repeat(42) + '+', 'A'.repeat(42) + 'B',
-          ':' + 'A'.repeat(43), 'Issuer.Example:' + 'A'.repeat(43), 'not_a_domain:' + 'A'.repeat(43), 'a.example:b.example:' + 'A'.repeat(43)];
+          ':' + 'A'.repeat(43), 'Issuer.Example:' + 'A'.repeat(43), 'not_a_domain:' + 'A'.repeat(43), 'a.example:b.example:' + 'A'.repeat(43),
+          'a'.repeat(254) + ':' + 'A'.repeat(43), ':'.repeat(8 * 1024 * 1024)];
         for (const invalidSessionKey of invalidSessionKeys) {
           const pingRes = (await Triauth.ping({identifier, callbackUrl, sessionKey: invalidSessionKey}));
           assert(!pingRes?.pinged);
@@ -1416,6 +1417,16 @@ describe('Authentication API', () => {
 
       assert.equal(checkResult.valid, false);
       assert.equal(checkResult.reason, 'revoked');
+    });
+
+    it('reports a deviceTag outside the closed grammar as revoked, ahead of any DNS lookup', async () => {
+      const resolver = new DnsResolverStub({'triauthdemo.org': {_error: 'the DNS must not be queried'}});
+      const tag = '3bi5oE_jXyjGY0WY5n6YqOuzRxfo40fuqDmLGaA5bKQ';
+
+      for (const deviceTag of [`${tag}~K7QJ3FB9M2WZX0C4~junk`, `${tag}~not-a-lookup-code`, `${tag}:${tag}`, ':'.repeat(8 * 1024 * 1024)]) {
+        const checkResult = await Triauth.check({identifier: 'john@triauthdemo.org', deviceTag}, {resolver});
+        assert.deepEqual(checkResult, {valid: false, reason: 'revoked'}, deviceTag.slice(0, 80));
+      }
     });
 
     it('returns {valid:false, reason:\'unresolved\'} for identifiers with no identity records', async () => {

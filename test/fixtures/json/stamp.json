@@ -165,6 +165,23 @@
       }
     },
     {
+      "name": "Stage 3 sessionKey option returns invalid_arguments - the session key shapes the request at stage 1, and stage 3 reads the sealed response only",
+      "call": "stamp",
+      "args": [
+        {
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoic3RhbXAiLCJpZGVudGlmaWVyIjoiam9obkB0cmlhdXRoZGVtby5vcmciLCJub25jZSI6IkFCRWlNMFJWWm5lSW1hcTd6TjN1X3dBUiIsImlhdCI6MTc3NzQ1NDY3NTAwMCwidmVyIjoxLCJlayI6IkJCaGtYR281VXkycTJ6ajRBQVpOaTMwX1pMZmNjSnl6aTh4dTBCbHIzVkNGRUYtRG9QcXUxdWZLRDduRDJad28yMlRHZ3BYSEtpTlRpWDBZalhnVHo1TSIsIm1zZyI6ImV4YW1wbGUtZGF0YS1pbi10ZXh0dWFsLWZvcm1hdCJ9.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BObsuWTORumKjm99Jq5xUL8q2wXkSYLYQDb79-j8Tq3gAIOK59rDAivjnR9B7FkPFe7xJBz1rX_s6L42Va1D--I.9qSNkXkMeWbKwi24P6wQcXDSmLmEw506A35BG4Se-MXGXjZS0Yv66a8th-Lb_scq6Rqb_MBpesOihil5MpC1mtlYidvecDtkx-e08XJDL4JZRnBBh_EnSl9zMvsSl6XSg3ggE9Ls7h2ZC7G-PdJvry5pj4f8WVNXByjg4PNVzw3uMdiMFB4VW-XRhOdbXI2fRgJNngC5nEHy-irPD1QLAP9mDOslty-SqJZUiw",
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": "invalid_arguments",
+          "message": "Unrecognized function argument"
+        }
+      }
+    },
+    {
       "name": "Stage 1 non-string identifier returns invalid_identifier/invalid",
       "call": "stamp",
       "args": [

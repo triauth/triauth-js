@@ -147,13 +147,30 @@
       }
     },
     {
-      "name": "Stage 3 unrecognized option returns invalid_arguments (sessionKey IS allow-listed for ping, but unknownKey is not)",
+      "name": "Stage 3 unrecognized option returns invalid_arguments",
       "call": "ping",
       "args": [
         {
           "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
           "response": "BLE15tOwPxCwj_LYyYj7R7KpEfzy0us0LDOpIlWZ9heGw0XT6uIpa0gNL-YoJm8XGILk1aRfpH0DJcdF_rOF2p0.rIGFYSgK1mBoPnC8hUQ3-sad7QaKWWOK1PZU8D3eV_d3ZeLfOF52EgOAtLhHvpq9NXheenjzGIvPExa9_i0S4bYJitFahyqdDJkSTT-8XJ6--9K5q_2a3V3_T82X8jqXhqz-M7ncf00S_pdM5Dhrq9iUDtPIgfyANgrQBxtxGwZZcHrfVTc_MY6uwfevuSmzDGWeff7hJB9zqEe0bFJALwPKthiZcA44qLuP",
           "unknownKey": 1
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": "invalid_arguments",
+          "message": "Unrecognized function argument"
+        }
+      }
+    },
+    {
+      "name": "Stage 3 sessionKey option returns invalid_arguments - the session key shapes the request at stage 1, and stage 3 reads the sealed response only",
+      "call": "ping",
+      "args": [
+        {
+          "challenge": "eyJjYnVybCI6Imh0dHBzOi8vZXhhbXBsZS5jb20vY2IiLCJ0eXBlIjoicGluZyIsImlkZW50aWZpZXIiOiJqb2huQHRyaWF1dGhkZW1vLm9yZyIsIm5vbmNlIjoiQUJFaU0wUlZabmVJbWFxN3pOM3Vfd0FSIiwiaWF0IjoxNzc3NDU0Njc1MDAwLCJ2ZXIiOjEsImVrIjoiQkJoa1hHbzVVeTJxMnpqNEFBWk5pMzBfWkxmY2NKeXppOHh1MEJscjNWQ0ZFRi1Eb1BxdTF1ZktEN25EMlp3bzIyVEdncFhIS2lOVGlYMFlqWGdUejVNIn0.G5bepODEjdPQMypfdxXqlD5R_PHVAlBA43B3zyXRRAM",
+          "response": "BLE15tOwPxCwj_LYyYj7R7KpEfzy0us0LDOpIlWZ9heGw0XT6uIpa0gNL-YoJm8XGILk1aRfpH0DJcdF_rOF2p0.rIGFYSgK1mBoPnC8hUQ3-sad7QaKWWOK1PZU8D3eV_d3ZeLfOF52EgOAtLhHvpq9NXheenjzGIvPExa9_i0S4bYJitFahyqdDJkSTT-8XJ6--9K5q_2a3V3_T82X8jqXhqz-M7ncf00S_pdM5Dhrq9iUDtPIgfyANgrQBxtxGwZZcHrfVTc_MY6uwfevuSmzDGWeff7hJB9zqEe0bFJALwPKthiZcA44qLuP",
+          "sessionKey": "59cKjF500rMz1OrAMqUyLhSbWx1RgJDsWL7dFBDYIP8"
         }
       ],
       "expected": {

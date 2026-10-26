@@ -19,6 +19,14 @@
 import { Helpers } from './helpers.js';
 import { LIMITS, DELIMITER } from './protocol.js';
 
+// The longest well-formed session key, `<domain>:<key>` with a domain of at most LIMITS.domainNameBytesize
+// bytes and a 43-character key, and the longest well-formed device tag, `<grantTag>:<actorIdentifier>:<actorDeviceTag>`
+// with two tag components of 43 + 1 + 16 characters around an identifier of at most LIMITS.identifierBytesize bytes.
+// The validators compare the length against these caps ahead of any split, so the cost of a rejection does not
+// grow with the input.
+const SESSION_KEY_MAX_LENGTH = LIMITS.domainNameBytesize + 1 + 43;
+const DEVICE_TAG_MAX_LENGTH = 2 * (43 + 1 + 16) + 2 + LIMITS.identifierBytesize;
+
 /**
  * A collection of helper methods dedicated for data validation.
  *
@@ -437,7 +445,7 @@ export class Validator {
    * @returns {{valid: boolean, errors: Array<{code: string, reason: string, message: string}>}}
    */
   static validateSessionKey(sessionKey) {
-    const parts = typeof sessionKey === 'string' ? sessionKey.split(':') : [];
+    const parts = typeof sessionKey === 'string' && sessionKey.length <= SESSION_KEY_MAX_LENGTH ? sessionKey.split(':') : [];
     const [domain, key] = parts.length === 2 ? parts : [null, parts[0]];
 
     if (
@@ -520,7 +528,7 @@ export class Validator {
    */
   static validateDeviceTag(deviceTag) {
     const reasons = [];
-    const parts = typeof deviceTag === 'string' ? deviceTag.split(':') : [];
+    const parts = typeof deviceTag === 'string' && deviceTag.length <= DEVICE_TAG_MAX_LENGTH ? deviceTag.split(':') : [];
 
     if (
       !(parts.length === 1 && this.#isReportedTag(parts[0])) &&
