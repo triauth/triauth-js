@@ -78,14 +78,24 @@ const settle = async (query) => {
   }
 };
 
-// A system resolver that cannot deliver a large RRset in full (some NAT resolvers cap the answer
-// even over TCP) is an environment limit, not a resolver bug: node:dns then returns a subset and
-// the default composition's intersection shrinks with it. Detected from the node:dns outcome alone.
-const truncatedBy = (entry, nodeOutcome) => {
-  const published = entry.records?.TXT?.length ?? 0;
-  const got = nodeOutcome?.records?.length;
-  return entry.large && isNode && got > 0 && got < published ? `${got}/${published}` : null;
+// A system resolver that cannot deliver a large RRset in full is an environment limit: some relays
+// cap the answer at their buffer even over TCP, and some recursive services pass an upstream
+// truncation on as a complete answer. node:dns then returns a strict subset of the published values,
+// and so does the default composition, whose intersection shrinks with its node:dns member. Such a
+// cell fails with the cause and the remedy instead of a value diff. Each answer is judged on its own
+// values, because two concurrent node:dns queries for one name can be served differently by the same
+// resolver. Only a non-empty strict subset of the published values qualifies.
+const truncatedBy = (entry, outcome) => {
+  const published = entry.records?.TXT ?? [];
+  const got = outcome?.records ?? [];
+  const subset = got.length > 0 && got.length < published.length && got.every((r) => published.includes(r.value));
+  return entry.large && isNode && subset ? `${got.length} of ${published.length}` : null;
 };
+const truncationError = (name, short, through) => new Error(
+  `the system resolver delivers ${short} records of ${name} through ${through}. The resolver path of this machine cuts large answers. ` +
+  'Point it at a full recursive resolver (README, Best Practices, "Make sure the system resolver delivers large answers in full"), ' +
+  'or set TRIAUTH_SKIP_ZONE_TESTS=1 to leave the live zone tests out'
+);
 
 // The cell: mocha context is `this` (function-style tests) so optional samples can go pending.
 function assertCell(kind, outcome, name, entry, exp, valueOf = (v) => v) {
@@ -120,10 +130,10 @@ export default function() { describe(`DNS test zone (${zone.zone}, published)`, 
     return;
   }
 
-  // Fail fast, once, with the reason: an unreachable, unpublished, stale or unsigned zone would
-  // otherwise surface as a hundred individual failures.
+  // Fail fast, once, with the reason: an unreachable, unpublished, stale or unsigned zone, or a
+  // resolver path that cuts large answers, would otherwise surface as many individual failures.
   before('zone preflight', async function () {
-    this.timeout(15000);
+    this.timeout(25000);
     const probe = async (Resolver) => {
       try { return { records: await new Resolver({ retries: 2, timeout: 4e3 }).resolve(zone.zone, 'TXT') }; }
       catch (error) { return { error }; }
@@ -148,6 +158,13 @@ export default function() { describe(`DNS test zone (${zone.zone}, published)`, 
       } else {
         throw new Error(`${zone.zone} is not DNSSEC-validated by Cloudflare or Google DoH - is the DS record for triauthdemo.org at the registrar?`);
       }
+    }
+    // The 40-record name shows whether the resolver path of this machine delivers large answers in
+    // full. A short answer fails here, once, instead of in every node:dns-bearing cell.
+    if (isNode) {
+      const bigName = `big.${zone.zone}`;
+      const short = truncatedBy(ENTRIES[bigName], await settle(() => new Triauth.Resolvers.NodeDns({ timeout: 2e3, tries: 2 }).resolve(bigName, 'TXT')));
+      if (short) throw truncationError(bigName, short, 'NodeDns');
     }
   });
 
@@ -177,11 +194,8 @@ export default function() { describe(`DNS test zone (${zone.zone}, published)`, 
       for (const r of MATRIX) {
         const exp = expectationFor(r.kind, entry);
         it_(r)(`${r.label} resolves TXT to ${summary(exp)}`, function () {
-          const truncated = r.kind !== 'doh' && truncatedBy(entry, txt['NodeDns']);
-          if (truncated) {
-            console.warn(`[zone] the system resolver delivers ${truncated} records of ${query}: node:dns and the default composition are pending here`);
-            return this.skip();
-          }
+          const short = r.kind !== 'doh' && truncatedBy(entry, txt[r.label]);
+          if (short) throw truncationError(query, short, r.label);
           assertCell.call(this, r.kind, txt[r.label], query, entry, exp);
         });
       }
@@ -226,15 +240,9 @@ export default function() { describe(`DNS test zone (${zone.zone}, published)`, 
       const records = await makeDefaultComposition().resolve(setName, 'TXT');
       assert.deepStrictEqual(values(records), [...ENTRIES[setName].records.TXT].sort());
       const big = await makeDefaultComposition().resolve(bigName, 'TXT');
-      const published = ENTRIES[bigName].records.TXT.length;
-      if (big.length < published && isNode) {
-        const truncated = truncatedBy(ENTRIES[bigName], await settle(() => new Triauth.Resolvers.NodeDns({ timeout: 2e3, tries: 2 }).resolve(bigName, 'TXT')));
-        if (truncated) {
-          console.warn(`[zone] the system resolver delivers ${truncated} records of ${bigName}: the composition check is pending here`);
-          return this.skip();
-        }
-      }
-      assert.equal(big.length, published);
+      const short = truncatedBy(ENTRIES[bigName], { records: big });
+      if (short) throw truncationError(bigName, short, 'the default composition');
+      assert.equal(big.length, ENTRIES[bigName].records.TXT.length);
     });
 
     it('reports dnssec:true from the validating members alone, node:dns abstaining', async function () {

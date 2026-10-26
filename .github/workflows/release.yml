@@ -24,6 +24,8 @@ jobs:
         with:
           node-version: "24"
           cache: npm
+      # `npm run check` includes the live zone tests, which need a resolver that delivers large answers in full.
+      - uses: ./.github/actions/full-resolver
       - run: npm ci
       - name: Verify tag matches package version
         run: |

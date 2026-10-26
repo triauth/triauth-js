@@ -31,6 +31,8 @@ jobs:
         with:
           node-version: 24.x
           cache: npm
+      # The coverage run includes the live zone tests, which need a resolver that delivers large answers in full.
+      - uses: ./.github/actions/full-resolver
       - run: npm ci
       - run: npm run check
       - run: npm run build
@@ -55,6 +57,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
+      - uses: ./.github/actions/full-resolver
       - run: npm ci
       - name: Run all tests
         run: npm test

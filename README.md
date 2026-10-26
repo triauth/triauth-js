@@ -2088,6 +2088,7 @@ DNS queries for identity records and authentication endpoints.
   Some DNS relays (home and office routers, container and VM network proxies, some ISP resolvers) cut such an answer down to their buffer without signalling truncation, and the affected users see failed sign-ins or `Triauth.check` reporting their devices as revoked.
   A quick way to check the resolver path your Node.js process uses is to ask it for the 40-record probe published in the triauth test zone: `node -e "require('node:dns').resolveTxt('big.dns-test.triauthdemo.org',(e,r)=>console.log(e?e.code:r.length+' of 40'))"` (or `dig +short big.dns-test.triauthdemo.org TXT | wc -l`). 
   Anything other than 40 means a relay on the way truncates, or blocks TCP on port 53.
+  The user-mode networking proxy of QEMU (10.0.2.3), for example, delivers 20 of the 40 records, and the Azure-provided resolver (168.63.129.16) behind hosted Windows runners delivers 8, now and then without the truncation flag that makes a client retry over TCP.
   In such a case, point your system at a full recursive resolver - a public one such as 1.1.1.1 or 9.9.9.9, or a local [Unbound](https://www.nlnetlabs.nl/projects/unbound/about/), or configure a multi-resolver without NodeDns, since the DNS-over-HTTPS providers are not affected.
 
 [Back to TOC](#table-of-contents)

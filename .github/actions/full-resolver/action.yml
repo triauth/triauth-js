@@ -1,0 +1,35 @@
+# The live zone tests ask the system resolver for a 40-record TXT RRset (~4.7 KB) and expect it in
+# full. The Azure-provided resolver (168.63.129.16) behind the hosted runners caps such an answer
+# at about 1.1 KB and now and then omits the truncation flag, so node:dns accepts 8 of the 40
+# records as a complete answer. Both servers below answer an oversized query with the truncation
+# flag and deliver the full set over TCP. Node's c-ares reads the server list when a channel is
+# created and sends its own packets, so a change made here is in effect for every later step.
+name: Full recursive resolver
+description: Points the system resolver at 9.9.9.9 and 1.1.1.1, then shows the path node:dns uses.
+
+runs:
+  using: composite
+  steps:
+    - name: Point the system resolver at 9.9.9.9 and 1.1.1.1 (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        Get-DnsClientServerAddress -AddressFamily IPv4 |
+          Where-Object { $_.ServerAddresses -contains '168.63.129.16' } |
+          ForEach-Object { Set-DnsClientServerAddress -InterfaceIndex $_.InterfaceIndex -ServerAddresses ('9.9.9.9', '1.1.1.1') }
+        Get-DnsClientServerAddress -AddressFamily IPv4 | Where-Object ServerAddresses | Format-Table InterfaceAlias, ServerAddresses
+
+    - name: Point the system resolver at 9.9.9.9 and 1.1.1.1 (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        link="$(ip -o route get 1.1.1.1 | awk '{ for (i = 1; i <= NF; i++) if ($i == "dev") print $(i + 1) }')"
+        sudo resolvectl dns "$link" 9.9.9.9 1.1.1.1
+        sudo resolvectl flush-caches
+        resolvectl dns "$link"
+
+    - name: Show the resolver path node:dns uses
+      shell: bash
+      run: |
+        node -e "console.log('node:dns servers', require('node:dns').getServers())"
+        node -e "require('node:dns').resolveTxt('big.dns-test.triauthdemo.org', (e, r) => console.log('big.dns-test.triauthdemo.org:', e ? e.code : r.length + ' of 40'))"
