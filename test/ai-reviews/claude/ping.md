@@ -7,6 +7,7 @@ commit: e464988
 reviewed_at: 2026-10-26
 status: good-to-go
 summary: Ping verifies a fresh device signature over a sealed request and a sealed response correctly, no finding above low, the one recommended change is a stage-3 deviceTag pin.
+next_id: 9
 settings:
   effort: max
 ---

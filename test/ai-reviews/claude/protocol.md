@@ -7,6 +7,7 @@ commit: 7a97e15
 reviewed_at: 2026-10-17
 status: good-to-go
 summary: Sound, fail-closed protocol core with sealed responses and requests, four low findings and six info notes, none blocking mission-critical use when deployed per the README.
+next_id: 11
 settings:
   effort: max
 ---

@@ -7,6 +7,7 @@ commit: e464988
 reviewed_at: 2026-10-26
 status: good-to-go
 summary: Stage 3 verification is sound end to end, and the sealed response binds every response to the session that holds its challenge. One accepted secure-default gap (AUTH-001), two low items (the delegated resolution order, and login CSRF at the integrator's stage-1 endpoint), and five info notes.
+next_id: 9
 settings:
   effort: max
 ---

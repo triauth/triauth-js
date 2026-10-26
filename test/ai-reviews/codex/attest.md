@@ -7,6 +7,7 @@ commit: e464988
 reviewed_at: 2026-10-26
 status: good-to-go
 summary: No actionable security findings in attest under the documented integration requirements; the required online trust-model cross-check remains incomplete.
+next_id: 1
 settings:
   effort: xhigh
 ---

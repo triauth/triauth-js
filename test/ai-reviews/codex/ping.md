@@ -7,6 +7,7 @@ commit: e464988
 reviewed_at: 2026-10-26
 status: good-to-go
 summary: No security issues found in ping under the documented trust and session-management model.
+next_id: 1
 settings:
   effort: xhigh
 ---

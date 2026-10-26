@@ -7,6 +7,7 @@ commit: e464988
 reviewed_at: 2026-10-26
 status: good-to-go
 summary: No security findings in sign under the documented trust model and application controls.
+next_id: 1
 settings:
   effort: xhigh
 ---

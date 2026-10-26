@@ -7,6 +7,7 @@ commit: e464988
 reviewed_at: 2026-10-26
 status: good-to-go
 summary: Fail-closed liveness re-check with per-identity tag scoping, resolution-level DNSSEC aggregation and TTL-bounded expiry. Three low and six info findings remain, all hardening and documentation items.
+next_id: 10
 settings:
   effort: max
 ---

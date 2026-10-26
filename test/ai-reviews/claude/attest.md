@@ -7,6 +7,7 @@ commit: e464988
 reviewed_at: 2026-10-26
 status: good-to-go
 summary: Bundle verification is sound and fail-closed, and no open finding is above low. ATTEST-001 and ATTEST-002 stay accepted by the founder. The one change to make is to cross-check a re-supplied stage-3 `attestations` option against the challenge (ATTEST-005).
+next_id: 8
 settings:
   effort: max
 ---

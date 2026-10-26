@@ -6,8 +6,10 @@
 //   1. launches the agent CLI so it writes/updates test/ai-reviews/<agent>/<scope>.md following
 //      GUIDE.md, with the CLI's output captured to a per-run log file, then
 //   2. checks that the run was served by the model the adapter names (where the CLI reports it),
-//      then stamps the controlled frontmatter (model/version/commit/date/settings) authoritatively
-//      and reports how many finding IDs are new since the last commit.
+//      that it reused no finding number below the committed `next_id`, and that it kept every
+//      [reviewed] finding with its human note, then stamps the controlled frontmatter
+//      (model/version/commit/date/next_id/settings) authoritatively and reports the finding IDs
+//      new or removed since the last commit.
 //
 // It never commits; read the reviews, inspect `git diff test/ai-reviews/` and commit yourself.
 //
@@ -27,7 +29,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync, spawn, spawnSync } from 'node:child_process';
 import { parse, serialize } from './_frontmatter.mjs';
-import { findingIds, computeStatus } from './_findings.mjs';
+import { findingIds, highestFindingNumber, reviewedEntries, findingsFault, computeStatus } from './_findings.mjs';
 
 const harnessDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(harnessDir, '..', '..', '..');
@@ -126,13 +128,20 @@ function buildPrompt(scope, agentId) {
   return [
     `Perform an AI security review of the triauth-js library for the scope "${scope}".`,
     `Follow test/ai-reviews/_harness/GUIDE.md EXACTLY — read it first, then the source files it lists for this scope, the README's Best Practices and Security Considerations section, and the matching README section.`,
-    `Read the existing review at ${outPath} if present and obey the finding-ID reuse rule (update by ID, never duplicate or renumber).`,
+    `Read the existing review at ${outPath} if present and obey the ID rule: update an existing finding by its ID, allocate every new ID from next_id upwards, remove a finding that no longer applies, and never renumber or reuse a number.`,
     `Write your review to ${outPath}.`,
-    `You own only: scope, status, summary, and the ## Findings section. Leave the other frontmatter fields as placeholders — they are stamped after you. NEVER add, remove, or alter a [reviewed] tag or any "Human review" note.`,
+    `You own only: scope, status, summary, and the ## Findings section. Leave the other frontmatter fields as placeholders — they are stamped after you. NEVER remove or alter a [reviewed] finding, its tag, or any "Human review" note, and never add the tag yourself.`,
   ].join('\n');
 }
 
-function stampMetadata(text, { agent, scope, params }) {
+// The next finding number a review may allocate: its `next_id`, or one past its highest finding when the
+// field is absent. The runner keeps it monotonic, so a removed finding's number is never used again.
+function nextIdOf(text) {
+  const { data, body } = parse(text);
+  return Math.max(Number(data.next_id) || 1, highestFindingNumber(body) + 1);
+}
+
+function stampMetadata(text, { agent, scope, params, committedNextId }) {
   const { data, body } = parse(text);
   const stamped = {
     model: agent.model,
@@ -143,6 +152,7 @@ function stampMetadata(text, { agent, scope, params }) {
     reviewed_at: today,
     status: computeStatus(body),          // derived from findings, not the model's assertion
     summary: data.summary ?? '',
+    next_id: Math.max(committedNextId, highestFindingNumber(body) + 1),   // never below the committed counter
     settings: { ...params },
   };
   return serialize(stamped, body);
@@ -170,10 +180,14 @@ for (const agent of agents) {
   for (const scope of scopes) {
     const relPath = `test/ai-reviews/${agent.id}/${scope}.md`;
     const absPath = join(repoRoot, relPath);
+    const before = existsSync(absPath) ? readFileSync(absPath, 'utf8') : null;
+    const committed = committedVersion(relPath);
     runs.push({
       agent, scope, params, relPath, absPath,
-      before: existsSync(absPath) ? readFileSync(absPath, 'utf8') : null,   // restored when the run fails
-      beforeIds: findingIds(committedVersion(relPath)),
+      before,                                     // restored when the run fails
+      beforeReviewed: reviewedEntries(before ?? ''),   // the [reviewed] findings the run must keep verbatim
+      beforeIds: findingIds(committed),
+      committedNextId: nextIdOf(committed),
     });
   }
 }
@@ -207,25 +221,30 @@ function launch(run) {
   });
 }
 
-// One review end to end: launch, wait, verify, stamp, count new findings, report a single line.
-// A failed run puts the review file back exactly as it was before the run.
+// One review end to end: launch, wait, verify, check the findings, stamp, report a single line with the
+// finding IDs new and removed since the last commit. A failed run puts the review file back exactly as
+// it was before the run.
 async function review(run) {
   run.logPath = join(logDir, `${run.agent.id}-${run.scope}.log`);
   const started = Date.now();
   const { problem } = await launch(run);
   const label = `${run.agent.model} → ${run.scope} (${elapsedSince(started)})`;
-  if (problem || !existsSync(run.absPath)) {
-    const touched = existsSync(run.absPath) && readFileSync(run.absPath, 'utf8') !== run.before;
+  const written = existsSync(run.absPath) ? readFileSync(run.absPath, 'utf8') : null;
+  const fault = problem ?? (written === null ? null : findingsFault(run, written));
+  const why = fault ? `${run.agent.id} ${fault}` : written === null ? `${run.relPath} was not written` : null;
+  if (why) {
+    const touched = written !== null && written !== run.before;
     if (touched) run.before === null ? rmSync(run.absPath, { force: true }) : writeFileSync(run.absPath, run.before);
-    const why = problem ? `${run.agent.id} ${problem}` : `${run.relPath} was not written`;
     console.warn(`✗ ${label}: ${why}${touched ? `, ${run.relPath} restored` : ''}. Log: ${run.logPath}`);
     return;
   }
-  const text = stampMetadata(readFileSync(run.absPath, 'utf8'), run);
+  const text = stampMetadata(written, run);
   writeFileSync(run.absPath, text);
   run.written = true;
-  const newIds = [...findingIds(text)].filter(id => !run.beforeIds.has(id));
-  console.log(`✓ ${label}: wrote ${run.relPath}, status: ${parse(text).data.status}, ${newIds.length} new finding(s)`);
+  const ids = findingIds(text);
+  const added = [...ids].filter(id => !run.beforeIds.has(id)).length;
+  const removed = [...run.beforeIds].filter(id => !ids.has(id)).length;
+  console.log(`✓ ${label}: wrote ${run.relPath}, status: ${parse(text).data.status}, ${added} new, ${removed} removed`);
 }
 
 console.log(`Running ${runs.length} review(s)${jobs < runs.length ? `, ${jobs} at a time` : ' all at once'}. Logs: ${logDir}`);

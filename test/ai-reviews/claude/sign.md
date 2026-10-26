@@ -7,6 +7,7 @@ commit: e464988
 reviewed_at: 2026-10-26
 status: good-to-go
 summary: Verification logic is sound. The open items are low. The signed bytes carry no challenge binding, stage 3 ignores a passed message, a stamp over the same text verifies without a type pin, and delegation and unsigned metadata lack notes in the sign documentation.
+next_id: 8
 settings:
   effort: max
 ---

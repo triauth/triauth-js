@@ -7,6 +7,7 @@ commit: e464988
 reviewed_at: 2026-10-26
 status: good-to-go
 summary: No actionable security findings in the inspected stamp path; 239 targeted tests and 25 security probes passed, but the required external trust-model reading remains incomplete because the page was unreachable.
+next_id: 1
 settings:
   effort: xhigh
 ---

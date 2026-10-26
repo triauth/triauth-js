@@ -7,6 +7,7 @@ commit: e464988
 reviewed_at: 2026-10-26
 status: good-to-go
 summary: One low-severity DNS owner-name comparison defect can cause false sign-outs; no authentication or delegation bypass found in check.
+next_id: 2
 settings:
   effort: xhigh
 ---

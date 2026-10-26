@@ -7,6 +7,7 @@ commit: e464988
 reviewed_at: 2026-10-26
 status: warnings
 summary: Oversized device tags cause avoidable synchronous memory allocation (VALID-002, medium); the configuration-key rejection bypass persists (VALID-001, low).
+next_id: 3
 settings:
   effort: xhigh
 ---

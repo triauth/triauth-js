@@ -7,6 +7,7 @@ commit: e464988
 reviewed_at: 2026-10-26
 status: good-to-go
 summary: No security issues found in verify under the documented trust model and integration requirements.
+next_id: 1
 settings:
   effort: xhigh
 ---

@@ -7,6 +7,7 @@ commit: <short sha, e.g. 41d28e8>
 reviewed_at: <YYYY-MM-DD>
 status: <good-to-go | warnings | fatal>
 summary: <one-line verdict>
+next_id: <1 for a new file; the runner keeps it from then on>
 settings:
   effort: <e.g. high>
 ---

@@ -14,7 +14,7 @@ then stamps the controlled metadata after you write — but the format below is 
    [trust model](https://www.triauth.org/protocol/trust-model), so your review is grounded in the intended security model.
 3. **Follow the execution trace of any relevant methods** - so that you gain deep understanding of how it works.
 4. **Read the existing review file** `test/ai-reviews/<agent>/<scope>.md` if it exists. You MUST
-   follow the finding-ID reuse rule below so the file updates instead of accumulating duplicates.
+   follow the ID rule below, so the file updates in place and a finding that no longer applies leaves it.
 5. **Write/update** `test/ai-reviews/<agent>/<scope>.md` using the format in the next section.
    Start from [`TEMPLATE.md`](TEMPLATE.md) if the file is new.
 6. Do not peek into other scope and/or other agents' review files as they may interfere with your jugement.
@@ -33,13 +33,14 @@ commit: 41d28e8
 reviewed_at: 2026-06-15
 status: warnings              # computed by the runner; warnings here = one open medium finding (AUTH-001)
 summary: One-line verdict.    #   (the info finding AUTH-002 is [reviewed], so it is excluded)
+next_id: 3                    # stamped by the runner: the number the next new finding takes
 settings:
   effort: high
 ---
 ```
 
 > **You only own `scope`, `status`, `summary`, and the `## Findings` body.**
-> The runner overwrites `model`, `model_id`, `lib_version`, `commit`, `reviewed_at`, and `settings`
+> The runner overwrites `model`, `model_id`, `lib_version`, `commit`, `reviewed_at`, `next_id`, and `settings`
 > with the exact values it ran you under. Fill them with best-effort placeholders; don't depend on them.
 
 Body:
@@ -79,11 +80,16 @@ with a single line: `_No findings._`
 - **`[reviewed]`** = human sign-off marker — **never add or remove this yourself**, and never alter a
   finding that has it or its `> **Human review …**` note.
 
-### ID reuse rule (idempotency)
-- Before writing, read the existing file and collect its finding IDs.
+### ID rule (append-only numbers)
+- Before writing, read the existing file: its finding IDs and its `next_id`.
 - For an issue that already has an ID, **reuse that ID** and update its body/severity in place.
-- Allocate the next sequential number **only** for a genuinely new issue.
-- Never renumber, delete, or recycle an ID. This is what keeps re-runs duplicate-free.
+- For a genuinely new issue, allocate `<PREFIX>-<next_id>`, zero-padded, and the number after it for the
+  next new issue.
+- A finding that is **fixed**, or no longer applies, is **removed** from the list. Do not keep it as a
+  closed entry, and never reuse its number: the runner re-stamps `next_id` from the highest number the
+  file has carried and refuses a run that brings a retired number back.
+- Never renumber an ID, and never remove or alter a `[reviewed]` finding or its human note: it records a
+  human ruling, and the runner refuses a run that drops or changes one.
 
 ### Status rule
 The file `status` is a rollup of the worst **open** (non-`[reviewed]`) finding. `run.mjs` computes it
@@ -97,8 +103,8 @@ the same table.)
 | `low`, `info`, or none | `good-to-go` |
 
 - A `[reviewed]` finding is human-accepted and **excluded** from the rollup, so a `medium`-or-worse
-  finding leaves the rollup once it is **fixed** or **reviewed-and-accepted** (mark `[reviewed]` with a
-  note).
+  finding leaves the rollup once it is **fixed** (and removed from the list) or **reviewed-and-accepted**
+  (mark `[reviewed]` with a note).
 - Your job is just to get each finding's **severity** right; the runner derives `status` when it stamps
   the file. A human who later marks a finding `[reviewed]` applies the same table to `status` by hand.
 

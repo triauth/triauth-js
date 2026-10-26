@@ -7,6 +7,7 @@ commit: e464988
 reviewed_at: 2026-10-26
 status: good-to-go
 summary: Fail-closed stamp verification with no open medium finding. Sealed responses narrow the replay and amplification surfaces, two low findings stay open (stage 3 accepts four options it never reads, and the actor slot directs DNS before the grant check), and five info notes cover device continuity, documentation, unauthenticated metadata, logs, and the lookup code inside a forwarded result.
+next_id: 9
 settings:
   effort: max
 ---

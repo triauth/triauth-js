@@ -7,6 +7,7 @@ commit: e464988
 reviewed_at: 2026-10-26
 status: good-to-go
 summary: No actionable security issues found in authenticate under the documented trust model and deployment requirements.
+next_id: 1
 settings:
   effort: xhigh
 ---

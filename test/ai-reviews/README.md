@@ -41,7 +41,9 @@ Findings live under `## Findings` as `###` headings:
 ```
 
 - **Stable IDs** (`<PREFIX>-<NNN>`) are append-only per file, so re-runs *update* existing findings by
-  ID instead of duplicating them. IDs are never renumbered or reused.
+  ID instead of duplicating them. A finding that is fixed is removed from the list, and its number is never
+  used again: `next_id` in the frontmatter is the number the next new finding takes, the runner keeps it
+  monotonic, and it refuses a run that brings a retired number back.
 - **`[reviewed]`** in the heading marks a finding a **human** has vetted. Human adds the tag by hand, together
   with a `> ` note in the body, and set `status` from the table above. AI runs must preserve `[reviewed]` findings and 
-  their human notes verbatim.
+  their human notes verbatim. The runner refuses a run that drops or alters one.

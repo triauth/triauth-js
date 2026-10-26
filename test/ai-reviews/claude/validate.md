@@ -6,7 +6,8 @@ lib_version: 1.0.0-beta.3
 commit: e464988
 reviewed_at: 2026-10-26
 status: good-to-go
-summary: Synchronous, network-free format check over five inputs that fails closed on every guard and shares its grammars with every flow. One low finding (the device-tag path splits before any size gate) and three informational ones, one of them closed.
+summary: Synchronous, network-free format check over five inputs that fails closed on every guard and shares its grammars with every flow. One low finding (the device-tag path splits before any size gate) and two informational ones.
+next_id: 5
 settings:
   effort: max
 ---
@@ -19,14 +20,9 @@ settings:
 
 The accepted identifier grammar is a lowercase ASCII subset with exactly one `@` sign, a name part of at most 63 characters without consecutive or edge dots and hyphens, LDH domain labels of at most 63 characters, at least two labels, no Punycode label, no numeric final label and no trailing dot, within 120 bytes. The underscore of the `_at` marker is outside both grammars, so no two accepted identifiers address the same identity records. Every non-ASCII character, including Cyrillic look-alikes, zero-width and bidirectional controls, NBSP, BOM, C0 controls, DEL and lone surrogates, fails the ASCII grammar of the name part or of the domain, and the lowercase test compares against `toLowerCase()` instead of folding, so the Kelvin sign and the Turkish dotted I are rejected rather than mapped onto ASCII. The name grammar shared by device names and group names is lowercase alphanumerics joined by single hyphens within 20 bytes, which also keeps the `xn--` marker out. A lookup code is 16 uppercase ASCII letters and digits, never trimmed, folded or stripped of display hyphens. A device tag component must decode as canonical base64url, so a digest with payload in the unused bits of its last character, a padded spelling or a standard-base64 character is rejected.
 
-The argument guards fail closed for every JSON-shaped input, including own `__proto__` and `constructor` keys, `String` objects, symbol-keyed and inherited properties, and a typo or an undefined value in the global `Triauth.config` is reported as `invalid_config`. A getter whose value changes between the guard read and the validation read ends in `invalid`. Each call returns fresh result objects with static table messages, and `valid` is `true` exactly when `errors` is empty (verified over a corpus at e464988). The README and the JSDoc both state that `{valid: true}` confirms the format only and is not output sanitization. An accepted-length input costs 1.3 to 2.2 microseconds per call, and an oversized identifier, device name or group name is rejected in about 10 microseconds before any pattern scan. The device-tag path is the exception, see VALID-004. The unit tests, the config-guard test and the validate JSON suite pass at e464988. This scope is safe to use in mission-critical production systems. The findings are one low and three informational, one of them closed.
+The argument guards fail closed for every JSON-shaped input, including own `__proto__` and `constructor` keys, `String` objects, symbol-keyed and inherited properties, and a typo or an undefined value in the global `Triauth.config` is reported as `invalid_config`. A getter whose value changes between the guard read and the validation read ends in `invalid`. Each call returns fresh result objects with static table messages, and `valid` is `true` exactly when `errors` is empty (verified over a corpus at e464988). The README and the JSDoc both state that `{valid: true}` confirms the format only and is not output sanitization. An accepted-length input costs 1.3 to 2.2 microseconds per call, and an oversized identifier, device name or group name is rejected in about 10 microseconds before any pattern scan. The device-tag path is the exception, see VALID-004. The unit tests, the config-guard test and the validate JSON suite pass at e464988. This scope is safe to use in mission-critical production systems. The findings are one low and two informational.
 
 ## Findings
-
-### [VALID-001] [info] Closed: the configuration guard message is the same as in the rest of the API
-**Location:** `src/api/validation.js:108`
-**Description:** At e464988 `validate` reports a configuration override with an unknown or undefined key as `{code: 'invalid_config', message: 'Unrecognized configuration key'}`, the same code and message as the challenge-response flows, `check`, `whois`, `verify` and the README error-code table. The message is pinned by `test/internals/test_config.js:84` and by the `CONFIG GUARD invalid_config` case of `test/fixtures/json/validate.json`. An integrator that keys a translation or an alert on the message text sees one spelling for the condition. No divergence remains, and this finding is closed.
-**Recommendation:** None. Keep the message in lockstep with the other methods when it is ever reworded.
 
 ### [VALID-002] [info] Exotic argument objects make validate throw instead of returning a result
 **Location:** `src/api/validation.js:92`

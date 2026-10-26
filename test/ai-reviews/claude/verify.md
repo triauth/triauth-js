@@ -7,6 +7,7 @@ commit: e464988
 reviewed_at: 2026-10-26
 status: good-to-go
 summary: Parsing, key-group matching, delegation checks, the compressed P-256 key decoder, the string error codes and DNS-backed resolution are sound and fail closed, and the three-state verdict is kept intact end to end. Open items are hardening and documentation. Fit for mission-critical use with type pinned and the result inspected.
+next_id: 7
 settings:
   effort: max
 ---

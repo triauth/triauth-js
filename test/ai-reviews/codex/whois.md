@@ -7,6 +7,7 @@ commit: e464988
 reviewed_at: 2026-10-26
 status: good-to-go
 summary: No security findings in whois under the documented DNS trust model; suitable for mission-critical informational lookups with caller-enforced DNSSEC checks, context-escaped output, and rate limits.
+next_id: 1
 settings:
   effort: xhigh
 ---
