@@ -195,7 +195,7 @@ export default function() { describe('Triauth.Helpers', () => {
     it('throws on byte sequences that are not well-formed UTF-8', () => {
       // '6Q' is the latin-1 (pre-UTF-8) encoding of 'é' — the lone byte E9 is ill-formed
       // UTF-8. Rejecting (never substituting U+FFFD) keeps exactly one byte spelling per
-      // string; callers map the TypeError to 223 (challenge) / 225 (metadata) on the wire.
+      // string; callers map the TypeError to invalid_challenge (challenge) / invalid_signature (metadata) on the wire.
       try {
         Triauth.Helpers.base64UrlToString('6Q');
         assert(false);

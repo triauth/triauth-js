@@ -60,7 +60,7 @@ const _perform = async(type, options = {}, config = {}) => {
     const validationError = Validator.validateMessage(message).errors[0];
 
     if (validationError) {
-      throw new TriauthError(validationError.code, validationError.message);
+      throw new TriauthError(validationError);
     }
   }
 
@@ -68,7 +68,7 @@ const _perform = async(type, options = {}, config = {}) => {
     const validationError = Validator.validateAttachments(attachments, requireSourceUrl).errors[0];
 
     if (validationError) {
-      throw new TriauthError(validationError.code, validationError.message);
+      throw new TriauthError(validationError);
     }
   }
 
@@ -81,7 +81,7 @@ const _perform = async(type, options = {}, config = {}) => {
       challenge.data.attachments = attachmentsOption ?? [];
 
     } else if (attachmentsProvided) {
-      throw new TriauthError(102, 'Attachments option may only be used with Triauth.sign function');
+      throw new TriauthError({code: 'invalid_arguments', message: 'Attachments option may only be used with Triauth.sign function'});
     }
   };
 
@@ -95,7 +95,7 @@ const _perform = async(type, options = {}, config = {}) => {
       validateAttachments(challengeAttachments);
 
     } else if ('attachments' in challenge.data) {
-      throw new TriauthError(102, 'Attachments option may only be used with Triauth.sign function');
+      throw new TriauthError({code: 'invalid_arguments', message: 'Attachments option may only be used with Triauth.sign function'});
 
     }
 
@@ -103,7 +103,7 @@ const _perform = async(type, options = {}, config = {}) => {
     // challenge nonce/iat/cburl. This makes stamps portable across verifiers (within the `ts` window).
     const result = await ChallengeResponseFlow.verifyChallengeResponse(type, message, challenge, response, (type === 'sign' ? config.signTimeout : config.stampTimeout), config);
 
-    // Propagate the failure signals unchanged: null -> 402 (expired), false -> 401 (invalid).
+    // Propagate the failure signals unchanged: null -> request_expired, false -> verification_failed.
     if (!result) {
       return result;
     }
@@ -258,7 +258,7 @@ const _perform = async(type, options = {}, config = {}) => {
  * Once the user's web browser is redirected to the `redirectUrl`, they will be taken to the Triauth Authenticator web application,
  * where they will be presented with the message, and have an opportunity to view and/or download attachments.
  *
- * If the user declines the signing request, the Triauth Authenticator sends `false` as the `response`, which `Triauth.sign` reports as error 403.
+ * If the user declines the signing request, the Triauth Authenticator sends `false` as the `response`, which `Triauth.sign` reports as the error `request_denied`.
  *
  * **3. Verify**
  *
@@ -356,7 +356,7 @@ const _perform = async(type, options = {}, config = {}) => {
  * @param [options.callbackUrl] {string} - (stage 1) an application provided URL to which the user's web browser should be redirected with the response
  * @param [options.message] {string} - (stage 1) a human-readable text message to be signed
  * @param [options.attachments] {Array<{name: string, sourceUrl: string, sha256: string}>} - (stage 1) optional list of at most 10 attachments to be covered by the signature; `name` must be unique within the list and `sha256` a lowercase hex digest
- * @param [options.sessionKey] {string} - (stage 1, required) the `sessionKey` of a `Triauth.authenticate` result; a stage-1 request without a valid session key returns error 226
+ * @param [options.sessionKey] {string} - (stage 1, required) the `sessionKey` of a `Triauth.authenticate` result; a stage-1 request without a valid session key returns the error `invalid_session_key`
  * @param [options.ext] {object} - (stage 1) an optional object of protocol extensions to use (e.g., `{callbackMethod:'GET'}`)
  *
  * @param [options.challenge] {string} - (stage 3) a challenge as it was returned by the method after stage 1 call
@@ -367,7 +367,7 @@ const _perform = async(type, options = {}, config = {}) => {
  * @returns {Promise<
  *     {challenge: string, redirectUrl: string}
  *   | {signed: true, result: string, issuedAt: number, signedAt: number, verifiedAt: number, verificationResult: object}
- *   | {error: {code: number, message: string}}
+ *   | {error: {code: string, reason?: string, message: string}}
  * >}
  */
 export const sign = async(options = {}, config = {}) => {
@@ -534,7 +534,7 @@ export const sign = async(options = {}, config = {}) => {
  * @param [options.identifier] {string} - (stage 1) the user provided identifier
  * @param [options.callbackUrl] {string} - (stage 1) an application provided URL to which the user's web browser should be redirected with the response
  * @param [options.message] {string} - (stage 1) a text message to be stamped
- * @param [options.sessionKey] {string} - (stage 1, required) the `sessionKey` of a `Triauth.authenticate` result whose `ext.permissions.stamp` is `true`; a stage-1 request without a valid session key returns error 226
+ * @param [options.sessionKey] {string} - (stage 1, required) the `sessionKey` of a `Triauth.authenticate` result whose `ext.permissions.stamp` is `true`; a stage-1 request without a valid session key returns the error `invalid_session_key`
  * @param [options.ext] {object} - (stage 1) an optional object of protocol extensions to use (e.g., `{callbackMethod:'GET'}`)
  *
  * @param [options.challenge] {string} - (stage 3) a challenge as it was returned by the method after stage 1 call
@@ -545,7 +545,7 @@ export const sign = async(options = {}, config = {}) => {
  * @returns {Promise<
  *     {challenge: string, redirectUrl: string}
  *   | {stamped: true, result: string, issuedAt: number, signedAt: number, verifiedAt: number, verificationResult: object}
- *   | {error: {code: number, message: string}}
+ *   | {error: {code: string, reason?: string, message: string}}
  * >}
  */
 export const stamp = async(options = {}, config = {}) => {
@@ -640,17 +640,17 @@ export const stamp = async(options = {}, config = {}) => {
  * @param [constraints.ver] {number} - the triauth signature envelope version to require
  * @param [constraints.type] {string} - the type of signature to require — one of 'attest'|'auth'|'ping'|'sign'|'stamp'. Pin this to the expected signature type when possible.
  * @param [constraints.via] {string} - the base URL (e.g., https://example.com/) of the client application the signature was issued to (the base URL of its `callbackUrl`). Pin it when possible. Otherwise a signature requested by another application verifies just as well.
- * @param [constraints.notBefore] {number} - a Unix timestamp in milliseconds (a non-number is rejected with error 101). If the timestamp encoded in the signature is earlier than this value, the result is `{valid:false, reason:'expired'}`. Note: unlike the internal verify path used by `authenticate`/`ping`/`sign`/`stamp`, `Triauth.verify` does **not** widen this bound by `config.maximalAllowedClientClockDrift` - the comparison is strict.
- * @param [constraints.notAfter] {number} - a Unix timestamp in milliseconds (a non-number is rejected with error 101). If the timestamp encoded in the signature is greater than this value, the result is `{valid:false, reason:'expired'}`. Note: strict comparison; no clock-drift slack is applied (see `notBefore`).
+ * @param [constraints.notBefore] {number} - a Unix timestamp in milliseconds (a non-number is rejected with the error `invalid_arguments`). If the timestamp encoded in the signature is earlier than this value, the result is `{valid:false, reason:'expired'}`. Note: unlike the internal verify path used by `authenticate`/`ping`/`sign`/`stamp`, `Triauth.verify` does **not** widen this bound by `config.maximalAllowedClientClockDrift` - the comparison is strict.
+ * @param [constraints.notAfter] {number} - a Unix timestamp in milliseconds (a non-number is rejected with the error `invalid_arguments`). If the timestamp encoded in the signature is greater than this value, the result is `{valid:false, reason:'expired'}`. Note: strict comparison; no clock-drift slack is applied (see `notBefore`).
  * @param [constraints.minSignatures] {number} - the minimum number of signature segments the (multi-)signature envelope must contain. A count below this is a signature-count policy decline, reported as `{valid:false, reason:'declined'}`. Note: this counts segments, NOT distinct signers - the same identity may legitimately contribute multiple (e.g., per-device) signatures; to require distinct signers, additionally check `signatures[].identifier` and/or `signatures[].deviceTag` in the result. Because `maxSignatures` defaults to 1, requiring more than one signature means you must also raise `maxSignatures`.
  * @param [constraints.maxSignatures] {number} - the maximum number of signature segments the (multi-)signature envelope may contain. **Defaults to 1** (secure-by-default): when omitted, `Triauth.verify` accepts only a single signature, so a multi-segment envelope is reported as `{valid:false, reason:'declined'}`. To verify a multi-signature envelope, pass an explicit `maxSignatures` (>= the number of segments you expect). The default of 1 also pins the result to the flat single-signature shape and bounds the per-segment DNS resolution work for untrusted input.
- * @param [config={}] {object} - optional overrides for the global Triauth.config settings. When `config.requireSecure` is set, an otherwise-valid signature whose DNS chain was not reported DNSSEC-validated (`secure !== true`) is rejected with error 404 (surfaced as `{error}`).
+ * @param [config={}] {object} - optional overrides for the global Triauth.config settings. When `config.requireSecure` is set, an otherwise-valid signature whose DNS chain was not reported DNSSEC-validated (`secure !== true`) is rejected with the error `dnssec_required` (surfaced as `{error}`).
  *
  * @returns {Promise<
  *     {valid: true, type: string, identifier: string, identityDomain: string, lookupCode: string, actor: string, actorIdentityDomain: string, actorLookupCode: string, via: string, ver: number, signedAt: number, verifiedAt: number, publicProfile: object, groups: Array<string>, deviceName: string, deviceTag: string, keys: Array<object>, secure: boolean, expires: (number|undefined), signedMetadata: object, unsignedMetadata: object}
  *   | {valid: true, type: 'multisig', secure: boolean, expires: (number|undefined), verifiedAt: number, signatures: Array<object>}
  *   | {valid: false, reason: 'malformed'|'invalid'|'expired'|'declined'}
- *   | {error: {code: number, message: string}}
+ *   | {error: {code: string, reason?: string, message: string}}
  * >}
  */
 export const verify = async function(message, signature, constraints = {}, config = {}) {
@@ -666,12 +666,12 @@ export const verify = async function(message, signature, constraints = {}, confi
       (typeof message !== 'string' || typeof signature !== 'string' || typeof constraints !== 'object' || typeof config !== 'object') ||
       (!Helpers.hasOnlyKnownProperties(constraints, ['identifier', 'actor', 'ver', 'type', 'via', 'notBefore', 'notAfter', 'minSignatures', 'maxSignatures']))
     ){
-      throw new TriauthError(101, 'Invalid arguments');
+      throw new TriauthError({code: 'invalid_arguments', message: 'Invalid arguments'});
     }
 
     // Reject config overrides carrying unknown keys
     if (!Helpers.hasOnlyKnownProperties(config, KNOWN_CONFIG_KEYS)) {
-      throw new TriauthError(103, 'Unrecognized configuration key');
+      throw new TriauthError({code: 'invalid_config', message: 'Unrecognized configuration key'});
     }
 
     // Signature-count bounds, when provided, must be numbers
@@ -679,7 +679,7 @@ export const verify = async function(message, signature, constraints = {}, confi
       (constraints.minSignatures != null && (typeof constraints.minSignatures !== 'number' || Number.isNaN(constraints.minSignatures))) ||
       (constraints.maxSignatures != null && (typeof constraints.maxSignatures !== 'number' || Number.isNaN(constraints.maxSignatures)))
     ) {
-      throw new TriauthError(101, 'Invalid arguments');
+      throw new TriauthError({code: 'invalid_arguments', message: 'Invalid arguments'});
     }
 
     // Secure-by-default: when the caller does not specify maxSignatures, it defaults to 1, so an
@@ -713,7 +713,7 @@ export const verify = async function(message, signature, constraints = {}, confi
 
     // Enforce config.requireSecure (mirrors the challenge-response flows and Triauth.check): an
     // otherwise-valid envelope whose DNS chain was not reported DNSSEC-validated is rejected with
-    // error 404, surfaced as {error} via the catch below.
+    // the error dnssec_required, surfaced as {error} via the catch below.
     ChallengeResponseFlow.assertSecure(verifyResult.secure, config);
 
     config.logger?.info?.('Verification successful');
@@ -724,11 +724,11 @@ export const verify = async function(message, signature, constraints = {}, confi
 
   } catch (err) {
 
-    // A 2xx validation/parse error means the envelope could not be parsed into a well-formed
+    // A validation/parse error (one that carries a reason) means the envelope could not be parsed into a well-formed
     // signature - a definitive negative verdict reported as {valid:false, reason:'malformed'}. Other
-    // TriauthErrors (e.g. 404 from requireSecure, or a 110 DNS failure) surface as {error}.
+    // TriauthErrors (e.g. dnssec_required from requireSecure, or a dns_unavailable DNS failure) surface as {error}.
     if (
-      err instanceof TriauthError && err.code >= 200 && err.code < 300
+      err instanceof TriauthError && err.reason !== undefined
     ) {
       return { valid: false, reason: 'malformed' };
     }

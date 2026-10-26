@@ -19,7 +19,7 @@
 /**
  * The global triauth-js configuration, exposed as `Triauth.config` and shared by reference with every internal module.
  * Each API method also takes a per-call override object as its last argument, and an unknown key in either place is
- * rejected with error 103. The `logger` and `resolver` defaults are filled in by the entry module.
+ * rejected with the error `invalid_config`. The `logger` and `resolver` defaults are filled in by the entry module.
  * The global `config` object should not be mutated while API calls are in flight.
  *
  * @type {{
@@ -40,7 +40,7 @@
 export const config = {
   // When true, all challenge-response API methods (authenticate, ping, attest, sign, stamp), Triauth.check,
   // and Triauth.verify require a successful result to be DNSSEC-secure: any otherwise-valid response that was
-  // not reported DNSSEC-validated (`secure !== true`) is rejected with error 404 ("Your domain does not
+  // not reported DNSSEC-validated (`secure !== true`) is rejected with the error `dnssec_required` ("Your domain does not
   // support DNSSEC, which is required to continue."). Leave false (default) to inspect the `secure` property yourself and stay
   // interoperable with non-DNSSEC domains; set true for mission-critical systems that demand strict
   // cryptographic assurance.
@@ -84,7 +84,7 @@ export const config = {
 /**
  * Frozen snapshot of the recognized `Triauth.config` keys, captured at module load.
  *
- * The public API methods use this to reject config overrides that carry an unknown key (error 103).
+ * The public API methods use this to reject config overrides that carry an unknown key (error `invalid_config`).
  *
  * @type {ReadonlyArray<string>}
  */

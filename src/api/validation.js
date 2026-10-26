@@ -40,10 +40,9 @@ import { Validator } from '../validator.js';
  * ```javascript
  * let validationResult = Triauth.validate({identifier?, deviceName?});
  * // returns {valid:true, errors:[]} if all the objects passed validation
- * // returns {valid:false, errors:[{code:..., message:...}, ...]} if at least one the objects failed validation
- * // returns {valid:false, errors:[{code:101, ...}]} when objects is empty or not an object
- * // returns {valid:false, errors:[{code:102, ...}]} when objects contains an unrecognized key or an undefined value
- * // returns {valid:false, errors:[{code:103, ...}]} when config contains an unrecognized key or a key set to undefined
+ * // returns {valid:false, errors:[{code:..., reason:..., message:...}, ...]} if at least one the objects failed validation
+ * // returns {valid:false, errors:[{code:'invalid_arguments', ...}]} when objects is empty or not an object, contains an unrecognized key, or an undefined value
+ * // returns {valid:false, errors:[{code:'invalid_config', ...}]} when config contains an unrecognized key or a key set to undefined
  *
  * ```
  *
@@ -54,7 +53,7 @@ import { Validator } from '../validator.js';
  * // {valid: true, errors: []}
  *
  * Triauth.validate({identifier: 'john'});
- * // {valid: false, errors: [{code: 214, message: 'Identifier must include one @ sign'}]}
+ * // {valid: false, errors: [{code: 'invalid_identifier', reason: 'invalid_format', message: 'Identifier must include one @ sign'}]}
  * ```
  *
  * > [!NOTE]
@@ -64,12 +63,12 @@ import { Validator } from '../validator.js';
  * @param objects {object} - one or more objects to validate
  * @param [objects.identifier] {string} - an identifier to validate
  * @param [objects.deviceName] {string} - a deviceName to validate
- * @param [config={}] {object} - optional overrides for the global Triauth.config settings; unrecognized keys are rejected (103)
+ * @param [config={}] {object} - optional overrides for the global Triauth.config settings; unrecognized keys are rejected (`invalid_config`)
  *
- * @returns {{valid: boolean, errors: Array<{code: number, message: string}>}}
+ * @returns {{valid: boolean, errors: Array<{code: string, reason?: string, message: string}>}}
  *                                          An object with valid property containing the validation result,
  *                                          and the errors property containing an array of errors (if any),
- *                                          in the {code: number, message: string} format.
+ *                                          in the {code, reason?, message} format.
  */
 export const validate = function(objects, config = {}) {
 
@@ -78,7 +77,7 @@ export const validate = function(objects, config = {}) {
   if (!objects || typeof objects !== 'object' || Array.isArray(objects) || Object.keys(objects).length === 0) {
     return {
       valid: false,
-      errors: [{code: 101, message: 'Invalid or missing function arguments'}]
+      errors: [{code: 'invalid_arguments', message: 'Invalid or missing function arguments'}]
     };
   }
 
@@ -86,7 +85,7 @@ export const validate = function(objects, config = {}) {
   if (!Helpers.hasOnlyKnownProperties(objects, ['identifier', 'deviceName'])) {
     return {
       valid: false,
-      errors: [{code: 102, message: 'Unrecognized function argument'}]
+      errors: [{code: 'invalid_arguments', message: 'Unrecognized function argument'}]
     };
   }
 
@@ -94,7 +93,7 @@ export const validate = function(objects, config = {}) {
   if (!Helpers.hasOnlyKnownProperties(Helpers.mergeConfig(config), KNOWN_CONFIG_KEYS)) {
     return {
       valid: false,
-      errors: [{code: 103, message: 'Unrecognized configuration override'}]
+      errors: [{code: 'invalid_config', message: 'Unrecognized configuration override'}]
     };
   }
 

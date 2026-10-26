@@ -31,7 +31,7 @@
 //     kept as an expressive hint for readers.
 //   - dnsEntries[domain] === { "_error": "..." } makes the stub reject that domain's DNS
 //     query, simulating a SERVFAIL or network error. resolveConfig (src/resolvers/base.js)
-//     catches the rejection and throws TriauthError(110), which propagates through the
+//     catches the rejection and throws TriauthError(dns_unavailable), which propagates through the
 //     resolve() catch blocks in AuthenticationEndpoint and IdentityDomain.
 //   - Per-test dnsEntries is a per-domain shallow merge over the suite-level entries:
 //     keys present in the test patch override completely (use null to "remove" / NXDOMAIN

@@ -6,7 +6,8 @@
 
 - Improve handling of unpaired surrogates and prototype-poisoning names in JSON.
 - JSON numbers must be safe integers.
-- Attestation entry that is `null` is rejected with error 229 at stage 1.
+- Attestation entry that is `null` is rejected with the error `invalid_attestations` at stage 1.
+- Error codes are strings (e.g., `request_denied`) in place of numbers. A validation error also has a `reason` (e.g., `too_long`). See [Error codes](README.md#error-codes).
 
 ## [1.0.0-beta.3] - 2026-10-17
 

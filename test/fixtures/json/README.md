@@ -110,7 +110,7 @@ report — only after eyeballing it; the `git diff` of the suite is the final re
 - **Session key gating**: `ping`/`sign`/`stamp`/`attest` require a `sessionKey` at Stage 1
   *before* message/attachment/DNS work. Every Stage-1 case that must get past that check has
   `sessionKey: SESSION_KEY` from `_capture_common.mjs`. Cases that pin earlier validation errors
-  (dispatch, identifier, callbackUrl, ext, invalid session key 226) have none.
+  (dispatch, identifier, callbackUrl, ext, invalid session key invalid_session_key) have none.
 - **Per-suite coverage**: `JSON_SUITE=<flow>.json npm run coverage:json` measures one suite in
   isolation. Each minted suite alone covers 100% of the paths reachable through its
   `Triauth.<flow>` call; each generator's header inventories the branches that are

@@ -253,7 +253,7 @@
         "doh": "reject",
         "node": "reject-or-resolve",
         "multi": "reject",
-        "resolveConfig": 110
+        "resolveConfig": "dns_unavailable"
       },
       "exercises": "broken DNSSEC chain: SERVFAIL from validating resolvers"
     },

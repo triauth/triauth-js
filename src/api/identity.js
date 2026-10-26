@@ -44,7 +44,7 @@ import { Identity } from '../identity.js';
  *
  * let whoisResult = await Triauth.whois({identifier});
  * let whoisResult = await Triauth.whois({identifier, lookupCode}); // for an identity under a mode=private domain
- * // returns {error: {code: number, message: string}} upon error
+ * // returns {error: {code: string, reason?: string, message: string}} upon error
  * // returns {status:1, identifier, authenticationEndpoint:{…}, identityDomain, secure, publicProfile:{…}, groups:[…], devices:[…], includes:[…]} if identifier exists
  * // returns {status:0, identifier, authenticationEndpoint:{…}, identityDomain} if domain is configured for triauth but the identifier does not exist or, for mode=private domains, a missing or wrong lookupCode was supplied
  * // returns {status:-1, identifier} if domain is not configured for triauth
@@ -131,14 +131,14 @@ import { Identity } from '../identity.js';
  * @param [config={}] {object} - optional overrides for the global Triauth.config settings
  *
  * @returns {Promise<
- *     {error: {code: number, message: string}}
+ *     {error: {code: string, reason?: string, message: string}}
  *   | {identifier: string, status: -1}
  *   | {identifier: string, status: 0, authenticationEndpoint: {url: string, options: object, secure: boolean}, identityDomain: string|null}
  *   | {identifier: string, status: 1, authenticationEndpoint: {url: string, options: object, secure: boolean}, identityDomain: string, secure: boolean, publicProfile: object, groups: Array<string>, devices: Array<{deviceName: string, deviceTag: string, keys: Array<{value: string, options: object}>}>, includes: Array<{ref: string, options: object, tag: string}>}
  * >} A promise that resolves into one of the following:
- * - `{error: {code, message}}` — the arguments were rejected (101 a missing `identifier` or a malformed `lookupCode`, 102 an unrecognized option key — a bare identifier string or a config object in the options position included, 103 an unrecognized config key, 21x an invalid identifier) or the DNS resolution failed (110).
+ * - `{error: {code, message}}` — the arguments were rejected (`invalid_arguments` for a missing `identifier`, a malformed `lookupCode`, or an unrecognized option key — a bare identifier string or a config object in the options position included, `invalid_config` for an unrecognized config key, `invalid_identifier` for an invalid identifier) or the DNS resolution failed (`dns_unavailable`).
  * - `{identifier, status: -1}` — the identity domain does not exist or is not configured for triauth (no `authenticationEndpoint` could be resolved).
- * - `{identifier, status: 0, authenticationEndpoint, identityDomain}` — the domain is triauth-configured but no identity records exist for this identifier. Under `mode=private` this is also the answer when the call carries no `lookupCode` (then `identityDomain` is `null`, as no identity domain could be derived) or a wrong one (a malformed `lookupCode` is instead rejected with error 101).
+ * - `{identifier, status: 0, authenticationEndpoint, identityDomain}` — the domain is triauth-configured but no identity records exist for this identifier. Under `mode=private` this is also the answer when the call carries no `lookupCode` (then `identityDomain` is `null`, as no identity domain could be derived) or a wrong one (a malformed `lookupCode` is instead rejected with the error `invalid_arguments`).
  * - `{identifier, status: 1, authenticationEndpoint, identityDomain, secure, publicProfile, groups, devices, includes}` — the identifier was fully resolved. The `secure` flag is resolution-level: true only when DNSSEC was reported for the domain's `triauth` configuration record and for every well-formed record of the identity answer (DNSSEC validates answers, not individual records, so one flag describes the identity answer; `authenticationEndpoint.secure` isolates the endpoint record's own status). The `groups` array lists the identity's fully-qualified group-membership claims (sorted, deduplicated; e.g., `['admins@triauthdemo.org']`). Each entry in `devices` carries:
  *   - `deviceName` {string} — a user given name of the device,
  *   - `deviceTag` {string} — a unique tag identifying the device by its associated public keys,
@@ -159,18 +159,18 @@ export const whois = async function(options, config = {}) {
   try {
     // Ensure only recognized options are present to help avoid misspellings
     if (!Helpers.hasOnlyKnownProperties(options, ['identifier', 'lookupCode'])) {
-      throw new TriauthError(102, 'Unrecognized function argument');
+      throw new TriauthError({code: 'invalid_arguments', message: 'Unrecognized function argument'});
     }
 
     // Reject config carrying unknown keys
     if (!Helpers.hasOnlyKnownProperties(config, KNOWN_CONFIG_KEYS)) {
-      throw new TriauthError(103, 'Unrecognized configuration key');
+      throw new TriauthError({code: 'invalid_config', message: 'Unrecognized configuration key'});
     }
 
     const {identifier, lookupCode} = options;
 
     if (typeof identifier !== 'string' || (lookupCode !== undefined && !Helpers.isLookupCode(lookupCode))) {
-      throw new TriauthError(101, 'Invalid or missing function arguments');
+      throw new TriauthError({code: 'invalid_arguments', message: 'Invalid or missing function arguments'});
     }
 
     const retval = {status:null, identifier};

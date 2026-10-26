@@ -1,6 +1,6 @@
 {
   "title": "check",
-  "description": "Coverage of Triauth.check: argument validation (101/102), identifier validation (210-216), DNS resolution failure (110), and the success/failure paths through Identity.resolve() + IdentityKeys.findByTag().",
+  "description": "Coverage of Triauth.check: argument validation (invalid_arguments/invalid_arguments), identifier validation (invalid_identifier/invalid-invalid_identifier/invalid_domain), DNS resolution failure (dns_unavailable), and the success/failure paths through Identity.resolve() + IdentityKeys.findByTag().",
   "dnsEntries": {
     "triauthdemo.org": {
       "TXT": [
@@ -90,31 +90,31 @@
   "currentTime": 1777454675000,
   "tests": [
     {
-      "name": "no arguments at all returns 102 — options is undefined, hasOnlyKnownProperties typeof guard (src/helpers.js:236) returns false before the typeof identifier check is reached",
+      "name": "no arguments at all returns invalid_arguments — options is undefined, hasOnlyKnownProperties typeof guard (src/helpers.js:236) returns false before the typeof identifier check is reached",
       "call": "check",
       "args": [],
       "expected": {
         "error": {
-          "code": 102,
+          "code": "invalid_arguments",
           "message": "Unrecognized function argument"
         }
       }
     },
     {
-      "name": "null options arg returns 102 — hasOnlyKnownProperties null-guard at src/helpers.js:236 fires before any other check",
+      "name": "null options arg returns invalid_arguments — hasOnlyKnownProperties null-guard at src/helpers.js:236 fires before any other check",
       "call": "check",
       "args": [
         null
       ],
       "expected": {
         "error": {
-          "code": 102,
+          "code": "invalid_arguments",
           "message": "Unrecognized function argument"
         }
       }
     },
     {
-      "name": "array options arg returns 102 — hasOnlyKnownProperties Array.isArray-guard at src/helpers.js:236 fires before any other check",
+      "name": "array options arg returns invalid_arguments — hasOnlyKnownProperties Array.isArray-guard at src/helpers.js:236 fires before any other check",
       "call": "check",
       "args": [
         [
@@ -124,26 +124,26 @@
       ],
       "expected": {
         "error": {
-          "code": 102,
+          "code": "invalid_arguments",
           "message": "Unrecognized function argument"
         }
       }
     },
     {
-      "name": "empty options object returns 101 (typeof identifier !== 'string' guard at src/api/authentication.js:298)",
+      "name": "empty options object returns invalid_arguments (typeof identifier !== 'string' guard at src/api/authentication.js:298)",
       "call": "check",
       "args": [
         {}
       ],
       "expected": {
         "error": {
-          "code": 101,
+          "code": "invalid_arguments",
           "message": "Invalid or missing function arguments"
         }
       }
     },
     {
-      "name": "missing deviceTag returns 101 (typeof deviceTag !== 'string' guard)",
+      "name": "missing deviceTag returns invalid_arguments (typeof deviceTag !== 'string' guard)",
       "call": "check",
       "args": [
         {
@@ -152,13 +152,13 @@
       ],
       "expected": {
         "error": {
-          "code": 101,
+          "code": "invalid_arguments",
           "message": "Invalid or missing function arguments"
         }
       }
     },
     {
-      "name": "missing identifier returns 101",
+      "name": "missing identifier returns invalid_arguments",
       "call": "check",
       "args": [
         {
@@ -167,13 +167,13 @@
       ],
       "expected": {
         "error": {
-          "code": 101,
+          "code": "invalid_arguments",
           "message": "Invalid or missing function arguments"
         }
       }
     },
     {
-      "name": "non-string identifier (number) returns 101 — typeof guard at src/api/authentication.js:298 fires before the Identity constructor's validateIdentifier path that would have returned 210",
+      "name": "non-string identifier (number) returns invalid_arguments — typeof guard at src/api/authentication.js:298 fires before the Identity constructor's validateIdentifier path that would have returned invalid_identifier/invalid",
       "call": "check",
       "args": [
         {
@@ -183,13 +183,13 @@
       ],
       "expected": {
         "error": {
-          "code": 101,
+          "code": "invalid_arguments",
           "message": "Invalid or missing function arguments"
         }
       }
     },
     {
-      "name": "non-string deviceTag (number) returns 101",
+      "name": "non-string deviceTag (number) returns invalid_arguments",
       "call": "check",
       "args": [
         {
@@ -199,13 +199,13 @@
       ],
       "expected": {
         "error": {
-          "code": 101,
+          "code": "invalid_arguments",
           "message": "Invalid or missing function arguments"
         }
       }
     },
     {
-      "name": "unrecognized option returns 102 — hasOnlyKnownProperties guard at src/api/authentication.js:289 fires before the typeof check",
+      "name": "unrecognized option returns invalid_arguments — hasOnlyKnownProperties guard at src/api/authentication.js:289 fires before the typeof check",
       "call": "check",
       "args": [
         {
@@ -216,13 +216,13 @@
       ],
       "expected": {
         "error": {
-          "code": 102,
+          "code": "invalid_arguments",
           "message": "Unrecognized function argument"
         }
       }
     },
     {
-      "name": "identifier with whitespace returns 210 — passes the typeof/empty/byteSize guards but hits the /[\\s\\0]/ check at src/validator.js:75",
+      "name": "identifier with whitespace returns invalid_identifier/invalid — passes the typeof/empty/byteSize guards but hits the /[\\s\\0]/ check at src/validator.js:75",
       "call": "check",
       "args": [
         {
@@ -232,13 +232,14 @@
       ],
       "expected": {
         "error": {
-          "code": 210,
+          "code": "invalid_identifier",
+          "reason": "invalid",
           "message": "Identifier is invalid"
         }
       }
     },
     {
-      "name": "empty-string identifier returns 211",
+      "name": "empty-string identifier returns invalid_identifier/empty",
       "call": "check",
       "args": [
         {
@@ -248,13 +249,14 @@
       ],
       "expected": {
         "error": {
-          "code": 211,
+          "code": "invalid_identifier",
+          "reason": "empty",
           "message": "Identifier must not be empty"
         }
       }
     },
     {
-      "name": "too-long identifier returns 212 (byteSize check fires before username-regex check)",
+      "name": "too-long identifier returns invalid_identifier/too_long (byteSize check fires before username-regex check)",
       "call": "check",
       "args": [
         {
@@ -264,13 +266,14 @@
       ],
       "expected": {
         "error": {
-          "code": 212,
+          "code": "invalid_identifier",
+          "reason": "too_long",
           "message": "Identifier is too long"
         }
       }
     },
     {
-      "name": "uppercase identifier returns 213",
+      "name": "uppercase identifier returns invalid_identifier/not_lowercase",
       "call": "check",
       "args": [
         {
@@ -280,13 +283,14 @@
       ],
       "expected": {
         "error": {
-          "code": 213,
+          "code": "invalid_identifier",
+          "reason": "not_lowercase",
           "message": "Identifier must be provided in lowercase"
         }
       }
     },
     {
-      "name": "identifier missing @-sign returns 214",
+      "name": "identifier missing @-sign returns invalid_identifier/invalid_format",
       "call": "check",
       "args": [
         {
@@ -296,13 +300,14 @@
       ],
       "expected": {
         "error": {
-          "code": 214,
+          "code": "invalid_identifier",
+          "reason": "invalid_format",
           "message": "Identifier must include one @ sign"
         }
       }
     },
     {
-      "name": "identifier with consecutive dots in username returns 215",
+      "name": "identifier with consecutive dots in username returns invalid_identifier/invalid_username",
       "call": "check",
       "args": [
         {
@@ -312,13 +317,14 @@
       ],
       "expected": {
         "error": {
-          "code": 215,
+          "code": "invalid_identifier",
+          "reason": "invalid_username",
           "message": "Identifier contains invalid username"
         }
       }
     },
     {
-      "name": "identifier with punycode domain returns 216",
+      "name": "identifier with punycode domain returns invalid_identifier/invalid_domain",
       "call": "check",
       "args": [
         {
@@ -328,13 +334,14 @@
       ],
       "expected": {
         "error": {
-          "code": 216,
+          "code": "invalid_identifier",
+          "reason": "invalid_domain",
           "message": "Identifier contains invalid domain name"
         }
       }
     },
     {
-      "name": "DNS SERVFAIL on identifier domain — resolveConfig throws TriauthError(110) in AuthenticationEndpoint.resolve(), propagates through identity.resolve() and is caught by check()'s try/catch",
+      "name": "DNS SERVFAIL on identifier domain — resolveConfig throws TriauthError(dns_unavailable) in AuthenticationEndpoint.resolve(), propagates through identity.resolve() and is caught by check()'s try/catch",
       "call": "check",
       "args": [
         {
@@ -344,13 +351,13 @@
       ],
       "expected": {
         "error": {
-          "code": 110,
+          "code": "dns_unavailable",
           "message": "DNS resolution failed, try again later"
         }
       }
     },
     {
-      "name": "DNS SERVFAIL on identity domain — authentication endpoint resolves fine, but resolveConfig on the identity domain throws TriauthError(110) in IdentityDomain.resolve(), propagates through identity.resolve() and is caught by check()'s try/catch",
+      "name": "DNS SERVFAIL on identity domain — authentication endpoint resolves fine, but resolveConfig on the identity domain throws TriauthError(dns_unavailable) in IdentityDomain.resolve(), propagates through identity.resolve() and is caught by check()'s try/catch",
       "call": "check",
       "args": [
         {
@@ -360,7 +367,7 @@
       ],
       "expected": {
         "error": {
-          "code": 110,
+          "code": "dns_unavailable",
           "message": "DNS resolution failed, try again later"
         }
       }
@@ -380,7 +387,7 @@
       }
     },
     {
-      "name": "resolution order: endpoint is resolved before the identity domain — the domain publishes no triauth record while its would-be identity domain would SERVFAIL; check returns {valid:false, reason:'unresolved'} (not error 110), so the identity-domain query is never issued (src/identity.js:88-94)",
+      "name": "resolution order: endpoint is resolved before the identity domain — the domain publishes no triauth record while its would-be identity domain would SERVFAIL; check returns {valid:false, reason:'unresolved'} (not error dns_unavailable), so the identity-domain query is never issued (src/identity.js:88-94)",
       "call": "check",
       "args": [
         {
@@ -814,7 +821,7 @@
       }
     },
     {
-      "name": "security: identifier at the exact identifierBytesize boundary (120 bytes) passes validation — inverse of the 212 case; the byteSize check is strict-greater (> 120). No DNS records exist for this domain → valid:false (not an error).",
+      "name": "security: identifier at the exact identifierBytesize boundary (120 bytes) passes validation — inverse of the invalid_identifier/too_long case; the byteSize check is strict-greater (> 120). No DNS records exist for this domain → valid:false (not an error).",
       "call": "check",
       "args": [
         {
@@ -828,7 +835,7 @@
       }
     },
     {
-      "name": "security: a `+` in the username (john+@) fails validation with 215 - `+` is not a username character",
+      "name": "security: a `+` in the username (john+@) fails validation with invalid_identifier/invalid_username - `+` is not a username character",
       "call": "check",
       "args": [
         {
@@ -838,7 +845,8 @@
       ],
       "expected": {
         "error": {
-          "code": 215,
+          "code": "invalid_identifier",
+          "reason": "invalid_username",
           "message": "Identifier contains invalid username"
         }
       }
@@ -987,7 +995,7 @@
       }
     },
     {
-      "name": "SECURITY requireSecure: check stage 3 - non-DNSSEC (secure:false) result is rejected with 404",
+      "name": "SECURITY requireSecure: check stage 3 - non-DNSSEC (secure:false) result is rejected with dnssec_required",
       "call": "check",
       "args": [
         {
@@ -1000,7 +1008,7 @@
       ],
       "expected": {
         "error": {
-          "code": 404,
+          "code": "dnssec_required",
           "message": "Your domain does not support DNSSEC, which is required to continue."
         }
       }

@@ -70,7 +70,7 @@ export class Identity {
     // Ensure received identifier is valid
     const validationResult = Validator.validateIdentifier(this.identifier);
     if (!validationResult.valid) {
-      throw new TriauthError(validationResult.errors[0].code, validationResult.errors[0].message);
+      throw new TriauthError(validationResult.errors[0]);
     }
 
     /**

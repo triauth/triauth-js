@@ -30,80 +30,88 @@ import { LIMITS, DELIMITER } from './protocol.js';
  */
 export class Validator {
 
+  /**
+   * The message of every validation error, by error code and reason. Each code names the invalid field,
+   * and each reason names the rule that the field breaks.
+   */
   static #ERRORS = {
-    210: 'Identifier is invalid',
-    211: 'Identifier must not be empty',
-    212: 'Identifier is too long',
-    213: 'Identifier must be provided in lowercase',
-    214: 'Identifier must include one @ sign',
-    215: 'Identifier contains invalid username',
-    216: 'Identifier contains invalid domain name',
-    221: 'Invalid callbackUrl',
-    222: 'Invalid ext',
-    223: 'Invalid challenge',
-    224: 'Invalid response',
-    225: 'Invalid signature',
-    226: 'Invalid session key',
-    227: 'Invalid message',
-    228: 'Invalid attachments',
-    229: 'Invalid attestations',
-    260: 'Device name is invalid',
-    261: 'Device name must not be empty',
-    262: 'Device name is too long',
-    263: 'Device name must be provided in lowercase',
-    264: 'Device name must include only letters, numbers, and hyphens'
+    invalid_identifier: {
+      invalid: 'Identifier is invalid',
+      empty: 'Identifier must not be empty',
+      too_long: 'Identifier is too long',
+      not_lowercase: 'Identifier must be provided in lowercase',
+      invalid_format: 'Identifier must include one @ sign',
+      invalid_username: 'Identifier contains invalid username',
+      invalid_domain: 'Identifier contains invalid domain name'
+    },
+    invalid_callback_url: {invalid: 'Invalid callbackUrl'},
+    invalid_ext: {invalid: 'Invalid ext'},
+    invalid_challenge: {invalid: 'Invalid challenge'},
+    invalid_response: {invalid: 'Invalid response'},
+    invalid_signature: {invalid: 'Invalid signature'},
+    invalid_session_key: {invalid: 'Invalid session key'},
+    invalid_message: {invalid: 'Invalid message'},
+    invalid_attachments: {invalid: 'Invalid attachments'},
+    invalid_attestations: {invalid: 'Invalid attestations'},
+    invalid_device_name: {
+      invalid: 'Device name is invalid',
+      empty: 'Device name must not be empty',
+      too_long: 'Device name is too long',
+      not_lowercase: 'Device name must be provided in lowercase',
+      invalid_characters: 'Device name must include only letters, numbers, and hyphens'
+    }
   };
 
-  static #expandResult(errors) {
-    // expand errors
-    errors = errors.map((errno) => {
-      return {
-        code: errno,
-        message: this.#ERRORS[errno]
-      };
-    });
-
+  /**
+   * Builds a validation result from the reasons found for one field.
+   *
+   * @param code {string} - The error code of the field (e.g., `invalid_identifier`).
+   * @param reasons {Array<string>} - The reasons found, empty when the field is valid.
+   *
+   * @returns {{valid: boolean, errors: Array<{code: string, reason: string, message: string}>}}
+   */
+  static #expandResult(code, reasons) {
     return {
-      valid: errors.length === 0,
-      errors
+      valid: reasons.length === 0,
+      errors: reasons.map((reason) => ({code, reason, message: this.#ERRORS[code][reason]}))
     };
-  };
+  }
 
   /**
    * Validates the provided personal identifier's format, and returns human-friendly error messages if problems are found.
    *
    * @param identifier {String} - Identifier that should be validated.
    *
-   * @returns {{valid: boolean, errors: Array<{code: number, message: string}>}}
+   * @returns {{valid: boolean, errors: Array<{code: string, reason: string, message: string}>}}
    */
   static validateIdentifier(identifier) {
     if (typeof identifier !== 'string') {
-      return this.#expandResult([210]); // 'Identifier is invalid'
+      return this.#expandResult('invalid_identifier', ['invalid']);
     }
 
     if (identifier.length <= 0) {
-      return this.#expandResult([211]); // 'Identifier must not be empty'
+      return this.#expandResult('invalid_identifier', ['empty']);
     }
 
     if (identifier.length > LIMITS.identifierBytesize || Helpers.byteSize(identifier) > LIMITS.identifierBytesize) {
-      return this.#expandResult([212]); // 'Identifier is too long'
+      return this.#expandResult('invalid_identifier', ['too_long']);
     }
 
     // identifiers must not contain any whitespace characters and/or NULL
     if (identifier.match(/[\s\0]/g)) {
-      return this.#expandResult([210]); // 'Identifier is invalid'
+      return this.#expandResult('invalid_identifier', ['invalid']);
     }
 
     if (identifier !== identifier.toLowerCase()) {
-      return this.#expandResult([213]); // Identifier must be provided in lowercase
+      return this.#expandResult('invalid_identifier', ['not_lowercase']);
     }
 
     if ((identifier.match(/@/g) || []).length !== 1) {
-      return this.#expandResult([214]); // 'Identifier must include one @ sign'
+      return this.#expandResult('invalid_identifier', ['invalid_format']);
     }
 
     const [username, domain] = identifier.split('@');
-    const errors = [];
+    const reasons = [];
 
     if (
       // Username may be composed only of ASCII letters, numbers, dot and hyphen signs, must start with a letter or a digit,
@@ -116,16 +124,16 @@ export class Validator {
       // and it must not end with a dot or hyphen.
       username.match(/[.-]$/i)
     ) {
-      errors.push(215); // 'Invalid username'
+      reasons.push('invalid_username');
     }
 
     if (
       !Helpers.isDomainName(domain)
     ) {
-      errors.push(216); // 'Invalid domain name',
+      reasons.push('invalid_domain');
     }
 
-    return this.#expandResult(errors);
+    return this.#expandResult('invalid_identifier', reasons);
   }
 
   /**
@@ -133,19 +141,19 @@ export class Validator {
    *
    * @param callbackUrl {String} - Callback URL that should be validated.
    *
-   * @returns {{valid: boolean, errors: Array<{code: number, message: string}>}}
+   * @returns {{valid: boolean, errors: Array<{code: string, reason: string, message: string}>}}
    */
   static validateCallbackUrl(callbackUrl) {
-    const errors = [];
+    const reasons = [];
 
     // A callback URL is any canonical URL — http or https, named or IPv4-literal host — whose
     // base URL is free of the signature-envelope delimiter ';'
     const base = Helpers.getBaseUrl(callbackUrl);
     if (base === false || base.includes(DELIMITER)) {
-      errors.push(221);
+      reasons.push('invalid');
     }
 
-    return this.#expandResult(errors);
+    return this.#expandResult('invalid_callback_url', reasons);
   }
 
   /**
@@ -161,20 +169,20 @@ export class Validator {
    * @param [depth=0] {number} - Nesting depth of the object being validated: 0 for the `ext` object itself,
    *                             1 for the single level of nested plain objects that `ext` values may contain.
    *
-   * @returns {{valid: boolean, errors: Array<{code: number, message: string}>}}
+   * @returns {{valid: boolean, errors: Array<{code: string, reason: string, message: string}>}}
    */
   static validateExt(ext, depth=0) {
-    const errors = [];
+    const reasons = [];
 
     if (
       !ext ||
       !(typeof ext === 'object' && !Array.isArray(ext) && Object.keys(ext).every((k) => Helpers.isNormalString(k, LIMITS.jsonMaxKeyLength) && !/[^\x20-\x7E]/.test(k) && ['__proto__', 'constructor', 'prototype'].indexOf(k) < 0) && Object.values(ext).every((e) => (typeof e === 'string' && Helpers.isWellFormedString(e)) || Number.isSafeInteger(e) || typeof e === 'boolean' || (depth === 0 && this.validateExt(e, depth + 1).errors.length === 0))) ||
       Helpers.byteSize(JSON.stringify(ext)) > LIMITS.extBytesize
     ) {
-      errors.push(222);
+      reasons.push('invalid');
     }
 
-    return this.#expandResult(errors);
+    return this.#expandResult('invalid_ext', reasons);
   }
 
   /**
@@ -187,23 +195,23 @@ export class Validator {
    *
    * @param attestations {Object} - Attestations object that should be validated.
    *
-   * @returns {{valid: boolean, errors: Array<{code: number, message: string}>}}
+   * @returns {{valid: boolean, errors: Array<{code: string, reason: string, message: string}>}}
    */
   static validateAttestations(attestations) {
-    const errors = [];
+    const reasons = [];
 
     if (
       !attestations ||
       !(typeof attestations === 'object' && !Array.isArray(attestations)) ||
       !(Object.keys(attestations).every((k) => Helpers.isNormalString(k) && !/[^\x20-\x7E]/.test(k) && ['__proto__', 'constructor', 'prototype'].indexOf(k) < 0))
       ) {
-      return this.#expandResult([229]);
+      return this.#expandResult('invalid_attestations', ['invalid']);
     }
 
     // The multi-signature envelope holds at most maxMultiSignatures entries (1 user + N attesters),
     // so requesting more than (maxMultiSignatures - 1) attestations creates a request that can never be satisfied.
     if (Object.keys(attestations).length > LIMITS.maxMultiSignatures - 1) {
-      return this.#expandResult([229]);
+      return this.#expandResult('invalid_attestations', ['invalid']);
     }
 
     for (const entry of Object.values(attestations)) {
@@ -217,7 +225,7 @@ export class Validator {
           entry.providers.every((pUrl) => Helpers.isSecureUrl(pUrl))
         )
       ) {
-        errors.push(229);
+        reasons.push('invalid');
 
       } else {
         for (const providerUrl of entry.providers) {
@@ -228,13 +236,13 @@ export class Validator {
           // as the query/fragment introducers and '%' only in an escape — one charset test
           // covers every excluded character.
           if (/[?#%;']/.test(providerUrl)) {
-            errors.push(229);
+            reasons.push('invalid');
           }
         }
       }
     }
 
-    return this.#expandResult(errors);
+    return this.#expandResult('invalid_attestations', reasons);
   }
 
   /**
@@ -244,10 +252,10 @@ export class Validator {
    *
    * @param challenge {String} - Challenge string that should be validated.
    *
-   * @returns {{valid: boolean, errors: Array<{code: number, message: string}>}}
+   * @returns {{valid: boolean, errors: Array<{code: string, reason: string, message: string}>}}
    */
   static validateChallenge(challenge) {
-    const errors = [];
+    const reasons = [];
 
     if (
       typeof challenge !== 'string' ||
@@ -256,10 +264,10 @@ export class Validator {
       Helpers.byteSize(challenge) > LIMITS.challengeBytesize ||
       !Helpers.isBase64UrlString(challenge)
     ) {
-      errors.push(223);
+      reasons.push('invalid');
     }
 
-    return this.#expandResult(errors);
+    return this.#expandResult('invalid_challenge', reasons);
   }
 
   /**
@@ -269,10 +277,10 @@ export class Validator {
    *
    * @param response {String} - Response string that should be validated.
    *
-   * @returns {{valid: boolean, errors: Array<{code: number, message: string}>}}
+   * @returns {{valid: boolean, errors: Array<{code: string, reason: string, message: string}>}}
    */
   static validateResponse(response) {
-    const errors = [];
+    const reasons = [];
 
     if (
       typeof response !== 'string' ||
@@ -281,10 +289,10 @@ export class Validator {
       response.length > LIMITS.signatureBytesize ||
       Helpers.byteSize(response) > LIMITS.signatureBytesize
     ) {
-      errors.push(224);
+      reasons.push('invalid');
     }
 
-    return this.#expandResult(errors);
+    return this.#expandResult('invalid_response', reasons);
   }
 
   /**
@@ -295,10 +303,10 @@ export class Validator {
    *
    * @param response {String} - Sealed response that should be validated.
    *
-   * @returns {{valid: boolean, errors: Array<{code: number, message: string}>}}
+   * @returns {{valid: boolean, errors: Array<{code: string, reason: string, message: string}>}}
    */
   static validateSealedResponse(response) {
-    const errors = [];
+    const reasons = [];
     const maxLength = 87 + 1 + Math.ceil((LIMITS.signatureBytesize + 16) * 4 / 3);
 
     if (
@@ -306,10 +314,10 @@ export class Validator {
       response.length > maxLength ||
       !/^[A-Za-z0-9_-]{87}\.[A-Za-z0-9_-]{22,}$/.test(response)
     ) {
-      errors.push(224);
+      reasons.push('invalid');
     }
 
-    return this.#expandResult(errors);
+    return this.#expandResult('invalid_response', reasons);
   }
 
   /**
@@ -317,16 +325,16 @@ export class Validator {
    *
    * @param message {String} - Message that should be validated.
    *
-   * @returns {{valid: boolean, errors: Array<{code: number, message: string}>}}
+   * @returns {{valid: boolean, errors: Array<{code: string, reason: string, message: string}>}}
    */
   static validateMessage(message) {
-    const errors = [];
+    const reasons = [];
 
     if (!Helpers.isNormalString(message, LIMITS.messageBytesize)) {
-      errors.push(227);
+      reasons.push('invalid');
     }
 
-    return this.#expandResult(errors);
+    return this.#expandResult('invalid_message', reasons);
   }
 
   /**
@@ -344,10 +352,10 @@ export class Validator {
    * @param attachments {Array<{name: string, sourceUrl?: string, sha256: string}>} - Attachments array that should be validated.
    * @param [requireSourceUrl=true] {boolean} - Whether a valid `sourceUrl` is mandatory on every entry.
    *
-   * @returns {{valid: boolean, errors: Array<{code: number, message: string}>}}
+   * @returns {{valid: boolean, errors: Array<{code: string, reason: string, message: string}>}}
    */
   static validateAttachments(attachments, requireSourceUrl = true) {
-    const errors = [];
+    const reasons = [];
     const seenNames = Object.create(null);
 
     if (
@@ -361,10 +369,10 @@ export class Validator {
         (!seenNames[f.name] && (seenNames[f.name] = true))
       )
     ) {
-      errors.push(228);
+      reasons.push('invalid');
     }
 
-    return this.#expandResult(errors);
+    return this.#expandResult('invalid_attachments', reasons);
   }
 
   /**
@@ -386,13 +394,13 @@ export class Validator {
    *
    * @param signedMetadata {object} - The signed metadata of a signature segment.
    *
-   * @returns {{valid: boolean, errors: Array<{code: number, message: string}>}}
-   *          Invalid (225) when `bind` is present but is not an object of at least one recognized
+   * @returns {{valid: boolean, errors: Array<{code: string, reason: string, message: string}>}}
+   *          Invalid (`invalid_signature`) when `bind` is present but is not an object of at least one recognized
    *          binder with a string value.
    */
   static validateBinders(signedMetadata) {
     if (Object.keys(signedMetadata).indexOf('bind') < 0) {
-      return this.#expandResult([]); // a signature that binds nothing is valid - attesters attest anonymously
+      return this.#expandResult('invalid_signature', []); // a signature that binds nothing is valid - attesters attest anonymously
     }
 
     const bind = signedMetadata.bind;
@@ -403,10 +411,10 @@ export class Validator {
       binders.length < 1 ||
       !binders.every((binder) => this.BINDER_NAMES.indexOf(binder) >= 0 && typeof bind[binder] === 'string')
     ) {
-      return this.#expandResult([225]);
+      return this.#expandResult('invalid_signature', ['invalid']);
     }
 
-    return this.#expandResult([]);
+    return this.#expandResult('invalid_signature', []);
   }
 
   /**
@@ -417,7 +425,7 @@ export class Validator {
    *
    * @param sessionKey {String} - Session key that should be validated.
    *
-   * @returns {{valid: boolean, errors: Array<{code: number, message: string}>}}
+   * @returns {{valid: boolean, errors: Array<{code: string, reason: string, message: string}>}}
    */
   static validateSessionKey(sessionKey) {
     const parts = typeof sessionKey === 'string' ? sessionKey.split(':') : [];
@@ -428,17 +436,17 @@ export class Validator {
       (domain !== null && !(Helpers.isDomainName(domain) && domain === domain.toLowerCase())) ||
       key.length !== 43 || !Helpers.isBase64UrlString(key)
     ) {
-      return this.#expandResult([226]);
+      return this.#expandResult('invalid_session_key', ['invalid']);
     }
 
     // The canonical base64url of 32 bytes has no data in the unused bits of its last character
     try {
       Helpers.base64UrlToUint8(key);
     } catch {
-      return this.#expandResult([226]);
+      return this.#expandResult('invalid_session_key', ['invalid']);
     }
 
-    return this.#expandResult([]);
+    return this.#expandResult('invalid_session_key', []);
   }
 
   /**
@@ -449,38 +457,38 @@ export class Validator {
    *
    * @param deviceName {String} - Device name that should be validated.
    *
-   * @returns {{valid: boolean, errors: Array<{code: number, message: string}>}}
+   * @returns {{valid: boolean, errors: Array<{code: string, reason: string, message: string}>}}
    */
   static validateDeviceName(deviceName) {
-    const errors = [];
+    const reasons = [];
 
     if (typeof deviceName !== 'string') {
-      return this.#expandResult([260]); // 'Device name is invalid'
+      return this.#expandResult('invalid_device_name', ['invalid']);
     }
 
     if (deviceName.length <= 0) {
-      errors.push(261); // 'Device name must not be empty'
+      reasons.push('empty');
     }
 
     if (deviceName.length > LIMITS.deviceNameBytesize || Helpers.byteSize(deviceName) > LIMITS.deviceNameBytesize) {
-      return this.#expandResult([262]); // 'Device name is too long'
+      return this.#expandResult('invalid_device_name', ['too_long']);
     }
 
     // deviceName must not contain any whitespace characters and/or NULL
     if (deviceName.match(/[\s\0]/g)) {
-      errors.push(260); // 'Device name is invalid'
+      reasons.push('invalid');
     }
 
     if (deviceName !== deviceName.toLowerCase()) {
-      errors.push(263); // Device name must be provided in lowercase
+      reasons.push('not_lowercase');
     }
 
     // Lowercase alphanumerics joined by single hyphens: the name must start and end on an alphanumeric
     // and carry no consecutive hyphens.
     if (!deviceName.match(/^[a-z0-9]+(-[a-z0-9]+)*$/)) {
-      errors.push(264);
+      reasons.push('invalid_characters');
     }
 
-    return this.#expandResult(errors);
+    return this.#expandResult('invalid_device_name', reasons);
   }
 }

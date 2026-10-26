@@ -45,7 +45,7 @@ describe('Signing API', () => {
       });
 
       it('encodes a message with non-latin-1 characters in the challenge', async () => {
-        // Regression: btoa()-based encoding used to throw on chars > U+00FF and surface as 100 Internal error
+        // Regression: btoa()-based encoding used to throw on chars > U+00FF and surface as an internal error (internal_error)
         const message = 'Привет, мир';
         const signRes = (await Triauth.sign({identifier, callbackUrl, message, sessionKey}));
 
@@ -60,9 +60,9 @@ describe('Signing API', () => {
         assert(!signRes.redirectUrl.includes('challenge=') && !signRes.redirectUrl.includes('token='));
       });
 
-      it('rejects a request without a session key with 226 - sign follows a sign-in', async () => {
+      it('rejects a request without a session key with invalid_session_key - sign follows a sign-in', async () => {
         const signRes = (await Triauth.sign({identifier, callbackUrl, message}));
-        assert.equal(signRes?.error?.code, 226);
+        assert.equal(signRes?.error?.code, 'invalid_session_key');
       });
 
       it('accepts optional attachments and encodes them in the challenge', async () => {
@@ -82,12 +82,12 @@ describe('Signing API', () => {
         assert.equal((new Set(challenges)).size, challenges.length);
       });
 
-      it('returns {error:{code:227}} for invalid messages', async () => {
+      it('returns {error:{code:invalid_message}} for invalid messages', async () => {
         const invalidMessages = [123, null, '', 'has \n newline', 'has \x00 NUL', 'a'.repeat(2050)];
         for (const invalidMessage of invalidMessages) {
           const signRes = (await Triauth.sign({identifier, callbackUrl, message: invalidMessage, sessionKey}));
           assert(!signRes?.signed);
-          assert.equal(signRes.error.code, 227);
+          assert.equal(signRes.error.code, 'invalid_message');
         }
       });
 
@@ -100,7 +100,7 @@ describe('Signing API', () => {
         }
       });
 
-      it('returns {error:{code:228}} for malformed attachments', async () => {
+      it('returns {error:{code:invalid_attachments}} for malformed attachments', async () => {
         const base = attachments[0];
         const invalidAttachmentSets = [
           'not-an-array',
@@ -114,14 +114,14 @@ describe('Signing API', () => {
         for (const invalidAttachments of invalidAttachmentSets) {
           const signRes = (await Triauth.sign({identifier, callbackUrl, message, sessionKey, attachments: invalidAttachments}));
           assert(!signRes?.signed);
-          assert.equal(signRes.error.code, 228);
+          assert.equal(signRes.error.code, 'invalid_attachments');
         }
       });
 
-      it('returns {error:{code:228}} for more than attachmentsCount (10) attachments, while accepting exactly 10', async () => {
+      it('returns {error:{code:invalid_attachments}} for more than attachmentsCount (10) attachments, while accepting exactly 10', async () => {
         // The explicit count cap (LIMITS.attachmentsCount = 10) is a gate distinct from the
         // challengeBytesize byte cap exercised below: these entries are tiny, so the 11th must
-        // surface as 228 (too many), not 223 (too big).
+        // surface as invalid_attachments (too many), not invalid_challenge (too big).
         const make = (n) => Array.from({length: n}, (_, i) => ({
           name: `file-${i}`,
           sourceUrl: `https://example.com/f${i}.txt`,
@@ -134,12 +134,12 @@ describe('Signing API', () => {
 
         const elevenRes = (await Triauth.sign({identifier, callbackUrl, message, sessionKey, attachments: make(11)}));
         assert(!elevenRes?.signed);
-        assert.equal(elevenRes.error.code, 228);
+        assert.equal(elevenRes.error.code, 'invalid_attachments');
       });
 
-      it('returns {error:{code:223}} when the assembled challenge exceeds challengeBytesize (fails early, before DNS)', async () => {
+      it('returns {error:{code:invalid_challenge}} when the assembled challenge exceeds challengeBytesize (fails early, before DNS)', async () => {
         // Every input is individually valid, but enough max-length attachment sourceUrls push the
-        // serialized challenge past LIMITS.challengeBytesize — the stage-1 guard surfaces this as 223.
+        // serialized challenge past LIMITS.challengeBytesize — the stage-1 guard surfaces this as invalid_challenge.
         const bigAttachments = Array.from({length: 8}, (_, i) => ({
           name: `file-${i}`,
           sourceUrl: 'https://example.com/' + 'a'.repeat(2000),
@@ -147,7 +147,7 @@ describe('Signing API', () => {
         }));
         const signRes = (await Triauth.sign({identifier, callbackUrl, message, sessionKey, attachments: bigAttachments}));
         assert(!signRes?.signed);
-        assert.equal(signRes.error.code, 223);
+        assert.equal(signRes.error.code, 'invalid_challenge');
       });
 
       it('returns validation error for invalid identifiers', async () => {
@@ -155,33 +155,33 @@ describe('Signing API', () => {
         for (const invalidIdentifier in invalidIdentifiers) {
           const signRes = (await Triauth.sign({identifier: invalidIdentifier, callbackUrl, message, sessionKey}));
           assert(!signRes?.signed, invalidIdentifier);
-          assert(signRes.error.code >= 210 && signRes.error.code < 220, invalidIdentifier);
+          assert(signRes.error.code === 'invalid_identifier', invalidIdentifier);
         }
       });
 
-      it('returns {error:{code:221}} for invalid callbackUrls', async () => {
+      it('returns {error:{code:invalid_callback_url}} for invalid callbackUrls', async () => {
         const invalidUrls = ['=', '', 'https://[::1]/' + 'a'.repeat(1100)];
 
         for (const invalidUrl of invalidUrls) {
           const signRes = (await Triauth.sign({identifier, callbackUrl: invalidUrl, message, sessionKey}));
           assert(!signRes?.signed);
-          assert.equal(signRes.error.code, 221);
+          assert.equal(signRes.error.code, 'invalid_callback_url');
         }
       });
 
-      it('returns {error:{code:102}} for unrecognized options', async () => {
+      it('returns {error:{code:invalid_arguments}} for unrecognized options', async () => {
         const signRes = (await Triauth.sign({identifier, callbackUrl, message, sessionKey, unknownKey: 1}));
         assert(!signRes?.signed);
-        assert.equal(signRes.error.code, 102);
+        assert.equal(signRes.error.code, 'invalid_arguments');
       });
 
-      it('returns {error:{code:226}} for invalid session keys', async () => {
+      it('returns {error:{code:invalid_session_key}} for invalid session keys', async () => {
         const invalidSessionKeys = ['short', 123, '', 'A'.repeat(42), 'A'.repeat(44), ':' + 'a'.repeat(16), 'A'.repeat(42) + '+', 'A'.repeat(42) + 'B',
           ':' + 'A'.repeat(43), 'Issuer.Example:' + 'A'.repeat(43), 'not_a_domain:' + 'A'.repeat(43), 'a.example:b.example:' + 'A'.repeat(43)];
         for (const invalidSessionKey of invalidSessionKeys) {
           const signRes = (await Triauth.sign({identifier, callbackUrl, message, sessionKey: invalidSessionKey}));
           assert(!signRes?.signed);
-          assert.equal(signRes.error.code, 226);
+          assert.equal(signRes.error.code, 'invalid_session_key');
         }
       });
     });
@@ -277,7 +277,7 @@ describe('Signing API', () => {
         assert.equal(verifyTampered.valid, false);
       });
 
-      it('honors config.requireSecure: a non-DNSSEC signature is rejected with error 404', async () => {
+      it('honors config.requireSecure: a non-DNSSEC signature is rejected with error dnssec_required', async () => {
         const callbackUrl = 'https://example.com/';
         const message = 'requireSecure check';
 
@@ -309,14 +309,14 @@ describe('Signing API', () => {
           assert.equal(verifyDefault.valid, true, `default config must verify (secure:${secure})`);
           assert.equal(verifyDefault.secure, secure);
 
-          // requireSecure on: a DNSSEC-secure signature still verifies; a non-secure one is rejected with 404.
+          // requireSecure on: a DNSSEC-secure signature still verifies; a non-secure one is rejected with dnssec_required.
           const verifyStrict = await Triauth.verify(message, signature, {}, {resolver, requireSecure: true});
           if (secure) {
             assert.equal(verifyStrict.valid, true, 'DNSSEC-secure signature must still verify under requireSecure');
             assert.equal(verifyStrict.secure, true);
           } else {
             assert.notEqual(verifyStrict.valid, true, 'non-DNSSEC signature must not verify under requireSecure');
-            assert.equal(verifyStrict.error.code, 404);
+            assert.equal(verifyStrict.error.code, 'dnssec_required');
           }
         }
       });
@@ -346,7 +346,7 @@ describe('Signing API', () => {
 
         const signRes = (await Triauth.sign({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!signRes.signed);
-        assert.equal(signRes.error.code, 401);
+        assert.equal(signRes.error.code, 'verification_failed');
       });
 
       it('rejects response missing attachments when challenge requested some', async () => {
@@ -373,7 +373,7 @@ describe('Signing API', () => {
 
         const signRes = (await Triauth.sign({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!signRes.signed);
-        assert.equal(signRes.error.code, 401);
+        assert.equal(signRes.error.code, 'verification_failed');
       });
 
       it('rejects response with attachment sha256 differing from challenge', async () => {
@@ -401,7 +401,7 @@ describe('Signing API', () => {
 
         const signRes = (await Triauth.sign({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!signRes.signed);
-        assert.equal(signRes.error.code, 401);
+        assert.equal(signRes.error.code, 'verification_failed');
       });
 
       it('rejects response with mismatched attachment name', async () => {
@@ -429,7 +429,7 @@ describe('Signing API', () => {
 
         const signRes = (await Triauth.sign({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!signRes.signed);
-        assert.equal(signRes.error.code, 401);
+        assert.equal(signRes.error.code, 'verification_failed');
       });
 
       it('rejects mismatched embedded challenge `type`', async () => {
@@ -454,7 +454,7 @@ describe('Signing API', () => {
 
         const signRes = (await Triauth.sign({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)}));
         assert(!signRes.signed);
-        assert.equal(signRes.error.code, 401);
+        assert.equal(signRes.error.code, 'verification_failed');
       });
 
       it('rejects mismatched envelope `type`', async () => {
@@ -475,7 +475,7 @@ describe('Signing API', () => {
 
         const signRes = (await Triauth.sign({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!signRes.signed);
-        assert.equal(signRes.error.code, 401);
+        assert.equal(signRes.error.code, 'verification_failed');
       });
 
       it('verifies identifier, if passed, is the same as in challenge', async () => {
@@ -499,7 +499,7 @@ describe('Signing API', () => {
 
         signRes = await Triauth.sign({identifier: 'other-user@example.com', challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert(!signRes.signed);
-        assert.equal(signRes.error.code, 401);
+        assert.equal(signRes.error.code, 'verification_failed');
       });
 
       it('verifies callbackUrl, if passed, is the same as in challenge', async () => {
@@ -523,7 +523,7 @@ describe('Signing API', () => {
 
         signRes = await Triauth.sign({challenge, response: await AuthenticatorStub.seal(challenge, response), callbackUrl: 'https://other-domain.com/'});
         assert(!signRes.signed);
-        assert.equal(signRes.error.code, 401);
+        assert.equal(signRes.error.code, 'verification_failed');
       });
 
       it('honors per-call signTimeout override', async () => {
@@ -549,7 +549,7 @@ describe('Signing API', () => {
 
         let signRes = await Triauth.sign({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)});
         assert(!signRes.signed);
-        assert.equal(signRes.error.code, 402);
+        assert.equal(signRes.error.code, 'request_expired');
 
         signRes = await Triauth.sign(
           {challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)},
@@ -611,9 +611,9 @@ describe('Signing API', () => {
         assert(!stampRes.redirectUrl.includes('challenge=') && !stampRes.redirectUrl.includes('token='));
       });
 
-      it('rejects a request without a session key with 226 - stamp follows a sign-in', async () => {
+      it('rejects a request without a session key with invalid_session_key - stamp follows a sign-in', async () => {
         const stampRes = (await Triauth.stamp({identifier, callbackUrl, message}));
-        assert.equal(stampRes?.error?.code, 226);
+        assert.equal(stampRes?.error?.code, 'invalid_session_key');
       });
 
       it('rejects the attachments option even when otherwise valid', async () => {
@@ -624,32 +624,32 @@ describe('Signing API', () => {
         }];
         const stampRes = (await Triauth.stamp({identifier, callbackUrl, message, sessionKey, attachments}));
         assert(!stampRes?.stamped);
-        assert.equal(stampRes.error.code, 102);
+        assert.equal(stampRes.error.code, 'invalid_arguments');
       });
 
-      it('returns {error:{code:227}} for invalid messages', async () => {
+      it('returns {error:{code:invalid_message}} for invalid messages', async () => {
         const invalidMessages = [123, null, '', 'has \n newline', 'a'.repeat(2050)];
         for (const invalidMessage of invalidMessages) {
           const stampRes = (await Triauth.stamp({identifier, callbackUrl, message: invalidMessage, sessionKey}));
           assert(!stampRes?.stamped);
-          assert.equal(stampRes.error.code, 227);
+          assert.equal(stampRes.error.code, 'invalid_message');
         }
       });
 
-      it('returns {error:{code:226}} for invalid session keys', async () => {
+      it('returns {error:{code:invalid_session_key}} for invalid session keys', async () => {
         const invalidSessionKeys = ['short', 123, '', 'A'.repeat(42), 'A'.repeat(44), ':' + 'a'.repeat(16), 'A'.repeat(42) + '+', 'A'.repeat(42) + 'B',
           ':' + 'A'.repeat(43), 'Issuer.Example:' + 'A'.repeat(43), 'not_a_domain:' + 'A'.repeat(43), 'a.example:b.example:' + 'A'.repeat(43)];
         for (const invalidSessionKey of invalidSessionKeys) {
           const stampRes = (await Triauth.stamp({identifier, callbackUrl, message, sessionKey: invalidSessionKey}));
           assert(!stampRes?.stamped);
-          assert.equal(stampRes.error.code, 226);
+          assert.equal(stampRes.error.code, 'invalid_session_key');
         }
       });
 
-      it('returns {error:{code:102}} for unrecognized options', async () => {
+      it('returns {error:{code:invalid_arguments}} for unrecognized options', async () => {
         const stampRes = (await Triauth.stamp({identifier, callbackUrl, message, sessionKey, unknownKey: 1}));
         assert(!stampRes?.stamped);
-        assert.equal(stampRes.error.code, 102);
+        assert.equal(stampRes.error.code, 'invalid_arguments');
       });
     });
 
@@ -733,7 +733,7 @@ describe('Signing API', () => {
 
         const stampRes = (await Triauth.stamp({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!stampRes.stamped);
-        assert.equal(stampRes.error.code, 401);
+        assert.equal(stampRes.error.code, 'verification_failed');
       });
 
       it('rejects responses whose envelope `type` is `sign`', async () => {
@@ -754,7 +754,7 @@ describe('Signing API', () => {
 
         const stampRes = (await Triauth.stamp({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!stampRes.stamped);
-        assert.equal(stampRes.error.code, 401);
+        assert.equal(stampRes.error.code, 'verification_failed');
       });
 
       it('rejects challenges whose embedded `type` was tampered to `sign`', async () => {
@@ -779,7 +779,7 @@ describe('Signing API', () => {
 
         const stampRes = (await Triauth.stamp({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)}));
         assert(!stampRes.stamped);
-        assert.equal(stampRes.error.code, 401);
+        assert.equal(stampRes.error.code, 'verification_failed');
       });
 
       it('does not stamp expired challenges', async () => {
@@ -804,7 +804,7 @@ describe('Signing API', () => {
 
         const stampRes = await Triauth.stamp({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)});
         assert(!stampRes.stamped);
-        assert.equal(stampRes.error.code, 402);
+        assert.equal(stampRes.error.code, 'request_expired');
       });
 
       it('verifies identifier, if passed, is the same as in challenge', async () => {
@@ -828,7 +828,7 @@ describe('Signing API', () => {
 
         stampRes = await Triauth.stamp({identifier: 'other-user@example.com', challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert(!stampRes.stamped);
-        assert.equal(stampRes.error.code, 401);
+        assert.equal(stampRes.error.code, 'verification_failed');
       });
 
       it('verifies callbackUrl, if passed, is the same as in challenge', async () => {
@@ -852,7 +852,7 @@ describe('Signing API', () => {
 
         stampRes = await Triauth.stamp({challenge, response: await AuthenticatorStub.seal(challenge, response), callbackUrl: 'https://other-domain.com/'});
         assert(!stampRes.stamped);
-        assert.equal(stampRes.error.code, 401);
+        assert.equal(stampRes.error.code, 'verification_failed');
       });
 
       it('rejects stamp challenge that has attachments injected into challenge.data', async () => {
@@ -881,7 +881,7 @@ describe('Signing API', () => {
 
         const stampRes = await Triauth.stamp({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)});
         assert(!stampRes.stamped);
-        assert.equal(stampRes.error.code, 102);
+        assert.equal(stampRes.error.code, 'invalid_arguments');
       });
     });
   });
@@ -979,7 +979,7 @@ describe('Signing API', () => {
 
       verifyRes = (await Triauth.verify('Dolor sit', [1]));
       assert.equal(verifyRes.valid, undefined, 'Valid should be undefined when invalid arguments are passed to the function');
-      assert.equal(verifyRes.error.code, 101);
+      assert.equal(verifyRes.error.code, 'invalid_arguments');
     });
 
     it('returns a multi-signature envelope when the input has more than one signature', async () => {
@@ -1059,12 +1059,12 @@ describe('Signing API', () => {
       assert.equal(zeroMax.valid, false);
       assert.equal(zeroMax.reason, 'declined');
 
-      // A malformed (non-numeric or NaN) bound is a caller argument error -> {error:{code:101}}, surfaced
+      // A malformed (non-numeric or NaN) bound is a caller argument error -> {error:{code:invalid_arguments}}, surfaced
       // before any cryptographic work (louder than silently failing the signature closed).
       const nonNumeric = await Triauth.verify(message, multiSig, {maxSignatures: '1'});
-      assert.equal(nonNumeric.error.code, 101);
+      assert.equal(nonNumeric.error.code, 'invalid_arguments');
       const nanBound = await Triauth.verify(message, multiSig, {minSignatures: NaN});
-      assert.equal(nanBound.error.code, 101);
+      assert.equal(nanBound.error.code, 'invalid_arguments');
 
       // Raising maxSignatures to the segment count is what enables multi-signature verification.
       const optedIn = await Triauth.verify(message, multiSig, {maxSignatures: 2});

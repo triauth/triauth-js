@@ -1,6 +1,6 @@
 {
   "title": "verify",
-  "description": "Comprehensive, branch-complete coverage of Triauth.verify(message, signature, constraints?, config?). verify takes a raw signature envelope directly and runs MultiSignature -> Signature -> Identity.resolve -> IdentityKeys.verify -> Verifiers, with no challenge/response, attachment, or callbackUrl machinery. Covered: the argument-shape guards (101) and the DNS-failure path (110) — the only {error} bodies; every other failure is {verified:true,valid:false}; MultiSignature/Signature envelope parse failures and metadata-parse rejections (caught by verify’s code>=200 arm); constraint-driven failures (type/identifier/ver/via mismatch -> false, out-of-window notBefore/notAfter -> null); generic crypto failures (bogus bytes, atob-throw, message<->signature binding, use-mismatch, partial multi-key, too many signatures); identity resolution failures (NXDOMAIN/unconfigured/ambiguous/unknown-identifier/hashed-mode errors -> valid:false; DNS SERVFAIL propagates as a retryable 110); the IdentityKeys add/verify taint & skip branches; the WebAuthn verifier (type=webauthn-es256) success plus every structure/clientData guard and the import-failure path; the Ed25519 (type=ed25519) and WebAuthn-Ed25519 (type=webauthn-ed25519) verifier backends, including a heterogeneous es256+ed25519 multisig; P-256 keys published as the 33-byte compressed point (both prefixes, es256 and webauthn-es256), the other prefix (a different key), and the forms that do not import (the hybrid form, a prefix outside SEC 1, x >= p, an x with no point on the curve); resolveConfig record sanitization; the single-signature SUCCESS body ({valid,type,identifier,identityDomain,lookupCode,actor,actorIdentityDomain,actorLookupCode,via,ver,signedAt,verifiedAt,publicProfile,groups,deviceName,deviceTag,keys,secure,expires,signedMetadata,unsignedMetadata}); and the verify-UNIQUE multi-signature SUCCESS path (length>1 -> {type:'multisig',valid,secure,expires,signatures}), which verify accepts only when the caller raises maxSignatures (which defaults to 1) — by default, and when only minSignatures is given, a multi-segment envelope is rejected as valid:false under verify's secure-by-default single-signature policy. A final EMERGENT-SECURITY / REGRESSION-GUARD section pins invariants that a refactor could break while keeping 100% branch coverage: cryptographic binding of every signed envelope field (tampering type/identifier/via/ts/signedMetadata on an otherwise-valid signature flips valid->false; identifier binding is isolated from key identity via a twin that republishes john's exact key); message opacity (a delimiter-laden message cannot be smuggled into the parsed fields); WebAuthn challenge<->message binding; strict (no clock-drift) freshness boundaries at notBefore===ts / notAfter===ts; exact identifier constraint matching; non-exposure of the internal minSignatures/maxSignatures constraints; and multi-signature fail-safe aggregation (earliest expiry wins; the maxMultiSignatures=5 upper boundary is accepted). Crypto-bearing fixtures (ECDSA + WebAuthn) were minted by test/fixtures/json/_capture_verify.mjs (WebCrypto ECDSA is non-deterministic to mint, deterministic to verify). See that script’s header for the exhaustive list of verify-UNREACHABLE branches left uncovered by construction. A GROUPS section pins the membership list surfaced on results (fully-qualified sorted deduplicated names; the subject's under delegation; per-segment in multisig with no aggregate-level field) and the resolution-level secure semantics: any non-DNSSEC record of the identity answer - groups, profile, or unrecognized - degrades secure. A PRIVATE MODE section covers mode=private (per-identity lookup code in signed-metadata: `lookupCode` for the subject, `actorLookupCode` for the actor; the exact-16 [A-Z0-9] grammar; the commit record with its exactly-one tripwire and the ~lookupCode deviceTag suffixes, reported from the derivation actually performed; a code is consumed only where its identity runs mode=private and is inert elsewhere; a delegated private-mode org pair verifies with both codes).",
+  "description": "Comprehensive, branch-complete coverage of Triauth.verify(message, signature, constraints?, config?). verify takes a raw signature envelope directly and runs MultiSignature -> Signature -> Identity.resolve -> IdentityKeys.verify -> Verifiers, with no challenge/response, attachment, or callbackUrl machinery. Covered: the argument-shape guards (invalid_arguments) and the DNS-failure path (dns_unavailable) — the only {error} bodies; every other failure is {verified:true,valid:false}; MultiSignature/Signature envelope parse failures and metadata-parse rejections (caught by verify’s code>=200 arm); constraint-driven failures (type/identifier/ver/via mismatch -> false, out-of-window notBefore/notAfter -> null); generic crypto failures (bogus bytes, atob-throw, message<->signature binding, use-mismatch, partial multi-key, too many signatures); identity resolution failures (NXDOMAIN/unconfigured/ambiguous/unknown-identifier/hashed-mode errors -> valid:false; DNS SERVFAIL propagates as a retryable dns_unavailable); the IdentityKeys add/verify taint & skip branches; the WebAuthn verifier (type=webauthn-es256) success plus every structure/clientData guard and the import-failure path; the Ed25519 (type=ed25519) and WebAuthn-Ed25519 (type=webauthn-ed25519) verifier backends, including a heterogeneous es256+ed25519 multisig; P-256 keys published as the 33-byte compressed point (both prefixes, es256 and webauthn-es256), the other prefix (a different key), and the forms that do not import (the hybrid form, a prefix outside SEC 1, x >= p, an x with no point on the curve); resolveConfig record sanitization; the single-signature SUCCESS body ({valid,type,identifier,identityDomain,lookupCode,actor,actorIdentityDomain,actorLookupCode,via,ver,signedAt,verifiedAt,publicProfile,groups,deviceName,deviceTag,keys,secure,expires,signedMetadata,unsignedMetadata}); and the verify-UNIQUE multi-signature SUCCESS path (length>1 -> {type:'multisig',valid,secure,expires,signatures}), which verify accepts only when the caller raises maxSignatures (which defaults to 1) — by default, and when only minSignatures is given, a multi-segment envelope is rejected as valid:false under verify's secure-by-default single-signature policy. A final EMERGENT-SECURITY / REGRESSION-GUARD section pins invariants that a refactor could break while keeping internal_error% branch coverage: cryptographic binding of every signed envelope field (tampering type/identifier/via/ts/signedMetadata on an otherwise-valid signature flips valid->false; identifier binding is isolated from key identity via a twin that republishes john's exact key); message opacity (a delimiter-laden message cannot be smuggled into the parsed fields); WebAuthn challenge<->message binding; strict (no clock-drift) freshness boundaries at notBefore===ts / notAfter===ts; exact identifier constraint matching; non-exposure of the internal minSignatures/maxSignatures constraints; and multi-signature fail-safe aggregation (earliest expiry wins; the maxMultiSignatures=5 upper boundary is accepted). Crypto-bearing fixtures (ECDSA + WebAuthn) were minted by test/fixtures/json/_capture_verify.mjs (WebCrypto ECDSA is non-deterministic to mint, deterministic to verify). See that script’s header for the exhaustive list of verify-UNREACHABLE branches left uncovered by construction. A GROUPS section pins the membership list surfaced on results (fully-qualified sorted deduplicated names; the subject's under delegation; per-segment in multisig with no aggregate-level field) and the resolution-level secure semantics: any non-DNSSEC record of the identity answer - groups, profile, or unrecognized - degrades secure. A PRIVATE MODE section covers mode=private (per-identity lookup code in signed-metadata: `lookupCode` for the subject, `actorLookupCode` for the actor; the exact-16 [A-Z0-9] grammar; the commit record with its exactly-one tripwire and the ~lookupCode deviceTag suffixes, reported from the derivation actually performed; a code is consumed only where its identity runs mode=private and is inert elsewhere; a delegated private-mode org pair verifies with both codes).",
   "dnsEntries": {
     "triauthdemo.org": {
       "TXT": [
@@ -98,7 +98,7 @@
   "currentTime": 1777454675000,
   "tests": [
     {
-      "name": "non-string message (number) returns 101",
+      "name": "non-string message (number) returns invalid_arguments",
       "call": "verify",
       "args": [
         123,
@@ -106,13 +106,13 @@
       ],
       "expected": {
         "error": {
-          "code": 101,
+          "code": "invalid_arguments",
           "message": "Invalid arguments"
         }
       }
     },
     {
-      "name": "non-string signature (number) returns 101",
+      "name": "non-string signature (number) returns invalid_arguments",
       "call": "verify",
       "args": [
         "Please verify this signed statement",
@@ -120,13 +120,13 @@
       ],
       "expected": {
         "error": {
-          "code": 101,
+          "code": "invalid_arguments",
           "message": "Invalid arguments"
         }
       }
     },
     {
-      "name": "non-object constraints (string) returns 101",
+      "name": "non-object constraints (string) returns invalid_arguments",
       "call": "verify",
       "args": [
         "Please verify this signed statement",
@@ -135,13 +135,13 @@
       ],
       "expected": {
         "error": {
-          "code": 101,
+          "code": "invalid_arguments",
           "message": "Invalid arguments"
         }
       }
     },
     {
-      "name": "null constraints returns 101 (hasOnlyKnownProperties null-guard)",
+      "name": "null constraints returns invalid_arguments (hasOnlyKnownProperties null-guard)",
       "call": "verify",
       "args": [
         "Please verify this signed statement",
@@ -150,13 +150,13 @@
       ],
       "expected": {
         "error": {
-          "code": 101,
+          "code": "invalid_arguments",
           "message": "Invalid arguments"
         }
       }
     },
     {
-      "name": "array constraints returns 101 (hasOnlyKnownProperties Array.isArray-guard)",
+      "name": "array constraints returns invalid_arguments (hasOnlyKnownProperties Array.isArray-guard)",
       "call": "verify",
       "args": [
         "Please verify this signed statement",
@@ -165,13 +165,13 @@
       ],
       "expected": {
         "error": {
-          "code": 101,
+          "code": "invalid_arguments",
           "message": "Invalid arguments"
         }
       }
     },
     {
-      "name": "constraints with an unrecognized key returns 101",
+      "name": "constraints with an unrecognized key returns invalid_arguments",
       "call": "verify",
       "args": [
         "Please verify this signed statement",
@@ -182,7 +182,7 @@
       ],
       "expected": {
         "error": {
-          "code": 101,
+          "code": "invalid_arguments",
           "message": "Invalid arguments"
         }
       }
@@ -643,7 +643,7 @@
       }
     },
     {
-      "name": "unsignedMetadata with the whole numbers spelled 1.0 and 1e2 verifies, and the values are the integers 1 and 100",
+      "name": "unsignedMetadata with the whole numbers spelled 1.0 and 1e2 verifies, and the values are the integers 1 and internal_error",
       "call": "verify",
       "args": [
         "Please verify this signed statement",
@@ -916,7 +916,7 @@
       }
     },
     {
-      "name": "envelope identifier exceeding identifierBytesize (>249) -> valid:false (validateIdentifier 212)",
+      "name": "envelope identifier exceeding identifierBytesize (>249) -> valid:false (validateIdentifier invalid_identifier/too_long)",
       "call": "verify",
       "args": [
         "Please verify this signed statement",
@@ -928,7 +928,7 @@
       }
     },
     {
-      "name": "envelope identifier with uppercase -> valid:false (validateIdentifier 213)",
+      "name": "envelope identifier with uppercase -> valid:false (validateIdentifier invalid_identifier/not_lowercase)",
       "call": "verify",
       "args": [
         "Please verify this signed statement",
@@ -940,7 +940,7 @@
       }
     },
     {
-      "name": "envelope identifier containing whitespace -> valid:false (validateIdentifier 210 /[\\s\\0]/ arm)",
+      "name": "envelope identifier containing whitespace -> valid:false (validateIdentifier invalid_identifier/invalid /[\\s\\0]/ arm)",
       "call": "verify",
       "args": [
         "Please verify this signed statement",
@@ -952,7 +952,7 @@
       }
     },
     {
-      "name": "envelope identifier with consecutive dots in the username -> valid:false (validateIdentifier 215)",
+      "name": "envelope identifier with consecutive dots in the username -> valid:false (validateIdentifier invalid_identifier/invalid_username)",
       "call": "verify",
       "args": [
         "Please verify this signed statement",
@@ -964,7 +964,7 @@
       }
     },
     {
-      "name": "envelope identifier with a punycode domain -> valid:false (validateIdentifier 216)",
+      "name": "envelope identifier with a punycode domain -> valid:false (validateIdentifier invalid_identifier/invalid_domain)",
       "call": "verify",
       "args": [
         "Please verify this signed statement",
@@ -1658,7 +1658,7 @@
       }
     },
     {
-      "name": "DNS SERVFAIL on the authentication endpoint propagates -> retryable {error:110}, not a false valid:false",
+      "name": "DNS SERVFAIL on the authentication endpoint propagates -> retryable {error:dns_unavailable}, not a false valid:false",
       "call": "verify",
       "args": [
         "Please verify this signed statement",
@@ -1671,13 +1671,13 @@
       },
       "expected": {
         "error": {
-          "code": 110,
+          "code": "dns_unavailable",
           "message": "DNS resolution failed, try again later"
         }
       }
     },
     {
-      "name": "DNS SERVFAIL on the identity domain propagates -> retryable {error:110}, not a false valid:false",
+      "name": "DNS SERVFAIL on the identity domain propagates -> retryable {error:dns_unavailable}, not a false valid:false",
       "call": "verify",
       "args": [
         "Please verify this signed statement",
@@ -1690,7 +1690,7 @@
       },
       "expected": {
         "error": {
-          "code": 110,
+          "code": "dns_unavailable",
           "message": "DNS resolution failed, try again later"
         }
       }
@@ -3805,7 +3805,7 @@
       }
     },
     {
-      "name": "non-numeric maxSignatures is a caller argument error -> {error:101} (rejected before any cryptographic work)",
+      "name": "non-numeric maxSignatures is a caller argument error -> {error:invalid_arguments} (rejected before any cryptographic work)",
       "call": "verify",
       "args": [
         "Please verify this signed statement",
@@ -3816,13 +3816,13 @@
       ],
       "expected": {
         "error": {
-          "code": 101,
+          "code": "invalid_arguments",
           "message": "Invalid arguments"
         }
       }
     },
     {
-      "name": "SECURITY: byte-identical duplicate segments are rejected outright (MultiSignature ctor 225) -> valid:false - a single signature replayed to pad the segment count",
+      "name": "SECURITY: byte-identical duplicate segments are rejected outright (MultiSignature ctor invalid_signature) -> valid:false - a single signature replayed to pad the segment count",
       "call": "verify",
       "args": [
         "Please verify this signed statement",
@@ -5257,7 +5257,7 @@
       }
     },
     {
-      "name": "SECURITY requireSecure: verify - a non-DNSSEC (secure:false) key chain is rejected with 404 as {error}, not valid:false",
+      "name": "SECURITY requireSecure: verify - a non-DNSSEC (secure:false) key chain is rejected with dnssec_required as {error}, not valid:false",
       "call": "verify",
       "args": [
         "Please verify this signed statement",
@@ -5282,7 +5282,7 @@
       },
       "expected": {
         "error": {
-          "code": 404,
+          "code": "dnssec_required",
           "message": "Your domain does not support DNSSEC, which is required to continue."
         }
       }

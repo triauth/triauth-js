@@ -133,7 +133,7 @@ export default function() { describe('Triauth.ResponseCipher', () => {
     }
   });
 
-  it('validates the sealed form and its length before any crypto (224)', async () => {
+  it('validates the sealed form and its length before any crypto (invalid_response)', async () => {
     const {encryptionKey} = await Triauth.ResponseCipher.generateKeyPair();
     const {sealedResponse: sealed} = await Triauth.ResponseCipher.seal(encryptionKey, ENVELOPE);
     const [enc] = sealed.split('.');
@@ -143,7 +143,7 @@ export default function() { describe('Triauth.ResponseCipher', () => {
     for (const invalid of [ENVELOPE, enc, enc + '.' + 'A'.repeat(21), sealed + '.x', 'A'.repeat(86) + '.' + 'A'.repeat(22), enc + '.' + 'A'.repeat(30000), null, 123]) {
       const result = Triauth.Validator.validateSealedResponse(invalid);
       assert.equal(result.valid, false, String(invalid).slice(0, 20));
-      assert.equal(result.errors[0].code, 224);
+      assert.equal(result.errors[0].code, 'invalid_response');
     }
   });
 

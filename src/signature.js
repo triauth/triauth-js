@@ -100,7 +100,7 @@ export class Signature {
    * @param rawData {string} - the wrapped signature envelope.
    * @param [config={}] {object} - optional overrides for the global Triauth.config settings.
    *
-   * @throws {TriauthError} code 225 when the envelope or any of its fields is malformed.
+   * @throws {TriauthError} `invalid_signature` when the envelope or any of its fields is malformed.
    */
   constructor(rawData, config={}) {
     this.config = Helpers.mergeConfig(config);
@@ -113,7 +113,7 @@ export class Signature {
       Helpers.byteSize(rawData) > LIMITS.signatureBytesize ||
       rawData.split(WRAPPER).length  !== 3
     ) {
-      throw new TriauthError(225, 'Invalid signature');
+      throw new TriauthError({code: 'invalid_signature', reason: 'invalid', message: 'Invalid signature'});
     }
 
     /** The wrapped signature envelope this instance was parsed from. */
@@ -155,7 +155,7 @@ export class Signature {
       this.cryptoSignatures.length < 1 || // there must be at least one crypto signature
       this.cryptoSignatures.some((cs) => cs.length < 1 || !Helpers.isBase64UrlString(cs))
     ) {
-      throw new TriauthError(225, 'Invalid signature');
+      throw new TriauthError({code: 'invalid_signature', reason: 'invalid', message: 'Invalid signature'});
     }
 
     // Parse the numeric properties from envelope - they have been pre-checked with regexp
@@ -169,7 +169,7 @@ export class Signature {
       /** The decoded metadata NOT covered by the crypto signatures; `{}` when the envelope carries none. */
       this.unsignedMetadata = this.encodedUnsignedMetadata ? this.decodeMetadata(this.encodedUnsignedMetadata) : {};
     } catch (err) {
-      throw new TriauthError(225, 'Invalid signature', {cause: err});
+      throw new TriauthError({code: 'invalid_signature', reason: 'invalid', message: 'Invalid signature'}, {cause: err});
     }
   }
 
@@ -239,7 +239,7 @@ export class Signature {
    *          signedMetadata - an object, containing any additional data that is covered by the embedded crypto signatures,
    *          unsignedMetadata - an object, containing data that for various reasons was not covered by the embedded crypto signatures, but may be needed to verify it
    *
-   * @throws {TriauthError} code 110 when DNS resolution of the signer's identity fails - intentionally propagated so that API methods report a retryable error instead of a false "signature invalid" verdict
+   * @throws {TriauthError} `dns_unavailable` when DNS resolution of the signer's identity fails - intentionally propagated so that API methods report a retryable error instead of a false "signature invalid" verdict
    */
   async verify(message, constraints = {}) {
 
@@ -265,7 +265,7 @@ export class Signature {
     }
 
     // 3-state return contract (shared by Signature/MultiSignature/Response.verify and relied on by
-    // every API method to choose between a 402 "expired" and a 401 "invalid"):
+    // every API method to choose between request_expired ("expired") and verification_failed ("invalid")):
     //   - a result object => success
     //   - `null`          => time-related failure ("expired")
     //   - `false`         => any other failure ("invalid")
@@ -316,7 +316,7 @@ export class Signature {
 
     // Attempt to resolve identity records of the identifier. A definitive negative (domain not
     // configured for triauth, or no identity records published) fails the verification. A thrown
-    // resolution error (e.g., TriauthError 110 on DNS failure) intentionally propagates instead.
+    // resolution error (e.g., TriauthError dns_unavailable on DNS failure) intentionally propagates instead.
     if (!(await signerIdentity.resolve())) {
       this.config.logger?.debug?.('Identifier does not exist or is not configured for triauth');
       return false;

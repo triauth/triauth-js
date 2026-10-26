@@ -271,12 +271,12 @@ export async function sealedCases(s3, challengeWith, envelopeFor) {
 
   return [
     s3('Stage 3 SEALED response opens with the decryption key of the stored challenge and verifies', { challenge: stored, response: sealed }),
-    s3('Stage 3 SEALED plain envelope for a challenge stored with a decryption key returns 224 (a keyed challenge has no unsealed path)', { challenge: stored, response: envelope }),
-    s3('Stage 3 SEALED challenge stored without its decryption key (ek present) returns 223', { challenge, response: envelope }),
-    s3('Stage 3 SEALED decryption key on a challenge without ek returns 223', { challenge: bare + '.' + pair.decryptionKey, response: sealed }),
-    s3('Stage 3 SEALED challenge without ek or decryption key returns 223, even with the plain envelope signed for it (every response is sealed)', { challenge: bare, response: await envelopeFor(bare) }),
-    s3('Stage 3 SEALED malformed decryption key (42 characters) returns 223', { challenge: challenge + '.' + pair.decryptionKey.slice(1), response: sealed }),
-    s3("Stage 3 SEALED response sealed to another challenge's key returns 224", { challenge: challengeWith(other.encryptionKey) + '.' + other.decryptionKey, response: sealed }),
-    s3('Stage 3 SEALED ciphertext changed in transit returns 224', { challenge: stored, response: tampered }),
+    s3('Stage 3 SEALED plain envelope for a challenge stored with a decryption key returns invalid_response (a keyed challenge has no unsealed path)', { challenge: stored, response: envelope }),
+    s3('Stage 3 SEALED challenge stored without its decryption key (ek present) returns invalid_challenge', { challenge, response: envelope }),
+    s3('Stage 3 SEALED decryption key on a challenge without ek returns invalid_challenge', { challenge: bare + '.' + pair.decryptionKey, response: sealed }),
+    s3('Stage 3 SEALED challenge without ek or decryption key returns invalid_challenge, even with the plain envelope signed for it (every response is sealed)', { challenge: bare, response: await envelopeFor(bare) }),
+    s3('Stage 3 SEALED malformed decryption key (42 characters) returns invalid_challenge', { challenge: challenge + '.' + pair.decryptionKey.slice(1), response: sealed }),
+    s3("Stage 3 SEALED response sealed to another challenge's key returns invalid_response", { challenge: challengeWith(other.encryptionKey) + '.' + other.decryptionKey, response: sealed }),
+    s3('Stage 3 SEALED ciphertext changed in transit returns invalid_response', { challenge: stored, response: tampered }),
   ];
 }

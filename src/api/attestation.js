@@ -53,7 +53,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  * > **Binders: what an attestation is tied to.**<br/>
  * > A verification provider that learns the user states it in the `bind` object of its signature's signed metadata:
  * > `identifier` (the user's identifier), `via` (the client application), and `deviceTag` (the device that completed the ceremony).
- * > Every member of `bind` is critical, on every signature of the response: an unrecognized binder — or one that does not equal the verified user's value — fails the attestation (401),
+ * > Every member of `bind` is critical, on every signature of the response: an unrecognized binder — or one that does not equal the verified user's value — fails the attestation (`verification_failed`),
  * > so a provider's signed statement can never be silently ignored. Members of the signed metadata outside `bind` are auxiliary, and unrecognized ones are ignored.
  * > An attester that binds nothing attests anonymously (the default); the binders it did state are surfaced under `attestations.<id>.signedMetadata.bind`, so you can require their presence.
  *
@@ -116,7 +116,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  * > [!TIP]
  * > The URLs of verification providers are shown in the UI, so keep them short and human-friendly.
  *
- * If the user declines the request, the Triauth Authenticator sends `false` as the `response`, which `Triauth.attest` reports as error 403.
+ * If the user declines the request, the Triauth Authenticator sends `false` as the `response`, which `Triauth.attest` reports as the error `request_denied`.
  *
  * **3. Verify**
  *
@@ -231,8 +231,8 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  *
  * @param [options.identifier] {string} - (stage 1) the user provided identifier
  * @param [options.callbackUrl] {string} - (stage 1) an application provided URL to which the user's web browser should be redirected with the response
- * @param [options.attestations] {object} - (stage 1) an object whose keys are caller-chosen attestation IDs (printable ASCII) and whose values are `{label, providers}` objects describing each requested attestation; at most 4 attestations, each listing at most 4 `https://` provider URLs (error 229 otherwise)
- * @param [options.sessionKey] {string} - (stage 1, required) the `sessionKey` of a `Triauth.authenticate` result; a stage-1 request without a valid session key returns error 226
+ * @param [options.attestations] {object} - (stage 1) an object whose keys are caller-chosen attestation IDs (printable ASCII) and whose values are `{label, providers}` objects describing each requested attestation; at most 4 attestations, each listing at most 4 `https://` provider URLs (error `invalid_attestations` otherwise)
+ * @param [options.sessionKey] {string} - (stage 1, required) the `sessionKey` of a `Triauth.authenticate` result; a stage-1 request without a valid session key returns the error `invalid_session_key`
  * @param [options.ext] {object} - (stage 1) an optional object of protocol extensions to use (e.g., `{callbackMethod:'GET'}`)
  *
  * @param [options.challenge] {string} - (stage 3) a challenge as it was returned by the method after stage 1 call
@@ -243,7 +243,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  * @returns {Promise<
  *     {challenge: string, redirectUrl: string}
  *   | {attested: true, issuedAt: number, signedAt: number, verifiedAt: number, expires: (number|undefined), secure: boolean, identifier: string, identityDomain: string, lookupCode: string, actor: string, actorIdentityDomain: string, actorLookupCode: string, groups: Array<string>, attestations: object, deviceName: string, deviceTag: string, keys: Array<object>}
- *   | {error: {code: number, message: string}}
+ *   | {error: {code: string, reason?: string, message: string}}
  * >} A promise that resolves to one of the following:
  * - `{challenge: string, redirectUrl: string}`: Returned during stage 1 when a challenge is generated. The `challenge` should be stored and the user should be redirected to the `redirectUrl`.
  * - `{attested: true, issuedAt: number, signedAt: number, verifiedAt: number, expires?: number, secure: boolean, identifier: string, identityDomain: string, lookupCode: string, actor: string, actorIdentityDomain: string, actorLookupCode: string, groups: Array<string>, attestations: object, deviceName: string, deviceTag: string, keys: Array<object>}`: Returned during stage 3 upon successful attestation. Includes:
@@ -264,7 +264,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  *   - `deviceName` (string): User-given, public name of the device that signed the request.
  *   - `deviceTag` (string): Unique identifier of the device (and, for a delegated ceremony, the delegation) that signed the request, in the same form `Triauth.authenticate` reports it.
  *   - `keys` (array): Public keys considered and/or used to verify the user's signature.
- * - `{error: {code: number, message: string}}`: Returned during stage 1 or stage 3 when attestation fails, includes an error object with code and message.
+ * - `{error: {code: string, reason?: string, message: string}}`: Returned during stage 1 or stage 3 when attestation fails, includes an error object with code and message.
  */
 export const attest = async(options, config = {}) => {
   config = Helpers.mergeConfig(config);
@@ -278,7 +278,7 @@ export const attest = async(options, config = {}) => {
     const validationError = Validator.validateAttestations(attestations).errors[0];
 
     if (validationError) {
-      throw new TriauthError(validationError.code, validationError.message);
+      throw new TriauthError(validationError);
     }
   }
 

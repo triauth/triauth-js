@@ -4011,7 +4011,7 @@
       }
     },
     {
-      "name": "API: a lowercase lookup code (k7qj3fb9m2wzx0c4) fails the lookup-code grammar and is rejected with error 101 before any DNS lookup (the endpoint answer is a SERVFAIL that would surface as 110) - a caller-supplied code is never repaired, no case folding",
+      "name": "API: a lowercase lookup code (k7qj3fb9m2wzx0c4) fails the lookup-code grammar and is rejected with error invalid_arguments before any DNS lookup (the endpoint answer is a SERVFAIL that would surface as dns_unavailable) - a caller-supplied code is never repaired, no case folding",
       "call": "whois",
       "args": [
         {
@@ -4026,13 +4026,13 @@
       },
       "expected": {
         "error": {
-          "code": 101,
+          "code": "invalid_arguments",
           "message": "Invalid or missing function arguments"
         }
       }
     },
     {
-      "name": "API: a 15-character lookup code (K7QJ3FB9M2WZX0C) is rejected with error 101 before any DNS lookup - the grammar is exactly 16 characters of [A-Z0-9]",
+      "name": "API: a 15-character lookup code (K7QJ3FB9M2WZX0C) is rejected with error invalid_arguments before any DNS lookup - the grammar is exactly 16 characters of [A-Z0-9]",
       "call": "whois",
       "args": [
         {
@@ -4047,13 +4047,13 @@
       },
       "expected": {
         "error": {
-          "code": 101,
+          "code": "invalid_arguments",
           "message": "Invalid or missing function arguments"
         }
       }
     },
     {
-      "name": "API: a misspelled option key (lookupcode) is rejected with error 102 before any DNS lookup - option keys are exact, so a typo never silently degrades into a code-less lookup",
+      "name": "API: a misspelled option key (lookupcode) is rejected with error invalid_arguments before any DNS lookup - option keys are exact, so a typo never silently degrades into a code-less lookup",
       "call": "whois",
       "args": [
         {
@@ -4068,13 +4068,13 @@
       },
       "expected": {
         "error": {
-          "code": 102,
+          "code": "invalid_arguments",
           "message": "Unrecognized function argument"
         }
       }
     },
     {
-      "name": "API: a config override object in the options position ({logger: null}) is rejected with error 102 before any DNS lookup - option keys are refused before the identifier is even consulted, and config overrides ride as the second argument: whois({identifier, lookupCode?}, config)",
+      "name": "API: a config override object in the options position ({logger: null}) is rejected with error invalid_arguments before any DNS lookup - option keys are refused before the identifier is even consulted, and config overrides ride as the second argument: whois({identifier, lookupCode?}, config)",
       "call": "whois",
       "args": [
         {
@@ -4088,37 +4088,37 @@
       },
       "expected": {
         "error": {
-          "code": 102,
+          "code": "invalid_arguments",
           "message": "Unrecognized function argument"
         }
       }
     },
     {
-      "name": "API: no arguments at all returns 102 - whois takes one options object, and an absent argument is refused before any other check",
+      "name": "API: no arguments at all returns invalid_arguments - whois takes one options object, and an absent argument is refused before any other check",
       "call": "whois",
       "args": [],
       "expected": {
         "error": {
-          "code": 102,
+          "code": "invalid_arguments",
           "message": "Unrecognized function argument"
         }
       }
     },
     {
-      "name": "API: a null options argument returns 102 - whois takes one options object, and null is refused before any other check",
+      "name": "API: a null options argument returns invalid_arguments - whois takes one options object, and null is refused before any other check",
       "call": "whois",
       "args": [
         null
       ],
       "expected": {
         "error": {
-          "code": 102,
+          "code": "invalid_arguments",
           "message": "Unrecognized function argument"
         }
       }
     },
     {
-      "name": "API: an array in the options position returns 102 - whois takes one options object, never a positional argument list",
+      "name": "API: an array in the options position returns invalid_arguments - whois takes one options object, never a positional argument list",
       "call": "whois",
       "args": [
         [
@@ -4128,13 +4128,13 @@
       ],
       "expected": {
         "error": {
-          "code": 102,
+          "code": "invalid_arguments",
           "message": "Unrecognized function argument"
         }
       }
     },
     {
-      "name": "API: a bare identifier string in the options position (john@triauthdemo.org) is rejected with error 102 before any DNS lookup - the identifier travels as options.identifier, and a string is never coerced into one",
+      "name": "API: a bare identifier string in the options position (john@triauthdemo.org) is rejected with error invalid_arguments before any DNS lookup - the identifier travels as options.identifier, and a string is never coerced into one",
       "call": "whois",
       "args": [
         "john@triauthdemo.org"
@@ -4146,13 +4146,13 @@
       },
       "expected": {
         "error": {
-          "code": 102,
+          "code": "invalid_arguments",
           "message": "Unrecognized function argument"
         }
       }
     },
     {
-      "name": "API: a lookup code without an identifier ({lookupCode}) is rejected with error 101 before any DNS lookup - a Lookup Code alone names no identity; options.identifier is required",
+      "name": "API: a lookup code without an identifier ({lookupCode}) is rejected with error invalid_arguments before any DNS lookup - a Lookup Code alone names no identity; options.identifier is required",
       "call": "whois",
       "args": [
         {
@@ -4166,7 +4166,7 @@
       },
       "expected": {
         "error": {
-          "code": 101,
+          "code": "invalid_arguments",
           "message": "Invalid or missing function arguments"
         }
       }

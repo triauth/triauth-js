@@ -46,29 +46,29 @@ describe('Validation API', () => {
 
     it('rejects an oversized identifier or device name on size alone, before any grammar scan', () => {
       const deviceName = Triauth.validate({deviceName: 'a-'.repeat(4_000_000) + 'a'});
-      assert.deepEqual(deviceName.errors.map((e) => e.code), [262]);
+      assert.deepEqual(deviceName.errors.map((e) => [e.code, e.reason]), [['invalid_device_name', 'too_long']]);
 
       const identifier = Triauth.validate({identifier: 'a-'.repeat(4_000_000) + 'a@example.com'});
-      assert.deepEqual(identifier.errors.map((e) => e.code), [212]);
+      assert.deepEqual(identifier.errors.map((e) => [e.code, e.reason]), [['invalid_identifier', 'too_long']]);
     });
 
-    it('returns {valid:false, errors:[{code:101}]} for an empty object (nothing to validate)', () => {
+    it('returns {valid:false, errors:[{code:invalid_arguments}]} for an empty object (nothing to validate)', () => {
       const result = Triauth.validate({});
       assert.equal(result.valid, false);
       assert.equal(result.errors.length, 1);
-      assert.equal(result.errors[0].code, 101);
+      assert.equal(result.errors[0].code, 'invalid_arguments');
     });
 
-    it('returns {valid:false, errors:[{code:101}]} when objects is missing or not a plain object', () => {
+    it('returns {valid:false, errors:[{code:invalid_arguments}]} when objects is missing or not a plain object', () => {
       for (const objects of [undefined, null, 'john@example.com', 42, true, ['john@example.com']]) {
         const result = Triauth.validate(objects);
         assert.equal(result.valid, false);
         assert.equal(result.errors.length, 1);
-        assert.equal(result.errors[0].code, 101);
+        assert.equal(result.errors[0].code, 'invalid_arguments');
       }
     });
 
-    it('returns {valid:false, errors:[{code:102}]} for misspelled or unrecognized keys', () => {
+    it('returns {valid:false, errors:[{code:invalid_arguments}]} for misspelled or unrecognized keys', () => {
       const misspelled = [
         {identifer: 'john@example.com'},
         {Identifier: 'john@example.com'},
@@ -79,15 +79,15 @@ describe('Validation API', () => {
         const result = Triauth.validate(objects);
         assert.equal(result.valid, false);
         assert.equal(result.errors.length, 1);
-        assert.equal(result.errors[0].code, 102);
+        assert.equal(result.errors[0].code, 'invalid_arguments');
       }
     });
 
-    it('returns {valid:false, errors:[{code:102}]} for undefined values', () => {
+    it('returns {valid:false, errors:[{code:invalid_arguments}]} for undefined values', () => {
       const result = Triauth.validate({identifier: undefined});
       assert.equal(result.valid, false);
       assert.equal(result.errors.length, 1);
-      assert.equal(result.errors[0].code, 102);
+      assert.equal(result.errors[0].code, 'invalid_arguments');
     });
 
     it('returns {valid:false, errors} for null and empty values', () => {
@@ -95,7 +95,7 @@ describe('Validation API', () => {
         const result = Triauth.validate(objects);
         assert.equal(result.valid, false);
         assert(result.errors.length > 0);
-        assert(result.errors.every((e) => e.code >= 200 && e.code < 300), 'null/empty values should fail with validation (2xx) errors');
+        assert(result.errors.every((e) => e.reason !== undefined), 'null/empty values should fail with field validation errors');
       }
     });
 
@@ -115,7 +115,7 @@ describe('Validation API', () => {
       const result = Triauth.validate({identifier: 'john@example.com', deviceName: 'BAD DEVICE'});
       assert.equal(result.valid, false);
       assert(result.errors.length > 0);
-      assert(result.errors.every((e) => e.code >= 260 && e.code < 270), 'errors should be deviceName errors only');
+      assert(result.errors.every((e) => e.code === 'invalid_device_name'), 'errors should be deviceName errors only');
     });
 
   });

@@ -42,9 +42,9 @@ describe('Attestation API', () => {
         assert(!attestRes.redirectUrl.includes('challenge=') && !attestRes.redirectUrl.includes('token='));
       });
 
-      it('rejects a request without a session key with 226 - attest follows a sign-in', async () => {
+      it('rejects a request without a session key with invalid_session_key - attest follows a sign-in', async () => {
         const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations}));
-        assert.equal(attestRes?.error?.code, 226);
+        assert.equal(attestRes?.error?.code, 'invalid_session_key');
       });
 
       it('returns validation error for invalid identifiers', async () => {
@@ -52,67 +52,67 @@ describe('Attestation API', () => {
         for (const invalidIdentifier in invalidIdentifiers) {
           const attestRes = (await Triauth.attest({identifier: invalidIdentifier, callbackUrl, attestations, sessionKey}));
           assert(!attestRes?.attested, invalidIdentifier);
-          assert(attestRes.error.code >= 210 && attestRes.error.code < 220, invalidIdentifier);
+          assert(attestRes.error.code === 'invalid_identifier', invalidIdentifier);
         }
       });
 
-      it('returns {error:{code:221}} for invalid callbackUrls', async () => {
+      it('returns {error:{code:invalid_callback_url}} for invalid callbackUrls', async () => {
         const invalidUrls = ['=', '', 'https://[::1]/' + 'a'.repeat(1100)];
 
         for (const invalidUrl of invalidUrls) {
           const attestRes = (await Triauth.attest({identifier, callbackUrl: invalidUrl, attestations, sessionKey}));
           assert(!attestRes?.attested);
-          assert.equal(attestRes.error.code, 221);
+          assert.equal(attestRes.error.code, 'invalid_callback_url');
         }
       });
 
-      it('returns {error:{code:102}} for unrecognized options', async () => {
+      it('returns {error:{code:invalid_arguments}} for unrecognized options', async () => {
         const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations, sessionKey, unknownKey: 1}));
         assert(!attestRes?.attested);
-        assert.equal(attestRes.error.code, 102);
+        assert.equal(attestRes.error.code, 'invalid_arguments');
       });
 
-      it('returns {error:{code:226}} for invalid session keys', async () => {
+      it('returns {error:{code:invalid_session_key}} for invalid session keys', async () => {
         const invalidSessionKeys = ['short', 123, '', 'A'.repeat(42), 'A'.repeat(44), ':' + 'a'.repeat(16), 'A'.repeat(42) + '+', 'A'.repeat(42) + 'B',
           ':' + 'A'.repeat(43), 'Issuer.Example:' + 'A'.repeat(43), 'not_a_domain:' + 'A'.repeat(43), 'a.example:b.example:' + 'A'.repeat(43)];
         for (const invalidSessionKey of invalidSessionKeys) {
           const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations, sessionKey: invalidSessionKey}));
           assert(!attestRes?.attested);
-          assert.equal(attestRes.error.code, 226);
+          assert.equal(attestRes.error.code, 'invalid_session_key');
         }
       });
 
-      it('returns {error:{code:229}} when attestations option is null or non-object', async () => {
+      it('returns {error:{code:invalid_attestations}} when attestations option is null or non-object', async () => {
         for (const invalidAttestations of [null, 'string', 123, []]) {
           const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations: invalidAttestations, sessionKey}));
           assert(!attestRes?.attested);
-          assert.equal(attestRes.error.code, 229);
+          assert.equal(attestRes.error.code, 'invalid_attestations');
         }
       });
 
-      it('returns {error:{code:229}} when an entry is null', async () => {
+      it('returns {error:{code:invalid_attestations}} when an entry is null', async () => {
         const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations: {'not-a-robot': null}, sessionKey}));
         assert(!attestRes?.attested);
-        assert.equal(attestRes.error.code, 229);
+        assert.equal(attestRes.error.code, 'invalid_attestations');
       });
 
-      it('returns {error:{code:229}} for attestation IDs outside printable ASCII', async () => {
+      it('returns {error:{code:invalid_attestations}} for attestation IDs outside printable ASCII', async () => {
         // An attestation ID becomes a property name of the challenge, which stage-3 safeParseJson admits only in ASCII
         for (const id of ['wiek-ż', 'ロボット']) {
           const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations: {[id]: {label: 'lbl', providers: ['https://triauthdemo.org/p']}}, sessionKey}));
           assert(!attestRes?.attested, id);
-          assert.equal(attestRes.error.code, 229, id);
+          assert.equal(attestRes.error.code, 'invalid_attestations', id);
         }
       });
 
-      it('returns {error:{code:229}} when an entry has an unknown property', async () => {
+      it('returns {error:{code:invalid_attestations}} when an entry has an unknown property', async () => {
         const bad = {'not-a-robot': {label: 'I am not a robot', providers: ['https://triauthdemo.org/p'], extra: 'x'}};
         const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations: bad, sessionKey}));
         assert(!attestRes?.attested);
-        assert.equal(attestRes.error.code, 229);
+        assert.equal(attestRes.error.code, 'invalid_attestations');
       });
 
-      it('returns {error:{code:229}} when an entry is missing label or providers', async () => {
+      it('returns {error:{code:invalid_attestations}} when an entry is missing label or providers', async () => {
         const sets = [
           {'a': {providers: ['https://triauthdemo.org/p']}},                          // missing label
           {'a': {label: '', providers: ['https://triauthdemo.org/p']}},               // empty label
@@ -122,19 +122,19 @@ describe('Attestation API', () => {
         for (const bad of sets) {
           const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations: bad, sessionKey}));
           assert(!attestRes?.attested);
-          assert.equal(attestRes.error.code, 229);
+          assert.equal(attestRes.error.code, 'invalid_attestations');
         }
       });
 
-      it('returns {error:{code:229}} when providers list is too long', async () => {
+      it('returns {error:{code:invalid_attestations}} when providers list is too long', async () => {
         const tooMany = Array.from({length: Triauth.LIMITS.maxMultiSignatures}, (_, i) => `https://triauthdemo.org/p${i}`);
         const bad = {'a': {label: 'lbl', providers: tooMany}};
         const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations: bad, sessionKey}));
         assert(!attestRes?.attested);
-        assert.equal(attestRes.error.code, 229);
+        assert.equal(attestRes.error.code, 'invalid_attestations');
       });
 
-      it('returns {error:{code:229}} for malformed provider URLs', async () => {
+      it('returns {error:{code:invalid_attestations}} for malformed provider URLs', async () => {
         const sets = [
           'http://insecure.example/p',
           'https://user:pass@example.com/p',
@@ -147,7 +147,7 @@ describe('Attestation API', () => {
           const bad = {'a': {label: 'lbl', providers: [badUrl]}};
           const attestRes = (await Triauth.attest({identifier, callbackUrl, attestations: bad, sessionKey}));
           assert(!attestRes?.attested, badUrl);
-          assert.equal(attestRes.error.code, 229, badUrl);
+          assert.equal(attestRes.error.code, 'invalid_attestations', badUrl);
         }
       });
     });
@@ -283,7 +283,7 @@ describe('Attestation API', () => {
 
         const attestRes = (await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!attestRes.attested);
-        assert.equal(attestRes.error.code, 401);
+        assert.equal(attestRes.error.code, 'verification_failed');
       });
 
       it('rejects when attester `via` is not in the requested providers list', async () => {
@@ -297,7 +297,7 @@ describe('Attestation API', () => {
 
         const attestRes = (await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!attestRes.attested);
-        assert.equal(attestRes.error.code, 401);
+        assert.equal(attestRes.error.code, 'verification_failed');
       });
 
       it("rejects when attester identifier's domain does not match the attester via hostname", async () => {
@@ -320,7 +320,7 @@ describe('Attestation API', () => {
 
         const attestRes = (await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!attestRes.attested);
-        assert.equal(attestRes.error.code, 401);
+        assert.equal(attestRes.error.code, 'verification_failed');
       });
 
       it('rejects when attester signature is cryptographically invalid', async () => {
@@ -340,7 +340,7 @@ describe('Attestation API', () => {
 
         const attestRes = (await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, badResponse)}));
         assert(!attestRes.attested);
-        assert.equal(attestRes.error.code, 401);
+        assert.equal(attestRes.error.code, 'verification_failed');
       });
 
       it('rejects when attester bind.identifier is present and differs from the user identifier', async () => {
@@ -354,7 +354,7 @@ describe('Attestation API', () => {
 
         const attestRes = (await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!attestRes.attested);
-        assert.equal(attestRes.error.code, 401);
+        assert.equal(attestRes.error.code, 'verification_failed');
       });
 
       it('rejects when attester bind.via is present and differs from the user via', async () => {
@@ -368,7 +368,7 @@ describe('Attestation API', () => {
 
         const attestRes = (await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!attestRes.attested);
-        assert.equal(attestRes.error.code, 401);
+        assert.equal(attestRes.error.code, 'verification_failed');
       });
 
       it('rejects challenges whose embedded `type` does not match the attest flow', async () => {
@@ -384,7 +384,7 @@ describe('Attestation API', () => {
 
         const attestRes = (await Triauth.attest({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)}));
         assert(!attestRes.attested);
-        assert.equal(attestRes.error.code, 401);
+        assert.equal(attestRes.error.code, 'verification_failed');
       });
 
       it('rejects responses whose envelope `type` is not `attest`', async () => {
@@ -396,7 +396,7 @@ describe('Attestation API', () => {
 
         const attestRes = (await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!attestRes.attested);
-        assert.equal(attestRes.error.code, 401);
+        assert.equal(attestRes.error.code, 'verification_failed');
       });
 
       it('rejects when user signature `via` is not a prefix of challenge `cburl`', async () => {
@@ -408,7 +408,7 @@ describe('Attestation API', () => {
 
         const attestRes = (await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, response)}));
         assert(!attestRes.attested);
-        assert.equal(attestRes.error.code, 401);
+        assert.equal(attestRes.error.code, 'verification_failed');
       });
 
       it('does not attest expired challenges', async () => {
@@ -424,7 +424,7 @@ describe('Attestation API', () => {
 
         const attestRes = await Triauth.attest({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)});
         assert(!attestRes.attested);
-        assert.equal(attestRes.error.code, 402);
+        assert.equal(attestRes.error.code, 'request_expired');
       });
 
       it('honors per-call attestTimeout override', async () => {
@@ -441,7 +441,7 @@ describe('Attestation API', () => {
 
         let attestRes = await Triauth.attest({challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)});
         assert(!attestRes.attested);
-        assert.equal(attestRes.error.code, 402);
+        assert.equal(attestRes.error.code, 'request_expired');
 
         attestRes = await Triauth.attest(
           {challenge: modifiedChallenge, response: await AuthenticatorStub.seal(modifiedChallenge, response)},
@@ -479,7 +479,7 @@ describe('Attestation API', () => {
         const response = Triauth.MultiSignature.generate(userSig, attesterSig);
         const attestRes = await Triauth.attest({challenge, response: await AuthenticatorStub.seal(challenge, response)});
         assert(!attestRes.attested);
-        assert.equal(attestRes.error.code, 401);
+        assert.equal(attestRes.error.code, 'verification_failed');
       });
 
       it('does not attest invalid challenges or responses', (done) => {
@@ -588,7 +588,7 @@ describe('Attestation API', () => {
 
         const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
         assert(!res.attested);
-        assert.equal(res.error.code, 401);
+        assert.equal(res.error.code, 'verification_failed');
       });
 
       it('rejects a distinct attester whose bind.identifier is present and differs from the user identifier', async () => {
@@ -600,7 +600,7 @@ describe('Attestation API', () => {
 
         const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
         assert(!res.attested);
-        assert.equal(res.error.code, 401);
+        assert.equal(res.error.code, 'verification_failed');
       });
 
       it('rejects a distinct attester whose bind.via is present and differs from the user via', async () => {
@@ -612,7 +612,7 @@ describe('Attestation API', () => {
 
         const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
         assert(!res.attested);
-        assert.equal(res.error.code, 401);
+        assert.equal(res.error.code, 'verification_failed');
       });
 
       it('SECURITY: rejects a distinct attester carrying an UNRECOGNIZED binder inside bind - every member of bind is critical, so a constraint the verifier cannot enforce fails the bundle instead of going unread', async () => {
@@ -624,7 +624,7 @@ describe('Attestation API', () => {
 
         const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
         assert(!res.attested);
-        assert.equal(res.error.code, 401);
+        assert.equal(res.error.code, 'verification_failed');
       });
 
       it('SECURITY: rejects a malformed bind (empty, an array, or a non-object) - a bind that states nothing is a producer error, not an anonymous attestation', async () => {
@@ -637,7 +637,7 @@ describe('Attestation API', () => {
 
           const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
           assert(!res.attested, JSON.stringify(bind));
-          assert.equal(res.error.code, 401, JSON.stringify(bind));
+          assert.equal(res.error.code, 'verification_failed', JSON.stringify(bind));
         }
       });
 
@@ -650,7 +650,7 @@ describe('Attestation API', () => {
 
         const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
         assert(!res.attested);
-        assert.equal(res.error.code, 401);
+        assert.equal(res.error.code, 'verification_failed');
       });
 
       it('SECURITY: rejects a distinct attester whose bind carries a non-string binder value', async () => {
@@ -662,7 +662,7 @@ describe('Attestation API', () => {
 
         const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
         assert(!res.attested);
-        assert.equal(res.error.code, 401);
+        assert.equal(res.error.code, 'verification_failed');
       });
 
       it('tolerates unrecognized signedMetadata members outside bind - binders live only in bind, so top-level members (any name, any value) are auxiliary and ignored', async () => {
@@ -703,7 +703,7 @@ describe('Attestation API', () => {
 
         const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
         assert(!res.attested);
-        assert.equal(res.error.code, 401);
+        assert.equal(res.error.code, 'verification_failed');
       });
 
       it('SECURITY: rejects an envelope carrying a STRAY attester whose binder is false of the user - a false signed binding poisons the whole bundle, even when every requested attestation is satisfied by another segment', async () => {
@@ -720,7 +720,7 @@ describe('Attestation API', () => {
 
         const res = await Triauth.attest({ challenge, response: await AuthenticatorStub.seal(challenge, response) });
         assert(!res.attested);
-        assert.equal(res.error.code, 401);
+        assert.equal(res.error.code, 'verification_failed');
       });
     });
   });

@@ -1,6 +1,6 @@
 {
   "title": "ping",
-  "description": "Comprehensive coverage of Triauth.ping. Stage 1 (request): dispatch/arg guards, identifier/callbackUrl/ext validation, the session key routing and request sealing (authenticate() rejects sessionKey with 102), DNS configuration (301), and deterministic challenge + ping.html redirect building. Stage 3 (verify): challenge/response validation, dispatch constraints, signature-envelope parse failures (225), generic verification failures (401), the tighter pingTimeout expiry window (402), and the success body. Pins ping's distinct result shape ({pinged, issuedAt, signedAt, verifiedAt, expires, secure, identifier, identityDomain, lookupCode, actor, actorIdentityDomain, actorLookupCode, groups, deviceName, deviceTag, keys} — no publicProfile, no ext) and that signedMetadata.ext is ignored. Crypto-bearing Stage 3 fixtures were minted by test/fixtures/json/_capture_ping.mjs (WebCrypto ECDSA is non-deterministic to mint, deterministic to verify). A final Ed25519 section covers the type=ed25519 verifier backend (positive plus crypto/key-material/uv-taint negatives). Stage 1 resolves the endpoint record only - identity existence is settled on the signed response, so no stage-1 case yields 302. A PRIVATE MODE section covers mode=private: stage-1 issue over an unreadable identity, stage-3 verification with the lookup code in signed-metadata and the ~lookupCode-suffixed deviceTag, and the commitment-mismatch rejection.",
+  "description": "Comprehensive coverage of Triauth.ping. Stage 1 (request): dispatch/arg guards, identifier/callbackUrl/ext validation, the session key routing and request sealing (authenticate() rejects sessionKey with invalid_arguments), DNS configuration (domain_not_configured), and deterministic challenge + ping.html redirect building. Stage 3 (verify): challenge/response validation, dispatch constraints, signature-envelope parse failures (invalid_signature), generic verification failures (verification_failed), the tighter pingTimeout expiry window (request_expired), and the success body. Pins ping's distinct result shape ({pinged, issuedAt, signedAt, verifiedAt, expires, secure, identifier, identityDomain, lookupCode, actor, actorIdentityDomain, actorLookupCode, groups, deviceName, deviceTag, keys} — no publicProfile, no ext) and that signedMetadata.ext is ignored. Crypto-bearing Stage 3 fixtures were minted by test/fixtures/json/_capture_ping.mjs (WebCrypto ECDSA is non-deterministic to mint, deterministic to verify). A final Ed25519 section covers the type=ed25519 verifier backend (positive plus crypto/key-material/uv-taint negatives). Stage 1 resolves the endpoint record only - identity existence is settled on the signed response, so no stage-1 case reports a missing identity. A PRIVATE MODE section covers mode=private: stage-1 issue over an unreadable identity, stage-3 verification with the lookup code in signed-metadata and the ~lookupCode-suffixed deviceTag, and the commitment-mismatch rejection.",
   "dnsEntries": {
     "triauthdemo.org": {
       "TXT": [
@@ -73,46 +73,46 @@
   "currentTime": 1777454675000,
   "tests": [
     {
-      "name": "empty options object returns 101 (matches neither Stage 1 nor Stage 3)",
+      "name": "empty options object returns invalid_arguments (matches neither Stage 1 nor Stage 3)",
       "call": "ping",
       "args": [
         {}
       ],
       "expected": {
         "error": {
-          "code": 101,
+          "code": "invalid_arguments",
           "message": "Invalid or missing function arguments - expected either {identifier,callbackUrl,ext,...} or {challenge,response,identifier?,callbackUrl?}"
         }
       }
     },
     {
-      "name": "null options arg returns 102 — hasOnlyKnownProperties null-guard fires first",
+      "name": "null options arg returns invalid_arguments — hasOnlyKnownProperties null-guard fires first",
       "call": "ping",
       "args": [
         null
       ],
       "expected": {
         "error": {
-          "code": 102,
+          "code": "invalid_arguments",
           "message": "Unrecognized function argument"
         }
       }
     },
     {
-      "name": "array options arg returns 102 — hasOnlyKnownProperties Array.isArray-guard fires first",
+      "name": "array options arg returns invalid_arguments — hasOnlyKnownProperties Array.isArray-guard fires first",
       "call": "ping",
       "args": [
         []
       ],
       "expected": {
         "error": {
-          "code": 102,
+          "code": "invalid_arguments",
           "message": "Unrecognized function argument"
         }
       }
     },
     {
-      "name": "Stage 1 unrecognized option returns 102",
+      "name": "Stage 1 unrecognized option returns invalid_arguments",
       "call": "ping",
       "args": [
         {
@@ -123,13 +123,13 @@
       ],
       "expected": {
         "error": {
-          "code": 102,
+          "code": "invalid_arguments",
           "message": "Unrecognized function argument"
         }
       }
     },
     {
-      "name": "Stage 1 PING-DISTINCT: attachments are a sign-only input — supplying them (even empty) to ping is a misplaced input, 102",
+      "name": "Stage 1 PING-DISTINCT: attachments are a sign-only input — supplying them (even empty) to ping is a misplaced input, invalid_arguments",
       "call": "ping",
       "args": [
         {
@@ -141,13 +141,13 @@
       ],
       "expected": {
         "error": {
-          "code": 102,
+          "code": "invalid_arguments",
           "message": "Unrecognized function argument"
         }
       }
     },
     {
-      "name": "Stage 3 unrecognized option returns 102 (sessionKey IS allow-listed for ping, but unknownKey is not)",
+      "name": "Stage 3 unrecognized option returns invalid_arguments (sessionKey IS allow-listed for ping, but unknownKey is not)",
       "call": "ping",
       "args": [
         {
@@ -158,13 +158,13 @@
       ],
       "expected": {
         "error": {
-          "code": 102,
+          "code": "invalid_arguments",
           "message": "Unrecognized function argument"
         }
       }
     },
     {
-      "name": "Stage 1 non-string identifier returns 210",
+      "name": "Stage 1 non-string identifier returns invalid_identifier/invalid",
       "call": "ping",
       "args": [
         {
@@ -174,13 +174,14 @@
       ],
       "expected": {
         "error": {
-          "code": 210,
+          "code": "invalid_identifier",
+          "reason": "invalid",
           "message": "Identifier is invalid"
         }
       }
     },
     {
-      "name": "Stage 1 identifier with whitespace returns 210 (the /[\\s\\0]/ branch, distinct from non-string 210)",
+      "name": "Stage 1 identifier with whitespace returns invalid_identifier/invalid (the /[\\s\\0]/ branch, distinct from non-string invalid_identifier/invalid)",
       "call": "ping",
       "args": [
         {
@@ -190,13 +191,14 @@
       ],
       "expected": {
         "error": {
-          "code": 210,
+          "code": "invalid_identifier",
+          "reason": "invalid",
           "message": "Identifier is invalid"
         }
       }
     },
     {
-      "name": "Stage 1 empty-string identifier returns 211",
+      "name": "Stage 1 empty-string identifier returns invalid_identifier/empty",
       "call": "ping",
       "args": [
         {
@@ -206,13 +208,14 @@
       ],
       "expected": {
         "error": {
-          "code": 211,
+          "code": "invalid_identifier",
+          "reason": "empty",
           "message": "Identifier must not be empty"
         }
       }
     },
     {
-      "name": "Stage 1 too-long identifier returns 212 (byteSize check before username regex)",
+      "name": "Stage 1 too-long identifier returns invalid_identifier/too_long (byteSize check before username regex)",
       "call": "ping",
       "args": [
         {
@@ -222,13 +225,14 @@
       ],
       "expected": {
         "error": {
-          "code": 212,
+          "code": "invalid_identifier",
+          "reason": "too_long",
           "message": "Identifier is too long"
         }
       }
     },
     {
-      "name": "Stage 1 uppercase identifier returns 213",
+      "name": "Stage 1 uppercase identifier returns invalid_identifier/not_lowercase",
       "call": "ping",
       "args": [
         {
@@ -238,13 +242,14 @@
       ],
       "expected": {
         "error": {
-          "code": 213,
+          "code": "invalid_identifier",
+          "reason": "not_lowercase",
           "message": "Identifier must be provided in lowercase"
         }
       }
     },
     {
-      "name": "Stage 1 identifier missing @-sign returns 214",
+      "name": "Stage 1 identifier missing @-sign returns invalid_identifier/invalid_format",
       "call": "ping",
       "args": [
         {
@@ -254,13 +259,14 @@
       ],
       "expected": {
         "error": {
-          "code": 214,
+          "code": "invalid_identifier",
+          "reason": "invalid_format",
           "message": "Identifier must include one @ sign"
         }
       }
     },
     {
-      "name": "Stage 1 identifier with consecutive dots in username returns 215",
+      "name": "Stage 1 identifier with consecutive dots in username returns invalid_identifier/invalid_username",
       "call": "ping",
       "args": [
         {
@@ -270,13 +276,14 @@
       ],
       "expected": {
         "error": {
-          "code": 215,
+          "code": "invalid_identifier",
+          "reason": "invalid_username",
           "message": "Identifier contains invalid username"
         }
       }
     },
     {
-      "name": "Stage 1 identifier with punycode domain returns 216",
+      "name": "Stage 1 identifier with punycode domain returns invalid_identifier/invalid_domain",
       "call": "ping",
       "args": [
         {
@@ -286,13 +293,14 @@
       ],
       "expected": {
         "error": {
-          "code": 216,
+          "code": "invalid_identifier",
+          "reason": "invalid_domain",
           "message": "Identifier contains invalid domain name"
         }
       }
     },
     {
-      "name": "Stage 1 identifier with an IPv4-literal domain (john@1.2.3.4) returns 216 — a numeric final label is never a domain part",
+      "name": "Stage 1 identifier with an IPv4-literal domain (john@1.2.3.4) returns invalid_identifier/invalid_domain — a numeric final label is never a domain part",
       "call": "ping",
       "args": [
         {
@@ -302,13 +310,14 @@
       ],
       "expected": {
         "error": {
-          "code": 216,
+          "code": "invalid_identifier",
+          "reason": "invalid_domain",
           "message": "Identifier contains invalid domain name"
         }
       }
     },
     {
-      "name": "Stage 1 identifier with a 64-character domain label returns 216 — labels are capped at 63 characters (the DNS bound)",
+      "name": "Stage 1 identifier with a 64-character domain label returns invalid_identifier/invalid_domain — labels are capped at 63 characters (the DNS bound)",
       "call": "ping",
       "args": [
         {
@@ -318,13 +327,14 @@
       ],
       "expected": {
         "error": {
-          "code": 216,
+          "code": "invalid_identifier",
+          "reason": "invalid_domain",
           "message": "Identifier contains invalid domain name"
         }
       }
     },
     {
-      "name": "Stage 1 identifier with a single-character final label (john@a.b) returns 216",
+      "name": "Stage 1 identifier with a single-character final label (john@a.b) returns invalid_identifier/invalid_domain",
       "call": "ping",
       "args": [
         {
@@ -334,13 +344,14 @@
       ],
       "expected": {
         "error": {
-          "code": 216,
+          "code": "invalid_identifier",
+          "reason": "invalid_domain",
           "message": "Identifier contains invalid domain name"
         }
       }
     },
     {
-      "name": "Stage 1 non-string callbackUrl returns 221",
+      "name": "Stage 1 non-string callbackUrl returns invalid_callback_url",
       "call": "ping",
       "args": [
         {
@@ -350,13 +361,14 @@
       ],
       "expected": {
         "error": {
-          "code": 221,
+          "code": "invalid_callback_url",
+          "reason": "invalid",
           "message": "Invalid callbackUrl"
         }
       }
     },
     {
-      "name": "Stage 1 over-length callbackUrl (>2048 bytes) returns 221",
+      "name": "Stage 1 over-length callbackUrl (>2048 bytes) returns invalid_callback_url",
       "call": "ping",
       "args": [
         {
@@ -366,13 +378,14 @@
       ],
       "expected": {
         "error": {
-          "code": 221,
+          "code": "invalid_callback_url",
+          "reason": "invalid",
           "message": "Invalid callbackUrl"
         }
       }
     },
     {
-      "name": "Stage 1 plain-http callbackUrl on a named host (http://example.com/cb) passes URL validation; the request without a session key then returns 226 — an ordering pin: the callbackUrl gate precedes the session key gate",
+      "name": "Stage 1 plain-http callbackUrl on a named host (http://example.com/cb) passes URL validation; the request without a session key then returns invalid_session_key — an ordering pin: the callbackUrl gate precedes the session key gate",
       "call": "ping",
       "args": [
         {
@@ -382,13 +395,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 callbackUrl with punycode domain returns 221",
+      "name": "Stage 1 callbackUrl with punycode domain returns invalid_callback_url",
       "call": "ping",
       "args": [
         {
@@ -398,13 +412,14 @@
       ],
       "expected": {
         "error": {
-          "code": 221,
+          "code": "invalid_callback_url",
+          "reason": "invalid",
           "message": "Invalid callbackUrl"
         }
       }
     },
     {
-      "name": "Stage 1 callbackUrl with an IPv4-literal host (https://127.0.0.1/cb) passes URL validation — a canonical dotted quad is a grammar host; the request without a session key then returns 226",
+      "name": "Stage 1 callbackUrl with an IPv4-literal host (https://127.0.0.1/cb) passes URL validation — a canonical dotted quad is a grammar host; the request without a session key then returns invalid_session_key",
       "call": "ping",
       "args": [
         {
@@ -414,13 +429,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 callbackUrl with an IPv6-literal host (https://[::1]/cb) returns 221 — bracketed IPv6 literals are outside the canonical-URL host grammar",
+      "name": "Stage 1 callbackUrl with an IPv6-literal host (https://[::1]/cb) returns invalid_callback_url — bracketed IPv6 literals are outside the canonical-URL host grammar",
       "call": "ping",
       "args": [
         {
@@ -430,13 +446,14 @@
       ],
       "expected": {
         "error": {
-          "code": 221,
+          "code": "invalid_callback_url",
+          "reason": "invalid",
           "message": "Invalid callbackUrl"
         }
       }
     },
     {
-      "name": "Stage 1 callbackUrl with an apostrophe in its path (https://example.com/a'b/cb) passes URL validation — \"'\" is RFC 3986 pchar; the request without a session key then returns 226",
+      "name": "Stage 1 callbackUrl with an apostrophe in its path (https://example.com/a'b/cb) passes URL validation — \"'\" is RFC 3986 pchar; the request without a session key then returns invalid_session_key",
       "call": "ping",
       "args": [
         {
@@ -446,13 +463,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 callbackUrl with a leading-zero IPv4 octet (https://1.2.3.04/cb) returns 221 — an IPv4 host has exactly one canonical spelling, the dotted quad without leading zeros",
+      "name": "Stage 1 callbackUrl with a leading-zero IPv4 octet (https://1.2.3.04/cb) returns invalid_callback_url — an IPv4 host has exactly one canonical spelling, the dotted quad without leading zeros",
       "call": "ping",
       "args": [
         {
@@ -462,13 +480,14 @@
       ],
       "expected": {
         "error": {
-          "code": 221,
+          "code": "invalid_callback_url",
+          "reason": "invalid",
           "message": "Invalid callbackUrl"
         }
       }
     },
     {
-      "name": "Stage 1 callbackUrl with an out-of-range IPv4 octet (https://256.1.1.1/cb) returns 221",
+      "name": "Stage 1 callbackUrl with an out-of-range IPv4 octet (https://256.1.1.1/cb) returns invalid_callback_url",
       "call": "ping",
       "args": [
         {
@@ -478,13 +497,14 @@
       ],
       "expected": {
         "error": {
-          "code": 221,
+          "code": "invalid_callback_url",
+          "reason": "invalid",
           "message": "Invalid callbackUrl"
         }
       }
     },
     {
-      "name": "Stage 1 callbackUrl with a dword IPv4 spelling (https://2130706433/cb) returns 221",
+      "name": "Stage 1 callbackUrl with a dword IPv4 spelling (https://2130706433/cb) returns invalid_callback_url",
       "call": "ping",
       "args": [
         {
@@ -494,13 +514,14 @@
       ],
       "expected": {
         "error": {
-          "code": 221,
+          "code": "invalid_callback_url",
+          "reason": "invalid",
           "message": "Invalid callbackUrl"
         }
       }
     },
     {
-      "name": "Stage 1 callbackUrl with a five-octet host (https://1.2.3.4.5/cb) returns 221",
+      "name": "Stage 1 callbackUrl with a five-octet host (https://1.2.3.4.5/cb) returns invalid_callback_url",
       "call": "ping",
       "args": [
         {
@@ -510,13 +531,14 @@
       ],
       "expected": {
         "error": {
-          "code": 221,
+          "code": "invalid_callback_url",
+          "reason": "invalid",
           "message": "Invalid callbackUrl"
         }
       }
     },
     {
-      "name": "Stage 1 array-shaped ext returns 222",
+      "name": "Stage 1 array-shaped ext returns invalid_ext",
       "call": "ping",
       "args": [
         {
@@ -532,13 +554,14 @@
       ],
       "expected": {
         "error": {
-          "code": 222,
+          "code": "invalid_ext",
+          "reason": "invalid",
           "message": "Invalid ext"
         }
       }
     },
     {
-      "name": "Stage 1 too-short session key (42 characters) returns 226",
+      "name": "Stage 1 too-short session key (42 characters) returns invalid_session_key",
       "call": "ping",
       "args": [
         {
@@ -549,13 +572,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 non-string session key returns 226",
+      "name": "Stage 1 non-string session key returns invalid_session_key",
       "call": "ping",
       "args": [
         {
@@ -566,13 +590,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 too-long session key (44 characters) returns 226",
+      "name": "Stage 1 too-long session key (44 characters) returns invalid_session_key",
       "call": "ping",
       "args": [
         {
@@ -583,13 +608,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 session key with data in the unused bits of its last character (not canonical base64url) returns 226",
+      "name": "Stage 1 session key with data in the unused bits of its last character (not canonical base64url) returns invalid_session_key",
       "call": "ping",
       "args": [
         {
@@ -600,13 +626,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 domain with no triauth TXT record returns 301",
+      "name": "Stage 1 domain with no triauth TXT record returns domain_not_configured",
       "call": "ping",
       "args": [
         {
@@ -618,13 +645,13 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "error": {
-          "code": 301,
+          "code": "domain_not_configured",
           "message": "Domain is not configured for triauth"
         }
       }
     },
     {
-      "name": "Stage 1 domain with multiple triauth TXT records returns 301 (ambiguous, refuse to choose)",
+      "name": "Stage 1 domain with multiple triauth TXT records returns domain_not_configured (ambiguous, refuse to choose)",
       "call": "ping",
       "args": [
         {
@@ -636,7 +663,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "error": {
-          "code": 301,
+          "code": "domain_not_configured",
           "message": "Domain is not configured for triauth"
         }
       }
@@ -681,7 +708,7 @@
       }
     },
     {
-      "name": "Stage 1 per-test dnsEntries patch can NXDOMAIN a known domain (returns 301)",
+      "name": "Stage 1 per-test dnsEntries patch can NXDOMAIN a known domain (returns domain_not_configured)",
       "call": "ping",
       "args": [
         {
@@ -696,7 +723,7 @@
       },
       "expected": {
         "error": {
-          "code": 301,
+          "code": "domain_not_configured",
           "message": "Domain is not configured for triauth"
         }
       }
@@ -741,7 +768,7 @@
       }
     },
     {
-      "name": "Stage 1 PING-DISTINCT session key produces a redirectUrl with skid and the sealed request (authenticate() would 102 on sessionKey)",
+      "name": "Stage 1 PING-DISTINCT session key produces a redirectUrl with skid and the sealed request (authenticate() would invalid_arguments on sessionKey)",
       "call": "ping",
       "args": [
         {
@@ -776,7 +803,7 @@
       }
     },
     {
-      "name": "Stage 1 omitting the session key returns 226 - the flows that follow a sign-in require it at issue (src/challenge_response_flow.js)",
+      "name": "Stage 1 omitting the session key returns invalid_session_key - the flows that follow a sign-in require it at issue (src/challenge_response_flow.js)",
       "call": "ping",
       "args": [
         {
@@ -787,7 +814,8 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
@@ -1011,7 +1039,7 @@
       }
     },
     {
-      "name": "Stage 3 non-string challenge returns 223",
+      "name": "Stage 3 non-string challenge returns invalid_challenge",
       "call": "ping",
       "args": [
         {
@@ -1021,13 +1049,14 @@
       ],
       "expected": {
         "error": {
-          "code": 223,
+          "code": "invalid_challenge",
+          "reason": "invalid",
           "message": "Invalid challenge"
         }
       }
     },
     {
-      "name": "Stage 3 non-base64url challenge returns 223",
+      "name": "Stage 3 non-base64url challenge returns invalid_challenge",
       "call": "ping",
       "args": [
         {
@@ -1037,13 +1066,14 @@
       ],
       "expected": {
         "error": {
-          "code": 223,
+          "code": "invalid_challenge",
+          "reason": "invalid",
           "message": "Invalid challenge"
         }
       }
     },
     {
-      "name": "Stage 3 challenge is valid base64url but decodes to non-JSON bytes returns 223 (Challenge.fromString parse path)",
+      "name": "Stage 3 challenge is valid base64url but decodes to non-JSON bytes returns invalid_challenge (Challenge.fromString parse path)",
       "call": "ping",
       "args": [
         {
@@ -1053,13 +1083,14 @@
       ],
       "expected": {
         "error": {
-          "code": 223,
+          "code": "invalid_challenge",
+          "reason": "invalid",
           "message": "Invalid challenge"
         }
       }
     },
     {
-      "name": "Stage 3 SECURITY: challenge whose decoded bytes are a UTF-8 BOM (EF BB BF) followed by the CANONICAL valid challenge JSON returns 223 — the decoder must not strip the BOM (a second, non-canonical byte encoding of the same challenge must never be accepted; ports must not BOM-sniff when decoding base64url payloads)",
+      "name": "Stage 3 SECURITY: challenge whose decoded bytes are a UTF-8 BOM (EF BB BF) followed by the CANONICAL valid challenge JSON returns invalid_challenge — the decoder must not strip the BOM (a second, non-canonical byte encoding of the same challenge must never be accepted; ports must not BOM-sniff when decoding base64url payloads)",
       "call": "ping",
       "args": [
         {
@@ -1069,13 +1100,14 @@
       ],
       "expected": {
         "error": {
-          "code": 223,
+          "code": "invalid_challenge",
+          "reason": "invalid",
           "message": "Invalid challenge"
         }
       }
     },
     {
-      "name": "Stage 3 challenge decodes to valid JSON but its identifier member is malformed returns 223 (the Identity constructor throws inside Challenge.fromString, distinct from the non-JSON parse path)",
+      "name": "Stage 3 challenge decodes to valid JSON but its identifier member is malformed returns invalid_challenge (the Identity constructor throws inside Challenge.fromString, distinct from the non-JSON parse path)",
       "call": "ping",
       "args": [
         {
@@ -1085,13 +1117,14 @@
       ],
       "expected": {
         "error": {
-          "code": 223,
+          "code": "invalid_challenge",
+          "reason": "invalid",
           "message": "Invalid challenge"
         }
       }
     },
     {
-      "name": "Stage 3 non-string response returns 224",
+      "name": "Stage 3 non-string response returns invalid_response",
       "call": "ping",
       "args": [
         {
@@ -1101,13 +1134,14 @@
       ],
       "expected": {
         "error": {
-          "code": 224,
+          "code": "invalid_response",
+          "reason": "invalid",
           "message": "Invalid response"
         }
       }
     },
     {
-      "name": "Stage 3 response without the | envelope delimiters returns 224",
+      "name": "Stage 3 response without the | envelope delimiters returns invalid_response",
       "call": "ping",
       "args": [
         {
@@ -1117,13 +1151,14 @@
       ],
       "expected": {
         "error": {
-          "code": 224,
+          "code": "invalid_response",
+          "reason": "invalid",
           "message": "Invalid response"
         }
       }
     },
     {
-      "name": "Stage 3 short/empty response (length <= 3) returns 224 via the validator length-check",
+      "name": "Stage 3 short/empty response (length <= 3) returns invalid_response via the validator length-check",
       "call": "ping",
       "args": [
         {
@@ -1133,13 +1168,14 @@
       ],
       "expected": {
         "error": {
-          "code": 224,
+          "code": "invalid_response",
+          "reason": "invalid",
           "message": "Invalid response"
         }
       }
     },
     {
-      "name": "Stage 3 re-provided malformed identifier returns 210 (the optional Stage-3 identifier validator, distinct from the Stage-1 path)",
+      "name": "Stage 3 re-provided malformed identifier returns invalid_identifier/invalid (the optional Stage-3 identifier validator, distinct from the Stage-1 path)",
       "call": "ping",
       "args": [
         {
@@ -1150,13 +1186,14 @@
       ],
       "expected": {
         "error": {
-          "code": 210,
+          "code": "invalid_identifier",
+          "reason": "invalid",
           "message": "Identifier is invalid"
         }
       }
     },
     {
-      "name": "Stage 3 re-provided malformed callbackUrl returns 221 (the optional Stage-3 callbackUrl validator, distinct from the Stage-1 path)",
+      "name": "Stage 3 re-provided malformed callbackUrl returns invalid_callback_url (the optional Stage-3 callbackUrl validator, distinct from the Stage-1 path)",
       "call": "ping",
       "args": [
         {
@@ -1167,13 +1204,14 @@
       ],
       "expected": {
         "error": {
-          "code": 221,
+          "code": "invalid_callback_url",
+          "reason": "invalid",
           "message": "Invalid callbackUrl"
         }
       }
     },
     {
-      "name": "Stage 3 re-provided callbackUrl that is URL-valid but mismatches challenge.cburl (http://example.com/cb vs https) returns 401 — the equality gate, distinct from the 221 format gate",
+      "name": "Stage 3 re-provided callbackUrl that is URL-valid but mismatches challenge.cburl (http://example.com/cb vs https) returns verification_failed — the equality gate, distinct from the invalid_callback_url format gate",
       "call": "ping",
       "args": [
         {
@@ -1184,13 +1222,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 response equal to the literal 'false' returns 403 (user-denial sentinel)",
+      "name": "Stage 3 response equal to the literal 'false' returns request_denied (user-denial sentinel)",
       "call": "ping",
       "args": [
         {
@@ -1200,13 +1238,13 @@
       ],
       "expected": {
         "error": {
-          "code": 403,
+          "code": "request_denied",
           "message": "Request has been denied"
         }
       }
     },
     {
-      "name": "Stage 3 re-provided identifier mismatching challenge.identifier returns 401",
+      "name": "Stage 3 re-provided identifier mismatching challenge.identifier returns verification_failed",
       "call": "ping",
       "args": [
         {
@@ -1217,13 +1255,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 re-provided callbackUrl mismatching challenge.cburl returns 401",
+      "name": "Stage 3 re-provided callbackUrl mismatching challenge.cburl returns verification_failed",
       "call": "ping",
       "args": [
         {
@@ -1234,13 +1272,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 challenge with type=auth (not 'ping') returns 401 at the flow type-constraint",
+      "name": "Stage 3 challenge with type=auth (not 'ping') returns verification_failed at the flow type-constraint",
       "call": "ping",
       "args": [
         {
@@ -1250,13 +1288,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 signature envelope with malformed via ('-') is rejected at parse time with 225",
+      "name": "Stage 3 signature envelope with malformed via ('-') is rejected at parse time with invalid_signature",
       "call": "ping",
       "args": [
         {
@@ -1266,13 +1304,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 signature envelope with non-ASCII via is rejected at parse time with 225",
+      "name": "Stage 3 signature envelope with non-ASCII via is rejected at parse time with invalid_signature",
       "call": "ping",
       "args": [
         {
@@ -1282,13 +1321,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 response '||||' parses into empty segments, each tripping the Signature length guard → 225",
+      "name": "Stage 3 response '||||' parses into empty segments, each tripping the Signature length guard → invalid_signature",
       "call": "ping",
       "args": [
         {
@@ -1298,13 +1338,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 more than 5 signature segments trips the MultiSignature maxMultiSignatures=5 count guard → 225 (in the constructor, before any segment is parsed)",
+      "name": "Stage 3 more than 5 signature segments trips the MultiSignature maxMultiSignatures=5 count guard → invalid_signature (in the constructor, before any segment is parsed)",
       "call": "ping",
       "args": [
         {
@@ -1314,13 +1355,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 well-formed sign-typed envelope against the ping flow returns 401 (type constraint, before crypto)",
+      "name": "Stage 3 well-formed sign-typed envelope against the ping flow returns verification_failed (type constraint, before crypto)",
       "call": "ping",
       "args": [
         {
@@ -1330,13 +1372,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 well-formed ping envelope with bogus crypto bytes returns 401 (generic verification failure)",
+      "name": "Stage 3 well-formed ping envelope with bogus crypto bytes returns verification_failed (generic verification failure)",
       "call": "ping",
       "args": [
         {
@@ -1346,13 +1388,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 two stacked signatures exceed maxSignatures=1 returns 401 (count guard before per-sig verify)",
+      "name": "Stage 3 two stacked signatures exceed maxSignatures=1 returns verification_failed (count guard before per-sig verify)",
       "call": "ping",
       "args": [
         {
@@ -1362,13 +1404,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 cryptographically valid signature for the WRONG identity (jane signs john challenge) returns 401",
+      "name": "Stage 3 cryptographically valid signature for the WRONG identity (jane signs john challenge) returns verification_failed",
       "call": "ping",
       "args": [
         {
@@ -1378,13 +1420,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 cryptographically valid signature with envelope.via on a DIFFERENT ORIGIN returns 401 (cburl does not match sig.via)",
+      "name": "Stage 3 cryptographically valid signature with envelope.via on a DIFFERENT ORIGIN returns verification_failed (cburl does not match sig.via)",
       "call": "ping",
       "args": [
         {
@@ -1394,13 +1436,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 ping-typed envelope from a sign-restricted (use=sign) key returns 401 (mode/use check; would ping if use included ping)",
+      "name": "Stage 3 ping-typed envelope from a sign-restricted (use=sign) key returns verification_failed (mode/use check; would ping if use included ping)",
       "call": "ping",
       "args": [
         {
@@ -1410,13 +1452,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 envelope.identifier's identity records vanished between stages (NXDOMAIN) returns 401",
+      "name": "Stage 3 envelope.identifier's identity records vanished between stages (NXDOMAIN) returns verification_failed",
       "call": "ping",
       "args": [
         {
@@ -1429,13 +1471,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 envelope.identifier's authentication endpoint is gone (NXDOMAIN) returns 401",
+      "name": "Stage 3 envelope.identifier's authentication endpoint is gone (NXDOMAIN) returns verification_failed",
       "call": "ping",
       "args": [
         {
@@ -1448,13 +1490,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 DNS SERVFAIL on the authentication endpoint propagates from signature.verify and surfaces as a retryable 110 (not a false 401)",
+      "name": "Stage 3 DNS SERVFAIL on the authentication endpoint propagates from signature.verify and surfaces as a retryable dns_unavailable (not a false verification_failed)",
       "call": "ping",
       "args": [
         {
@@ -1469,13 +1511,13 @@
       },
       "expected": {
         "error": {
-          "code": 110,
+          "code": "dns_unavailable",
           "message": "DNS resolution failed, try again later"
         }
       }
     },
     {
-      "name": "Stage 3 DNS SERVFAIL on the identity domain propagates from signature.verify and surfaces as a retryable 110 (not a false 401)",
+      "name": "Stage 3 DNS SERVFAIL on the identity domain propagates from signature.verify and surfaces as a retryable dns_unavailable (not a false verification_failed)",
       "call": "ping",
       "args": [
         {
@@ -1490,13 +1532,13 @@
       },
       "expected": {
         "error": {
-          "code": 110,
+          "code": "dns_unavailable",
           "message": "DNS resolution failed, try again later"
         }
       }
     },
     {
-      "name": "Stage 3 identity key with invalid syntax (missing [idx/count]) leaves no usable keyGroup → 401",
+      "name": "Stage 3 identity key with invalid syntax (missing [idx/count]) leaves no usable keyGroup → verification_failed",
       "call": "ping",
       "args": [
         {
@@ -1515,13 +1557,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 identity key that taints its device group (desktop[2/1]) leaves no valid keyGroup → 401",
+      "name": "Stage 3 identity key that taints its device group (desktop[2/1]) leaves no valid keyGroup → verification_failed",
       "call": "ping",
       "args": [
         {
@@ -1540,13 +1582,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 SECURITY: split key group published only as its final fragment (laptop[2/2] alone, no laptop[1/2]) never validates — a lone write to the group's last index already inflates keys.length to keyCount and Object.entries/.every iteration skips array holes, so a length-gated validity check would accept the one-signature response from the published fragment; the populated-slot count (src/identity_keys.js:153-157) keeps the group invalid → 401",
+      "name": "Stage 3 SECURITY: split key group published only as its final fragment (laptop[2/2] alone, no laptop[1/2]) never validates — a lone write to the group's last index already inflates keys.length to keyCount and Object.entries/.every iteration skips array holes, so a length-gated validity check would accept the one-signature response from the published fragment; the populated-slot count (src/identity_keys.js:153-157) keeps the group invalid → verification_failed",
       "call": "ping",
       "args": [
         {
@@ -1565,13 +1607,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 a single segment carrying 11 crypto signatures exceeds IdentityKeys maxKeysPerSignature=10 → 401 (count guard, distinct from the multi-segment maxSignatures path)",
+      "name": "Stage 3 a single segment carrying 11 crypto signatures exceeds IdentityKeys maxKeysPerSignature=10 → verification_failed (count guard, distinct from the multi-segment maxSignatures path)",
       "call": "ping",
       "args": [
         {
@@ -1581,13 +1623,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 identity key value is valid base64url but too short to initialize an ECDSA verifier (AAAA) → 401 (null-verifier continue, no key verified)",
+      "name": "Stage 3 identity key value is valid base64url but too short to initialize an ECDSA verifier (AAAA) → verification_failed (null-verifier continue, no key verified)",
       "call": "ping",
       "args": [
         {
@@ -1606,13 +1648,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 identity key with a deviceName longer than the record-name regex allows ({1,20}, the 20-byte limit) is dropped → 401",
+      "name": "Stage 3 identity key with a deviceName longer than the record-name regex allows ({1,20}, the 20-byte limit) is dropped → verification_failed",
       "call": "ping",
       "args": [
         {
@@ -1631,13 +1673,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 identity records publishing more than maxDevices=10 devices drop the 11th (john's real key) → 401",
+      "name": "Stage 3 identity records publishing more than maxDevices=10 devices drop the 11th (john's real key) → verification_failed",
       "call": "ping",
       "args": [
         {
@@ -1666,13 +1708,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 identity key with an unknown critical (non x-) option taints its device group → 401",
+      "name": "Stage 3 identity key with an unknown critical (non x-) option taints its device group → verification_failed",
       "call": "ping",
       "args": [
         {
@@ -1691,13 +1733,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 a doubled key index (two desktop[1/1] records) un-validates the already-valid group → 401",
+      "name": "Stage 3 a doubled key index (two desktop[1/1] records) un-validates the already-valid group → verification_failed",
       "call": "ping",
       "args": [
         {
@@ -1717,13 +1759,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 leading-zero keyIdx (desktop[01/1]) maps to literal 0, failing the range check and tainting the group → 401",
+      "name": "Stage 3 leading-zero keyIdx (desktop[01/1]) maps to literal 0, failing the range check and tainting the group → verification_failed",
       "call": "ping",
       "args": [
         {
@@ -1742,13 +1784,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 leading-zero keyCount (desktop[1/01]) maps to literal 0, failing the range check and tainting the group → 401",
+      "name": "Stage 3 leading-zero keyCount (desktop[1/01]) maps to literal 0, failing the range check and tainting the group → verification_failed",
       "call": "ping",
       "args": [
         {
@@ -1767,13 +1809,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 challenge iat far before notBefore returns 402",
+      "name": "Stage 3 challenge iat far before notBefore returns request_expired",
       "call": "ping",
       "args": [
         {
@@ -1783,13 +1825,13 @@
       ],
       "expected": {
         "error": {
-          "code": 402,
+          "code": "request_expired",
           "message": "Authentication request has expired, please try again"
         }
       }
     },
     {
-      "name": "Stage 3 challenge iat in the future (after notAfter == now) returns 402",
+      "name": "Stage 3 challenge iat in the future (after notAfter == now) returns request_expired",
       "call": "ping",
       "args": [
         {
@@ -1799,13 +1841,13 @@
       ],
       "expected": {
         "error": {
-          "code": 402,
+          "code": "request_expired",
           "message": "Authentication request has expired, please try again"
         }
       }
     },
     {
-      "name": "Stage 3 PING-DISTINCT: a 60s-old challenge (still valid for authenticate, authTimeout 3min) is already expired for ping (pingTimeout 15s) → 402",
+      "name": "Stage 3 PING-DISTINCT: a 60s-old challenge (still valid for authenticate, authTimeout 3min) is already expired for ping (pingTimeout 15s) → request_expired",
       "call": "ping",
       "args": [
         {
@@ -1815,13 +1857,13 @@
       ],
       "expected": {
         "error": {
-          "code": 402,
+          "code": "request_expired",
           "message": "Authentication request has expired, please try again"
         }
       }
     },
     {
-      "name": "Stage 3 fresh challenge but the SIGNATURE ts is before the widened window → 402 (Signature.verify ts check, distinct from the Response.verify challenge.iat check)",
+      "name": "Stage 3 fresh challenge but the SIGNATURE ts is before the widened window → request_expired (Signature.verify ts check, distinct from the Response.verify challenge.iat check)",
       "call": "ping",
       "args": [
         {
@@ -1831,13 +1873,13 @@
       ],
       "expected": {
         "error": {
-          "code": 402,
+          "code": "request_expired",
           "message": "Authentication request has expired, please try again"
         }
       }
     },
     {
-      "name": "Stage 3 fresh challenge but the SIGNATURE ts is after the widened window → 402",
+      "name": "Stage 3 fresh challenge but the SIGNATURE ts is after the widened window → request_expired",
       "call": "ping",
       "args": [
         {
@@ -1847,13 +1889,13 @@
       ],
       "expected": {
         "error": {
-          "code": 402,
+          "code": "request_expired",
           "message": "Authentication request has expired, please try again"
         }
       }
     },
     {
-      "name": "Stage 3 garbage signedMetadata (decodes to a JSON array) returns 225",
+      "name": "Stage 3 garbage signedMetadata (decodes to a JSON array) returns invalid_signature",
       "call": "ping",
       "args": [
         {
@@ -1863,13 +1905,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 __proto__-poisoning signedMetadata is caught by safeParseJson → 225",
+      "name": "Stage 3 __proto__-poisoning signedMetadata is caught by safeParseJson → invalid_signature",
       "call": "ping",
       "args": [
         {
@@ -1879,13 +1922,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 constructor.prototype-poisoning unsignedMetadata is caught by safeParseJson (second clause) → 225",
+      "name": "Stage 3 constructor.prototype-poisoning unsignedMetadata is caught by safeParseJson (second clause) → invalid_signature",
       "call": "ping",
       "args": [
         {
@@ -1895,13 +1939,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 signedMetadata that is valid base64url but non-JSON text returns 225",
+      "name": "Stage 3 signedMetadata that is valid base64url but non-JSON text returns invalid_signature",
       "call": "ping",
       "args": [
         {
@@ -1911,13 +1956,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 SECURITY: signedMetadata segment decodes to a UTF-8 BOM (EF BB BF) followed by otherwise-valid ext JSON ({\"ext\":{\"bom\":true}}) — rejected at parse time with 225; the decoder must not strip the BOM, so a non-canonical byte encoding of valid metadata is never accepted (real signature covers the BOM segment)",
+      "name": "Stage 3 SECURITY: signedMetadata segment decodes to a UTF-8 BOM (EF BB BF) followed by otherwise-valid ext JSON ({\"ext\":{\"bom\":true}}) — rejected at parse time with invalid_signature; the decoder must not strip the BOM, so a non-canonical byte encoding of valid metadata is never accepted (real signature covers the BOM segment)",
       "call": "ping",
       "args": [
         {
@@ -1927,13 +1973,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 garbage unsignedMetadata (decodes to a JSON array) returns 225 (real sig, slot MITM-swapped)",
+      "name": "Stage 3 garbage unsignedMetadata (decodes to a JSON array) returns invalid_signature (real sig, slot MITM-swapped)",
       "call": "ping",
       "args": [
         {
@@ -1943,13 +1990,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 unsignedMetadata of raw binary bytes (no valid JSON token) returns 225",
+      "name": "Stage 3 unsignedMetadata of raw binary bytes (no valid JSON token) returns invalid_signature",
       "call": "ping",
       "args": [
         {
@@ -1959,13 +2007,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 unsignedMetadata nested 9 deep exceeds jsonMaxNestingDepth=8 → 225",
+      "name": "Stage 3 unsignedMetadata nested 9 deep exceeds jsonMaxNestingDepth=8 → invalid_signature",
       "call": "ping",
       "args": [
         {
@@ -1975,13 +2024,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 unsignedMetadata with a 257-char key exceeds jsonMaxKeyLength=256 → 225",
+      "name": "Stage 3 unsignedMetadata with a 257-char key exceeds jsonMaxKeyLength=256 → invalid_signature",
       "call": "ping",
       "args": [
         {
@@ -1991,13 +2041,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 unsignedMetadata with a non-ASCII key returns 225",
+      "name": "Stage 3 unsignedMetadata with a non-ASCII key returns invalid_signature",
       "call": "ping",
       "args": [
         {
@@ -2007,13 +2058,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 SECURITY: unsignedMetadata whose bytes are not well-formed UTF-8 inside a string value returns 225 — payload-slot bytes must be well-formed UTF-8; decoders reject rather than substitute U+FFFD (string values have no charset rule of their own, so only the decode-time rejection pins this)",
+      "name": "Stage 3 SECURITY: unsignedMetadata whose bytes are not well-formed UTF-8 inside a string value returns invalid_signature — payload-slot bytes must be well-formed UTF-8; decoders reject rather than substitute U+FFFD (string values have no charset rule of their own, so only the decode-time rejection pins this)",
       "call": "ping",
       "args": [
         {
@@ -2023,13 +2075,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 unsignedMetadata with a non-ASCII key in well-formed UTF-8 ({\"résumé\":1} as C3 A9 bytes) returns 225 — the Bounded-JSON ASCII-key rule, distinct from the ill-formed-byte rejection",
+      "name": "Stage 3 unsignedMetadata with a non-ASCII key in well-formed UTF-8 ({\"résumé\":1} as C3 A9 bytes) returns invalid_signature — the Bounded-JSON ASCII-key rule, distinct from the ill-formed-byte rejection",
       "call": "ping",
       "args": [
         {
@@ -2039,13 +2092,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 SECURITY: unsignedMetadata whose JSON carries a lone-surrogate escape (\\ud800) in a key returns 225 — parser-independent: a parser that preserves the escape yields a non-ASCII key, one that substitutes U+FFFD likewise, one that rejects it fails the parse; no conformance vector requires accepting a lone-surrogate escape anywhere",
+      "name": "Stage 3 SECURITY: unsignedMetadata whose JSON carries a lone-surrogate escape (\\ud800) in a key returns invalid_signature — parser-independent: a parser that preserves the escape yields a non-ASCII key, one that substitutes U+FFFD likewise, one that rejects it fails the parse; no conformance vector requires accepting a lone-surrogate escape anywhere",
       "call": "ping",
       "args": [
         {
@@ -2055,7 +2109,8 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
@@ -2184,7 +2239,7 @@
       }
     },
     {
-      "name": "Stage 3 PRIVATE SECURITY: a mismatched commit record makes the identity unresolvable -> 401 (the commitment binding gate)",
+      "name": "Stage 3 PRIVATE SECURITY: a mismatched commit record makes the identity unresolvable -> verification_failed (the commitment binding gate)",
       "call": "ping",
       "args": [
         {
@@ -2203,7 +2258,7 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
@@ -2609,7 +2664,7 @@
       }
     },
     {
-      "name": "SECURITY: uv=required on a non-webauthn (es256) key is unenforceable and taints the keyGroup → 401 - fail closed",
+      "name": "SECURITY: uv=required on a non-webauthn (es256) key is unenforceable and taints the keyGroup → verification_failed - fail closed",
       "call": "ping",
       "args": [
         {
@@ -2630,7 +2685,7 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
@@ -2712,7 +2767,7 @@
       }
     },
     {
-      "name": "Stage 3 Ed25519: bogus signature fails the Ed25519 crypto verification → 401",
+      "name": "Stage 3 Ed25519: bogus signature fails the Ed25519 crypto verification → verification_failed",
       "call": "ping",
       "args": [
         {
@@ -2722,13 +2777,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 Ed25519: 65-byte P-256 key material published as type=ed25519 cannot import (raw Ed25519 keys are exactly 32 bytes) → fromPublishableKey null → 401",
+      "name": "Stage 3 Ed25519: 65-byte P-256 key material published as type=ed25519 cannot import (raw Ed25519 keys are exactly 32 bytes) → fromPublishableKey null → verification_failed",
       "call": "ping",
       "args": [
         {
@@ -2746,13 +2801,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 Ed25519 SECURITY: uv=required on a type=ed25519 (non-webauthn) key is unenforceable and taints the keyGroup → 401 — fail closed",
+      "name": "Stage 3 Ed25519 SECURITY: uv=required on a type=ed25519 (non-webauthn) key is unenforceable and taints the keyGroup → verification_failed — fail closed",
       "call": "ping",
       "args": [
         {
@@ -2770,13 +2825,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 1 SECURITY: callbackUrl with a \";\" in its base directory (https://example.com/a;b/cb) returns 221 — \";\" is the signature envelope field delimiter, and the base URL of the callback becomes the signed via; the base-span check rejects at validation so the authenticator's Signature.generate never has to refuse such a via downstream",
+      "name": "Stage 1 SECURITY: callbackUrl with a \";\" in its base directory (https://example.com/a;b/cb) returns invalid_callback_url — \";\" is the signature envelope field delimiter, and the base URL of the callback becomes the signed via; the base-span check rejects at validation so the authenticator's Signature.generate never has to refuse such a via downstream",
       "call": "ping",
       "args": [
         {
@@ -2786,13 +2841,14 @@
       ],
       "expected": {
         "error": {
-          "code": 221,
+          "code": "invalid_callback_url",
+          "reason": "invalid",
           "message": "Invalid callbackUrl"
         }
       }
     },
     {
-      "name": "Stage 1 SECURITY: callbackUrl with a \"|\" in its base directory (https://example.com/a|b/cb) returns 221 — \"|\" is the signature envelope wrapper and not an RFC 3986 URL character, so the grammar rejects it in every span",
+      "name": "Stage 1 SECURITY: callbackUrl with a \"|\" in its base directory (https://example.com/a|b/cb) returns invalid_callback_url — \"|\" is the signature envelope wrapper and not an RFC 3986 URL character, so the grammar rejects it in every span",
       "call": "ping",
       "args": [
         {
@@ -2802,7 +2858,8 @@
       ],
       "expected": {
         "error": {
-          "code": 221,
+          "code": "invalid_callback_url",
+          "reason": "invalid",
           "message": "Invalid callbackUrl"
         }
       }
@@ -2865,7 +2922,7 @@
       }
     },
     {
-      "name": "SECURITY requireSecure: ping stage 3 - non-DNSSEC (secure:false) result is rejected with 404",
+      "name": "SECURITY requireSecure: ping stage 3 - non-DNSSEC (secure:false) result is rejected with dnssec_required",
       "call": "ping",
       "args": [
         {
@@ -2891,13 +2948,13 @@
       },
       "expected": {
         "error": {
-          "code": 404,
+          "code": "dnssec_required",
           "message": "Your domain does not support DNSSEC, which is required to continue."
         }
       }
     },
     {
-      "name": "Stage 1 session key in standard base64 (with /) returns 226 - a session key is base64url",
+      "name": "Stage 1 session key in standard base64 (with /) returns invalid_session_key - a session key is base64url",
       "call": "ping",
       "args": [
         {
@@ -2908,13 +2965,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 session key with base64 padding (44 characters ending in =) returns 226",
+      "name": "Stage 1 session key with base64 padding (44 characters ending in =) returns invalid_session_key",
       "call": "ping",
       "args": [
         {
@@ -2925,13 +2983,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 session key in the issuer:secret form of a token returns 226",
+      "name": "Stage 1 session key in the issuer:secret form of a token returns invalid_session_key",
       "call": "ping",
       "args": [
         {
@@ -2942,13 +3001,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 empty session key returns 226",
+      "name": "Stage 1 empty session key returns invalid_session_key",
       "call": "ping",
       "args": [
         {
@@ -2959,7 +3019,8 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
@@ -3020,7 +3081,7 @@
       }
     },
     {
-      "name": "Stage 1 delegated session key whose domain has no triauth endpoint returns 301",
+      "name": "Stage 1 delegated session key whose domain has no triauth endpoint returns domain_not_configured",
       "call": "ping",
       "args": [
         {
@@ -3032,13 +3093,13 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "error": {
-          "code": 301,
+          "code": "domain_not_configured",
           "message": "Domain is not configured for triauth"
         }
       }
     },
     {
-      "name": "Stage 1 session key with an uppercase domain returns 226",
+      "name": "Stage 1 session key with an uppercase domain returns invalid_session_key",
       "call": "ping",
       "args": [
         {
@@ -3049,13 +3110,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 session key whose part before the colon is not a domain name returns 226",
+      "name": "Stage 1 session key whose part before the colon is not a domain name returns invalid_session_key",
       "call": "ping",
       "args": [
         {
@@ -3066,13 +3128,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 session key with an empty domain before the colon returns 226",
+      "name": "Stage 1 session key with an empty domain before the colon returns invalid_session_key",
       "call": "ping",
       "args": [
         {
@@ -3083,13 +3146,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 session key with two colons returns 226",
+      "name": "Stage 1 session key with two colons returns invalid_session_key",
       "call": "ping",
       "args": [
         {
@@ -3100,13 +3164,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 null session key returns 226 - null counts as a missing session key",
+      "name": "Stage 1 null session key returns invalid_session_key - null counts as a missing session key",
       "call": "ping",
       "args": [
         {
@@ -3117,7 +3182,8 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
@@ -3223,7 +3289,7 @@
       }
     },
     {
-      "name": "Stage 3 delegated response with no include grant in the identity records returns 401",
+      "name": "Stage 3 delegated response with no include grant in the identity records returns verification_failed",
       "call": "ping",
       "args": [
         {
@@ -3233,13 +3299,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 delegated response whose grant does not cover the ping flow (use=sign) returns 401",
+      "name": "Stage 3 delegated response whose grant does not cover the ping flow (use=sign) returns verification_failed",
       "call": "ping",
       "args": [
         {
@@ -3261,13 +3327,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 delegated response whose grant publishes no scope option returns 401 - scope is required, and the record is ignored as a whole",
+      "name": "Stage 3 delegated response whose grant publishes no scope option returns verification_failed - scope is required, and the record is ignored as a whole",
       "call": "ping",
       "args": [
         {
@@ -3289,7 +3355,7 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
@@ -3345,7 +3411,7 @@
       }
     },
     {
-      "name": "Stage 3 SECURITY: delegated response whose grant is scoped to a different host (scope=other.example) returns 401 - a grant works only at services whose callback host its scope lists",
+      "name": "Stage 3 SECURITY: delegated response whose grant is scoped to a different host (scope=other.example) returns verification_failed - a grant works only at services whose callback host its scope lists",
       "call": "ping",
       "args": [
         {
@@ -3367,7 +3433,7 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
@@ -3423,7 +3489,7 @@
       }
     },
     {
-      "name": "Stage 3 SECURITY: delegated response whose grant carries a scope entry with a port (scope=example.com:8443) returns 401 - a port is never part of a host, so the record is ignored as a whole",
+      "name": "Stage 3 SECURITY: delegated response whose grant carries a scope entry with a port (scope=example.com:8443) returns verification_failed - a port is never part of a host, so the record is ignored as a whole",
       "call": "ping",
       "args": [
         {
@@ -3445,13 +3511,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 SECURITY: delegated response whose grant lists any beside a host (scope=any,example.com) returns 401 - any is only the sole-entry spelling, so the record is ignored as a whole",
+      "name": "Stage 3 SECURITY: delegated response whose grant lists any beside a host (scope=any,example.com) returns verification_failed - any is only the sole-entry spelling, so the record is ignored as a whole",
       "call": "ping",
       "args": [
         {
@@ -3473,13 +3539,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 envelope with an actor slot that is not an Identifier returns 225",
+      "name": "Stage 3 envelope with an actor slot that is not an Identifier returns invalid_signature",
       "call": "ping",
       "args": [
         {
@@ -3489,13 +3555,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 re-supplied empty-string identifier returns 211 (fail-closed - the empty string is not \"not passed\")",
+      "name": "Stage 3 re-supplied empty-string identifier returns invalid_identifier/empty (fail-closed - the empty string is not \"not passed\")",
       "call": "ping",
       "args": [
         {
@@ -3506,13 +3573,14 @@
       ],
       "expected": {
         "error": {
-          "code": 211,
+          "code": "invalid_identifier",
+          "reason": "empty",
           "message": "Identifier must not be empty"
         }
       }
     },
     {
-      "name": "Stage 3 re-supplied empty-string callbackUrl returns 221",
+      "name": "Stage 3 re-supplied empty-string callbackUrl returns invalid_callback_url",
       "call": "ping",
       "args": [
         {
@@ -3523,7 +3591,8 @@
       ],
       "expected": {
         "error": {
-          "code": 221,
+          "code": "invalid_callback_url",
+          "reason": "invalid",
           "message": "Invalid callbackUrl"
         }
       }
@@ -3672,7 +3741,7 @@
       }
     },
     {
-      "name": "Stage 3 SEALED plain envelope for a challenge stored with a decryption key returns 224 (a keyed challenge has no unsealed path)",
+      "name": "Stage 3 SEALED plain envelope for a challenge stored with a decryption key returns invalid_response (a keyed challenge has no unsealed path)",
       "call": "ping",
       "args": [
         {
@@ -3682,13 +3751,14 @@
       ],
       "expected": {
         "error": {
-          "code": 224,
+          "code": "invalid_response",
+          "reason": "invalid",
           "message": "Invalid response"
         }
       }
     },
     {
-      "name": "Stage 3 SEALED challenge stored without its decryption key (ek present) returns 223",
+      "name": "Stage 3 SEALED challenge stored without its decryption key (ek present) returns invalid_challenge",
       "call": "ping",
       "args": [
         {
@@ -3698,13 +3768,14 @@
       ],
       "expected": {
         "error": {
-          "code": 223,
+          "code": "invalid_challenge",
+          "reason": "invalid",
           "message": "Invalid challenge"
         }
       }
     },
     {
-      "name": "Stage 3 SEALED decryption key on a challenge without ek returns 223",
+      "name": "Stage 3 SEALED decryption key on a challenge without ek returns invalid_challenge",
       "call": "ping",
       "args": [
         {
@@ -3714,13 +3785,14 @@
       ],
       "expected": {
         "error": {
-          "code": 223,
+          "code": "invalid_challenge",
+          "reason": "invalid",
           "message": "Invalid challenge"
         }
       }
     },
     {
-      "name": "Stage 3 SEALED challenge without ek or decryption key returns 223, even with the plain envelope signed for it (every response is sealed)",
+      "name": "Stage 3 SEALED challenge without ek or decryption key returns invalid_challenge, even with the plain envelope signed for it (every response is sealed)",
       "call": "ping",
       "args": [
         {
@@ -3730,13 +3802,14 @@
       ],
       "expected": {
         "error": {
-          "code": 223,
+          "code": "invalid_challenge",
+          "reason": "invalid",
           "message": "Invalid challenge"
         }
       }
     },
     {
-      "name": "Stage 3 SEALED malformed decryption key (42 characters) returns 223",
+      "name": "Stage 3 SEALED malformed decryption key (42 characters) returns invalid_challenge",
       "call": "ping",
       "args": [
         {
@@ -3746,13 +3819,14 @@
       ],
       "expected": {
         "error": {
-          "code": 223,
+          "code": "invalid_challenge",
+          "reason": "invalid",
           "message": "Invalid challenge"
         }
       }
     },
     {
-      "name": "Stage 3 SEALED response sealed to another challenge's key returns 224",
+      "name": "Stage 3 SEALED response sealed to another challenge's key returns invalid_response",
       "call": "ping",
       "args": [
         {
@@ -3762,13 +3836,14 @@
       ],
       "expected": {
         "error": {
-          "code": 224,
+          "code": "invalid_response",
+          "reason": "invalid",
           "message": "Invalid response"
         }
       }
     },
     {
-      "name": "Stage 3 SEALED ciphertext changed in transit returns 224",
+      "name": "Stage 3 SEALED ciphertext changed in transit returns invalid_response",
       "call": "ping",
       "args": [
         {
@@ -3778,7 +3853,8 @@
       ],
       "expected": {
         "error": {
-          "code": 224,
+          "code": "invalid_response",
+          "reason": "invalid",
           "message": "Invalid response"
         }
       }

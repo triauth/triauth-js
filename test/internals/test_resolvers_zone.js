@@ -247,7 +247,7 @@ export default function() { describe(`DNS test zone (${zone.zone}, published)`, 
     it('rejects a broken DNSSEC chain with the members\' reasons', async function () {
       await assert.rejects(makeDefaultComposition().resolve('dnssec-failed.org', 'TXT'));
       await assert.rejects(makeDefaultComposition().resolveConfig('dnssec-failed.org'),
-        (error) => error instanceof Triauth.Error && error.code === 110);
+        (error) => error instanceof Triauth.Error && error.code === 'dns_unavailable');
     });
   });
 

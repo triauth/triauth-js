@@ -1,6 +1,6 @@
 {
   "title": "attest",
-  "description": "Comprehensive, branch-complete coverage of Triauth.attest. Stage 1 (request): dispatch/arg guards, identifier/callbackUrl/ext/sessionKey validation, the ATTEST-DISTINCT attestations (229) validation done in onChallenge, DNS configuration (301/302) and DNS failure (110), and deterministic challenge + /attest.html redirect building (with the attestations object baked in, and the request sealed under the session key). Stage 3 (verify): challenge/response validation, the onResponse attest re-validation (229), dispatch constraints (401/403), signature-envelope parse failures (225), generic verification failures (401), the IdentityKeys add/verify branches and WebAuthn verifier reached via the verify path, the 15min attestTimeout window (402), metadata parse rejections (225), and the heart of attest — the multi-signature envelope whose first segment is the user signature and the rest are third-party attester signatures: the bind binder object (identifier/via/deviceTag) is enforced on every segment (every member of bind is critical and must match the verified user; members outside bind are auxiliary and ignored), and attesters are matched against the requested providers (provider membership, attester identifier-domain == via hostname) plus the {attested:true, issuedAt, signedAt, verifiedAt, expires, secure, identifier, identityDomain, lookupCode, actor, actorIdentityDomain, actorLookupCode, groups, attestations, deviceName, deviceTag, keys} body. For attest, the crypto signature is over sha256(challengeString) and every segment signs that same payload; crypto-bearing fixtures were minted by test/fixtures/json/_capture_attest.mjs (WebCrypto ECDSA is non-deterministic to mint, deterministic to verify). A final Ed25519 section covers the type=ed25519 and type=webauthn-ed25519 verifier backends for both the user and third-party attester segments, including mixed-algorithm (es256 + ed25519) multisigs. A PRIVATE MODE section covers a private-mode subject with a public-mode attester (per-segment lookup-code independence) and pins that binders bind the result-form deviceTag (a bare-digest deviceTag binder mismatches).",
+  "description": "Comprehensive, branch-complete coverage of Triauth.attest. Stage 1 (request): dispatch/arg guards, identifier/callbackUrl/ext/sessionKey validation, the ATTEST-DISTINCT attestations (invalid_attestations) validation done in onChallenge, DNS configuration (domain_not_configured) and DNS failure (dns_unavailable), and deterministic challenge + /attest.html redirect building (with the attestations object baked in, and the request sealed under the session key). Stage 3 (verify): challenge/response validation, the onResponse attest re-validation (invalid_attestations), dispatch constraints (verification_failed/request_denied), signature-envelope parse failures (invalid_signature), generic verification failures (verification_failed), the IdentityKeys add/verify branches and WebAuthn verifier reached via the verify path, the 15min attestTimeout window (request_expired), metadata parse rejections (invalid_signature), and the heart of attest — the multi-signature envelope whose first segment is the user signature and the rest are third-party attester signatures: the bind binder object (identifier/via/deviceTag) is enforced on every segment (every member of bind is critical and must match the verified user; members outside bind are auxiliary and ignored), and attesters are matched against the requested providers (provider membership, attester identifier-domain == via hostname) plus the {attested:true, issuedAt, signedAt, verifiedAt, expires, secure, identifier, identityDomain, lookupCode, actor, actorIdentityDomain, actorLookupCode, groups, attestations, deviceName, deviceTag, keys} body. For attest, the crypto signature is over sha256(challengeString) and every segment signs that same payload; crypto-bearing fixtures were minted by test/fixtures/json/_capture_attest.mjs (WebCrypto ECDSA is non-deterministic to mint, deterministic to verify). A final Ed25519 section covers the type=ed25519 and type=webauthn-ed25519 verifier backends for both the user and third-party attester segments, including mixed-algorithm (es256 + ed25519) multisigs. A PRIVATE MODE section covers a private-mode subject with a public-mode attester (per-segment lookup-code independence) and pins that binders bind the result-form deviceTag (a bare-digest deviceTag binder mismatches).",
   "dnsEntries": {
     "triauthdemo.org": {
       "TXT": [
@@ -114,46 +114,46 @@
   "currentTime": 1777454675000,
   "tests": [
     {
-      "name": "empty options object returns 101 (matches neither Stage 1 nor Stage 3)",
+      "name": "empty options object returns invalid_arguments (matches neither Stage 1 nor Stage 3)",
       "call": "attest",
       "args": [
         {}
       ],
       "expected": {
         "error": {
-          "code": 101,
+          "code": "invalid_arguments",
           "message": "Invalid or missing function arguments - expected either {identifier,callbackUrl,ext,...} or {challenge,response,identifier?,callbackUrl?}"
         }
       }
     },
     {
-      "name": "null sole arg is normalized to {} by attest Object.assign -> 101",
+      "name": "null sole arg is normalized to {} by attest Object.assign -> invalid_arguments",
       "call": "attest",
       "args": [
         null
       ],
       "expected": {
         "error": {
-          "code": 101,
+          "code": "invalid_arguments",
           "message": "Invalid or missing function arguments - expected either {identifier,callbackUrl,ext,...} or {challenge,response,identifier?,callbackUrl?}"
         }
       }
     },
     {
-      "name": "empty-array sole arg is normalized to {} by attest Object.assign -> 101",
+      "name": "empty-array sole arg is normalized to {} by attest Object.assign -> invalid_arguments",
       "call": "attest",
       "args": [
         []
       ],
       "expected": {
         "error": {
-          "code": 101,
+          "code": "invalid_arguments",
           "message": "Invalid or missing function arguments - expected either {identifier,callbackUrl,ext,...} or {challenge,response,identifier?,callbackUrl?}"
         }
       }
     },
     {
-      "name": "Stage 1 unrecognized option returns 102",
+      "name": "Stage 1 unrecognized option returns invalid_arguments",
       "call": "attest",
       "args": [
         {
@@ -172,13 +172,13 @@
       ],
       "expected": {
         "error": {
-          "code": 102,
+          "code": "invalid_arguments",
           "message": "Unrecognized function argument"
         }
       }
     },
     {
-      "name": "Stage 1 ATTEST-DISTINCT: attachments are a sign-only input — supplying them (even empty) to attest is a misplaced input, 102",
+      "name": "Stage 1 ATTEST-DISTINCT: attachments are a sign-only input — supplying them (even empty) to attest is a misplaced input, invalid_arguments",
       "call": "attest",
       "args": [
         {
@@ -198,13 +198,13 @@
       ],
       "expected": {
         "error": {
-          "code": 102,
+          "code": "invalid_arguments",
           "message": "Unrecognized function argument"
         }
       }
     },
     {
-      "name": "Stage 3 unrecognized option returns 102",
+      "name": "Stage 3 unrecognized option returns invalid_arguments",
       "call": "attest",
       "args": [
         {
@@ -215,13 +215,13 @@
       ],
       "expected": {
         "error": {
-          "code": 102,
+          "code": "invalid_arguments",
           "message": "Unrecognized function argument"
         }
       }
     },
     {
-      "name": "Stage 1 non-string identifier returns 210",
+      "name": "Stage 1 non-string identifier returns invalid_identifier/invalid",
       "call": "attest",
       "args": [
         {
@@ -239,13 +239,14 @@
       ],
       "expected": {
         "error": {
-          "code": 210,
+          "code": "invalid_identifier",
+          "reason": "invalid",
           "message": "Identifier is invalid"
         }
       }
     },
     {
-      "name": "Stage 1 identifier with whitespace returns 210 (the /[\\s\\0]/ branch, distinct from non-string 210)",
+      "name": "Stage 1 identifier with whitespace returns invalid_identifier/invalid (the /[\\s\\0]/ branch, distinct from non-string invalid_identifier/invalid)",
       "call": "attest",
       "args": [
         {
@@ -263,13 +264,14 @@
       ],
       "expected": {
         "error": {
-          "code": 210,
+          "code": "invalid_identifier",
+          "reason": "invalid",
           "message": "Identifier is invalid"
         }
       }
     },
     {
-      "name": "Stage 1 empty-string identifier returns 211",
+      "name": "Stage 1 empty-string identifier returns invalid_identifier/empty",
       "call": "attest",
       "args": [
         {
@@ -287,13 +289,14 @@
       ],
       "expected": {
         "error": {
-          "code": 211,
+          "code": "invalid_identifier",
+          "reason": "empty",
           "message": "Identifier must not be empty"
         }
       }
     },
     {
-      "name": "Stage 1 too-long identifier returns 212 (byteSize check before username regex)",
+      "name": "Stage 1 too-long identifier returns invalid_identifier/too_long (byteSize check before username regex)",
       "call": "attest",
       "args": [
         {
@@ -311,13 +314,14 @@
       ],
       "expected": {
         "error": {
-          "code": 212,
+          "code": "invalid_identifier",
+          "reason": "too_long",
           "message": "Identifier is too long"
         }
       }
     },
     {
-      "name": "Stage 1 uppercase identifier returns 213",
+      "name": "Stage 1 uppercase identifier returns invalid_identifier/not_lowercase",
       "call": "attest",
       "args": [
         {
@@ -335,13 +339,14 @@
       ],
       "expected": {
         "error": {
-          "code": 213,
+          "code": "invalid_identifier",
+          "reason": "not_lowercase",
           "message": "Identifier must be provided in lowercase"
         }
       }
     },
     {
-      "name": "Stage 1 identifier missing @-sign returns 214",
+      "name": "Stage 1 identifier missing @-sign returns invalid_identifier/invalid_format",
       "call": "attest",
       "args": [
         {
@@ -359,13 +364,14 @@
       ],
       "expected": {
         "error": {
-          "code": 214,
+          "code": "invalid_identifier",
+          "reason": "invalid_format",
           "message": "Identifier must include one @ sign"
         }
       }
     },
     {
-      "name": "Stage 1 identifier with consecutive dots in username returns 215",
+      "name": "Stage 1 identifier with consecutive dots in username returns invalid_identifier/invalid_username",
       "call": "attest",
       "args": [
         {
@@ -383,13 +389,14 @@
       ],
       "expected": {
         "error": {
-          "code": 215,
+          "code": "invalid_identifier",
+          "reason": "invalid_username",
           "message": "Identifier contains invalid username"
         }
       }
     },
     {
-      "name": "Stage 1 identifier with punycode domain returns 216",
+      "name": "Stage 1 identifier with punycode domain returns invalid_identifier/invalid_domain",
       "call": "attest",
       "args": [
         {
@@ -407,13 +414,14 @@
       ],
       "expected": {
         "error": {
-          "code": 216,
+          "code": "invalid_identifier",
+          "reason": "invalid_domain",
           "message": "Identifier contains invalid domain name"
         }
       }
     },
     {
-      "name": "Stage 1 identifier with an IPv4-literal domain (john@1.2.3.4) returns 216 — a numeric final label is never a domain part",
+      "name": "Stage 1 identifier with an IPv4-literal domain (john@1.2.3.4) returns invalid_identifier/invalid_domain — a numeric final label is never a domain part",
       "call": "attest",
       "args": [
         {
@@ -431,13 +439,14 @@
       ],
       "expected": {
         "error": {
-          "code": 216,
+          "code": "invalid_identifier",
+          "reason": "invalid_domain",
           "message": "Identifier contains invalid domain name"
         }
       }
     },
     {
-      "name": "Stage 1 identifier with a 64-character domain label returns 216 — labels are capped at 63 characters (the DNS bound)",
+      "name": "Stage 1 identifier with a 64-character domain label returns invalid_identifier/invalid_domain — labels are capped at 63 characters (the DNS bound)",
       "call": "attest",
       "args": [
         {
@@ -455,13 +464,14 @@
       ],
       "expected": {
         "error": {
-          "code": 216,
+          "code": "invalid_identifier",
+          "reason": "invalid_domain",
           "message": "Identifier contains invalid domain name"
         }
       }
     },
     {
-      "name": "Stage 1 identifier with a single-character final label (john@a.b) returns 216",
+      "name": "Stage 1 identifier with a single-character final label (john@a.b) returns invalid_identifier/invalid_domain",
       "call": "attest",
       "args": [
         {
@@ -479,13 +489,14 @@
       ],
       "expected": {
         "error": {
-          "code": 216,
+          "code": "invalid_identifier",
+          "reason": "invalid_domain",
           "message": "Identifier contains invalid domain name"
         }
       }
     },
     {
-      "name": "Stage 1 non-string callbackUrl returns 221",
+      "name": "Stage 1 non-string callbackUrl returns invalid_callback_url",
       "call": "attest",
       "args": [
         {
@@ -503,13 +514,14 @@
       ],
       "expected": {
         "error": {
-          "code": 221,
+          "code": "invalid_callback_url",
+          "reason": "invalid",
           "message": "Invalid callbackUrl"
         }
       }
     },
     {
-      "name": "Stage 1 over-length callbackUrl (>2048 bytes) returns 221",
+      "name": "Stage 1 over-length callbackUrl (>2048 bytes) returns invalid_callback_url",
       "call": "attest",
       "args": [
         {
@@ -527,13 +539,14 @@
       ],
       "expected": {
         "error": {
-          "code": 221,
+          "code": "invalid_callback_url",
+          "reason": "invalid",
           "message": "Invalid callbackUrl"
         }
       }
     },
     {
-      "name": "Stage 1 plain-http callbackUrl on a named host (http://example.com/cb) passes URL validation; the request without a session key then returns 226 — an ordering pin: the callbackUrl gate precedes the session key gate",
+      "name": "Stage 1 plain-http callbackUrl on a named host (http://example.com/cb) passes URL validation; the request without a session key then returns invalid_session_key — an ordering pin: the callbackUrl gate precedes the session key gate",
       "call": "attest",
       "args": [
         {
@@ -551,7 +564,8 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
@@ -581,7 +595,7 @@
       }
     },
     {
-      "name": "Stage 1 callbackUrl with punycode domain returns 221",
+      "name": "Stage 1 callbackUrl with punycode domain returns invalid_callback_url",
       "call": "attest",
       "args": [
         {
@@ -599,13 +613,14 @@
       ],
       "expected": {
         "error": {
-          "code": 221,
+          "code": "invalid_callback_url",
+          "reason": "invalid",
           "message": "Invalid callbackUrl"
         }
       }
     },
     {
-      "name": "Stage 1 array-shaped ext returns 222",
+      "name": "Stage 1 array-shaped ext returns invalid_ext",
       "call": "attest",
       "args": [
         {
@@ -629,13 +644,14 @@
       ],
       "expected": {
         "error": {
-          "code": 222,
+          "code": "invalid_ext",
+          "reason": "invalid",
           "message": "Invalid ext"
         }
       }
     },
     {
-      "name": "Stage 1 too-short session key (42 characters) returns 226",
+      "name": "Stage 1 too-short session key (42 characters) returns invalid_session_key",
       "call": "attest",
       "args": [
         {
@@ -654,13 +670,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 session key in standard base64 (with /) returns 226 - a session key is base64url",
+      "name": "Stage 1 session key in standard base64 (with /) returns invalid_session_key - a session key is base64url",
       "call": "attest",
       "args": [
         {
@@ -679,13 +696,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 session key with base64 padding (44 characters ending in =) returns 226",
+      "name": "Stage 1 session key with base64 padding (44 characters ending in =) returns invalid_session_key",
       "call": "attest",
       "args": [
         {
@@ -704,13 +722,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 session key in the issuer:secret form of a token returns 226",
+      "name": "Stage 1 session key in the issuer:secret form of a token returns invalid_session_key",
       "call": "attest",
       "args": [
         {
@@ -729,13 +748,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 empty session key returns 226",
+      "name": "Stage 1 empty session key returns invalid_session_key",
       "call": "attest",
       "args": [
         {
@@ -754,13 +774,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 non-string session key returns 226",
+      "name": "Stage 1 non-string session key returns invalid_session_key",
       "call": "attest",
       "args": [
         {
@@ -779,13 +800,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 too-long session key (44 characters) returns 226",
+      "name": "Stage 1 too-long session key (44 characters) returns invalid_session_key",
       "call": "attest",
       "args": [
         {
@@ -804,13 +826,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 session key with data in the unused bits of its last character (not canonical base64url) returns 226",
+      "name": "Stage 1 session key with data in the unused bits of its last character (not canonical base64url) returns invalid_session_key",
       "call": "attest",
       "args": [
         {
@@ -829,13 +852,14 @@
       ],
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
     },
     {
-      "name": "Stage 1 omitting attestations entirely returns 229 (validateAttestations(undefined))",
+      "name": "Stage 1 omitting attestations entirely returns invalid_attestations (validateAttestations(undefined))",
       "call": "attest",
       "args": [
         {
@@ -846,13 +870,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 null attestations returns 229",
+      "name": "Stage 1 null attestations returns invalid_attestations",
       "call": "attest",
       "args": [
         {
@@ -864,13 +889,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 string attestations returns 229",
+      "name": "Stage 1 string attestations returns invalid_attestations",
       "call": "attest",
       "args": [
         {
@@ -882,13 +908,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 number attestations returns 229",
+      "name": "Stage 1 number attestations returns invalid_attestations",
       "call": "attest",
       "args": [
         {
@@ -900,13 +927,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 array attestations returns 229 (object-but-Array guard)",
+      "name": "Stage 1 array attestations returns invalid_attestations (object-but-Array guard)",
       "call": "attest",
       "args": [
         {
@@ -918,13 +946,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 attestation named __proto__ returns 229 — a prototype-poisoning name would bake into a challenge that stage-3 safeParseJson could never verify",
+      "name": "Stage 1 attestation named __proto__ returns invalid_attestations — a prototype-poisoning name would bake into a challenge that stage-3 safeParseJson could never verify",
       "call": "attest",
       "args": [
         {
@@ -943,13 +972,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 attestation entry that is null returns 229",
+      "name": "Stage 1 attestation entry that is null returns invalid_attestations",
       "call": "attest",
       "args": [
         {
@@ -963,13 +993,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 attestation ID with a non-ASCII character (wiek-ż) returns 229, an attestation ID is a property name of the challenge, which stage-3 safeParseJson admits only in printable ASCII",
+      "name": "Stage 1 attestation ID with a non-ASCII character (wiek-ż) returns invalid_attestations, an attestation ID is a property name of the challenge, which stage-3 safeParseJson admits only in printable ASCII",
       "call": "attest",
       "args": [
         {
@@ -988,13 +1019,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 more than maxMultiSignatures-1 (5) attestation IDs returns 229",
+      "name": "Stage 1 more than maxMultiSignatures-1 (5) attestation IDs returns invalid_attestations",
       "call": "attest",
       "args": [
         {
@@ -1037,13 +1069,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 attestation entry that is not an object returns 229",
+      "name": "Stage 1 attestation entry that is not an object returns invalid_attestations",
       "call": "attest",
       "args": [
         {
@@ -1057,13 +1090,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 attestation entry with an unknown property returns 229",
+      "name": "Stage 1 attestation entry with an unknown property returns invalid_attestations",
       "call": "attest",
       "args": [
         {
@@ -1083,13 +1117,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 attestation entry missing label returns 229",
+      "name": "Stage 1 attestation entry missing label returns invalid_attestations",
       "call": "attest",
       "args": [
         {
@@ -1107,13 +1142,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 attestation entry with empty-string label returns 229",
+      "name": "Stage 1 attestation entry with empty-string label returns invalid_attestations",
       "call": "attest",
       "args": [
         {
@@ -1132,13 +1168,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 attestation entry missing providers returns 229",
+      "name": "Stage 1 attestation entry missing providers returns invalid_attestations",
       "call": "attest",
       "args": [
         {
@@ -1154,13 +1191,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 attestation entry with empty providers array returns 229",
+      "name": "Stage 1 attestation entry with empty providers array returns invalid_attestations",
       "call": "attest",
       "args": [
         {
@@ -1177,13 +1215,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 attestation entry with too many providers (>4) returns 229",
+      "name": "Stage 1 attestation entry with too many providers (>4) returns invalid_attestations",
       "call": "attest",
       "args": [
         {
@@ -1206,13 +1245,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 provider URL on plain http returns 229 — providers are verbatim trust anchors and keep the secure-origin rule the callback no longer needs",
+      "name": "Stage 1 provider URL on plain http returns invalid_attestations — providers are verbatim trust anchors and keep the secure-origin rule the callback no longer needs",
       "call": "attest",
       "args": [
         {
@@ -1231,13 +1271,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 provider URL with an IPv4-literal host (https://127.0.0.1/p) returns 229 — the secure-origin rule wants a named host even where the callback grammar admits the dotted quad",
+      "name": "Stage 1 provider URL with an IPv4-literal host (https://127.0.0.1/p) returns invalid_attestations — the secure-origin rule wants a named host even where the callback grammar admits the dotted quad",
       "call": "attest",
       "args": [
         {
@@ -1256,13 +1297,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 provider URL with a \";\" in its path (https://attest.triauthdemo.org/p;v1) returns 229 — a provider URL is embedded whole as the attestation via, so the envelope delimiter is banned in every span of it",
+      "name": "Stage 1 provider URL with a \";\" in its path (https://attest.triauthdemo.org/p;v1) returns invalid_attestations — a provider URL is embedded whole as the attestation via, so the envelope delimiter is banned in every span of it",
       "call": "attest",
       "args": [
         {
@@ -1281,13 +1323,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 provider URL with an apostrophe (https://attest.triauthdemo.org/o'brien) returns 229 — the trust-anchor charset stays apostrophe-free even where the callback grammar admits it",
+      "name": "Stage 1 provider URL with an apostrophe (https://attest.triauthdemo.org/o'brien) returns invalid_attestations — the trust-anchor charset stays apostrophe-free even where the callback grammar admits it",
       "call": "attest",
       "args": [
         {
@@ -1306,13 +1349,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 provider URL with credentials returns 229",
+      "name": "Stage 1 provider URL with credentials returns invalid_attestations",
       "call": "attest",
       "args": [
         {
@@ -1331,13 +1375,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 provider URL with a query string returns 229",
+      "name": "Stage 1 provider URL with a query string returns invalid_attestations",
       "call": "attest",
       "args": [
         {
@@ -1356,13 +1401,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 provider URL ending in a bare \"?\" (https://example.com/p?) returns 229 — a canonical URL cannot carry an empty query, and provider URLs allow no query at all",
+      "name": "Stage 1 provider URL ending in a bare \"?\" (https://example.com/p?) returns invalid_attestations — a canonical URL cannot carry an empty query, and provider URLs allow no query at all",
       "call": "attest",
       "args": [
         {
@@ -1381,13 +1427,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 provider URL with a fragment returns 229",
+      "name": "Stage 1 provider URL with a fragment returns invalid_attestations",
       "call": "attest",
       "args": [
         {
@@ -1406,13 +1453,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 provider URL with percent-encoding returns 229",
+      "name": "Stage 1 provider URL with percent-encoding returns invalid_attestations",
       "call": "attest",
       "args": [
         {
@@ -1431,13 +1479,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 provider URL with a punycode domain returns 229",
+      "name": "Stage 1 provider URL with a punycode domain returns invalid_attestations",
       "call": "attest",
       "args": [
         {
@@ -1456,13 +1505,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 1 provider URL that is unparseable returns 229",
+      "name": "Stage 1 provider URL that is unparseable returns invalid_attestations",
       "call": "attest",
       "args": [
         {
@@ -1481,7 +1531,8 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
@@ -1511,7 +1562,7 @@
       }
     },
     {
-      "name": "Stage 1 domain with no triauth TXT record returns 301",
+      "name": "Stage 1 domain with no triauth TXT record returns domain_not_configured",
       "call": "attest",
       "args": [
         {
@@ -1531,13 +1582,13 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "error": {
-          "code": 301,
+          "code": "domain_not_configured",
           "message": "Domain is not configured for triauth"
         }
       }
     },
     {
-      "name": "Stage 1 endpoint record with an invalid (non-domain) value returns 301 (isDomainName false)",
+      "name": "Stage 1 endpoint record with an invalid (non-domain) value returns domain_not_configured (isDomainName false)",
       "call": "attest",
       "args": [
         {
@@ -1564,13 +1615,13 @@
       },
       "expected": {
         "error": {
-          "code": 301,
+          "code": "domain_not_configured",
           "message": "Domain is not configured for triauth"
         }
       }
     },
     {
-      "name": "Stage 1 domain with multiple triauth TXT records returns 301 (ambiguous, refuse to choose)",
+      "name": "Stage 1 domain with multiple triauth TXT records returns domain_not_configured (ambiguous, refuse to choose)",
       "call": "attest",
       "args": [
         {
@@ -1590,7 +1641,7 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "error": {
-          "code": 301,
+          "code": "domain_not_configured",
           "message": "Domain is not configured for triauth"
         }
       }
@@ -1620,7 +1671,7 @@
       }
     },
     {
-      "name": "Stage 1 per-test dnsEntries patch can NXDOMAIN a known domain (returns 301)",
+      "name": "Stage 1 per-test dnsEntries patch can NXDOMAIN a known domain (returns domain_not_configured)",
       "call": "attest",
       "args": [
         {
@@ -1643,7 +1694,7 @@
       },
       "expected": {
         "error": {
-          "code": 301,
+          "code": "domain_not_configured",
           "message": "Domain is not configured for triauth"
         }
       }
@@ -1680,7 +1731,7 @@
       }
     },
     {
-      "name": "Stage 1 SERVFAIL on the identifier domain (endpoint lookup) surfaces as 110",
+      "name": "Stage 1 SERVFAIL on the identifier domain (endpoint lookup) surfaces as dns_unavailable",
       "call": "attest",
       "args": [
         {
@@ -1705,7 +1756,7 @@
       },
       "expected": {
         "error": {
-          "code": 110,
+          "code": "dns_unavailable",
           "message": "DNS resolution failed, try again later"
         }
       }
@@ -1862,7 +1913,7 @@
       }
     },
     {
-      "name": "Stage 1 omitting the session key returns 226 - the flows that follow a sign-in require it at issue (src/challenge_response_flow.js)",
+      "name": "Stage 1 omitting the session key returns invalid_session_key - the flows that follow a sign-in require it at issue (src/challenge_response_flow.js)",
       "call": "attest",
       "args": [
         {
@@ -1881,7 +1932,8 @@
       "random": "00112233445566778899aabbccddeeff00112233",
       "expected": {
         "error": {
-          "code": 226,
+          "code": "invalid_session_key",
+          "reason": "invalid",
           "message": "Invalid session key"
         }
       }
@@ -2045,7 +2097,7 @@
       }
     },
     {
-      "name": "Stage 3 non-string challenge returns 223",
+      "name": "Stage 3 non-string challenge returns invalid_challenge",
       "call": "attest",
       "args": [
         {
@@ -2055,13 +2107,14 @@
       ],
       "expected": {
         "error": {
-          "code": 223,
+          "code": "invalid_challenge",
+          "reason": "invalid",
           "message": "Invalid challenge"
         }
       }
     },
     {
-      "name": "Stage 3 non-base64url challenge returns 223",
+      "name": "Stage 3 non-base64url challenge returns invalid_challenge",
       "call": "attest",
       "args": [
         {
@@ -2071,13 +2124,14 @@
       ],
       "expected": {
         "error": {
-          "code": 223,
+          "code": "invalid_challenge",
+          "reason": "invalid",
           "message": "Invalid challenge"
         }
       }
     },
     {
-      "name": "Stage 3 challenge is valid base64url but decodes to non-JSON bytes returns 223 (Challenge.fromString parse path)",
+      "name": "Stage 3 challenge is valid base64url but decodes to non-JSON bytes returns invalid_challenge (Challenge.fromString parse path)",
       "call": "attest",
       "args": [
         {
@@ -2087,13 +2141,14 @@
       ],
       "expected": {
         "error": {
-          "code": 223,
+          "code": "invalid_challenge",
+          "reason": "invalid",
           "message": "Invalid challenge"
         }
       }
     },
     {
-      "name": "Stage 3 SECURITY: challenge whose decoded bytes are a UTF-8 BOM (EF BB BF) followed by the CANONICAL valid challenge JSON returns 223 — the decoder must not strip the BOM (a second, non-canonical byte encoding of the same challenge must never be accepted; ports must not BOM-sniff when decoding base64url payloads)",
+      "name": "Stage 3 SECURITY: challenge whose decoded bytes are a UTF-8 BOM (EF BB BF) followed by the CANONICAL valid challenge JSON returns invalid_challenge — the decoder must not strip the BOM (a second, non-canonical byte encoding of the same challenge must never be accepted; ports must not BOM-sniff when decoding base64url payloads)",
       "call": "attest",
       "args": [
         {
@@ -2103,13 +2158,14 @@
       ],
       "expected": {
         "error": {
-          "code": 223,
+          "code": "invalid_challenge",
+          "reason": "invalid",
           "message": "Invalid challenge"
         }
       }
     },
     {
-      "name": "Stage 3 challenge decodes to valid JSON but its identifier member is malformed returns 223 (Identity ctor throws inside Challenge.fromString)",
+      "name": "Stage 3 challenge decodes to valid JSON but its identifier member is malformed returns invalid_challenge (Identity ctor throws inside Challenge.fromString)",
       "call": "attest",
       "args": [
         {
@@ -2119,13 +2175,14 @@
       ],
       "expected": {
         "error": {
-          "code": 223,
+          "code": "invalid_challenge",
+          "reason": "invalid",
           "message": "Invalid challenge"
         }
       }
     },
     {
-      "name": "Stage 3 non-string response returns 224",
+      "name": "Stage 3 non-string response returns invalid_response",
       "call": "attest",
       "args": [
         {
@@ -2135,13 +2192,14 @@
       ],
       "expected": {
         "error": {
-          "code": 224,
+          "code": "invalid_response",
+          "reason": "invalid",
           "message": "Invalid response"
         }
       }
     },
     {
-      "name": "Stage 3 response without the | envelope delimiters returns 224",
+      "name": "Stage 3 response without the | envelope delimiters returns invalid_response",
       "call": "attest",
       "args": [
         {
@@ -2151,13 +2209,14 @@
       ],
       "expected": {
         "error": {
-          "code": 224,
+          "code": "invalid_response",
+          "reason": "invalid",
           "message": "Invalid response"
         }
       }
     },
     {
-      "name": "Stage 3 short/empty response (length <= 3) returns 224 via the validator length-check",
+      "name": "Stage 3 short/empty response (length <= 3) returns invalid_response via the validator length-check",
       "call": "attest",
       "args": [
         {
@@ -2167,13 +2226,14 @@
       ],
       "expected": {
         "error": {
-          "code": 224,
+          "code": "invalid_response",
+          "reason": "invalid",
           "message": "Invalid response"
         }
       }
     },
     {
-      "name": "Stage 3 re-provided malformed identifier returns 210 (the optional Stage-3 identifier validator)",
+      "name": "Stage 3 re-provided malformed identifier returns invalid_identifier/invalid (the optional Stage-3 identifier validator)",
       "call": "attest",
       "args": [
         {
@@ -2184,13 +2244,14 @@
       ],
       "expected": {
         "error": {
-          "code": 210,
+          "code": "invalid_identifier",
+          "reason": "invalid",
           "message": "Identifier is invalid"
         }
       }
     },
     {
-      "name": "Stage 3 re-provided malformed callbackUrl returns 221 (the optional Stage-3 callbackUrl validator)",
+      "name": "Stage 3 re-provided malformed callbackUrl returns invalid_callback_url (the optional Stage-3 callbackUrl validator)",
       "call": "attest",
       "args": [
         {
@@ -2201,13 +2262,14 @@
       ],
       "expected": {
         "error": {
-          "code": 221,
+          "code": "invalid_callback_url",
+          "reason": "invalid",
           "message": "Invalid callbackUrl"
         }
       }
     },
     {
-      "name": "Stage 3 re-provided callbackUrl that is URL-valid but mismatches challenge.cburl (http://example.com/cb vs https) returns 401 — the equality gate, distinct from the 221 format gate",
+      "name": "Stage 3 re-provided callbackUrl that is URL-valid but mismatches challenge.cburl (http://example.com/cb vs https) returns verification_failed — the equality gate, distinct from the invalid_callback_url format gate",
       "call": "attest",
       "args": [
         {
@@ -2218,13 +2280,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 challenge missing the attest field returns 229 (onResponse validateAttestations(undefined))",
+      "name": "Stage 3 challenge missing the attest field returns invalid_attestations (onResponse validateAttestations(undefined))",
       "call": "attest",
       "args": [
         {
@@ -2234,13 +2296,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 3 challenge whose attest field is an array returns 229 (onResponse re-validation)",
+      "name": "Stage 3 challenge whose attest field is an array returns invalid_attestations (onResponse re-validation)",
       "call": "attest",
       "args": [
         {
@@ -2250,13 +2313,14 @@
       ],
       "expected": {
         "error": {
-          "code": 229,
+          "code": "invalid_attestations",
+          "reason": "invalid",
           "message": "Invalid attestations"
         }
       }
     },
     {
-      "name": "Stage 3 response equal to the literal 'false' returns 403 (user-denial sentinel)",
+      "name": "Stage 3 response equal to the literal 'false' returns request_denied (user-denial sentinel)",
       "call": "attest",
       "args": [
         {
@@ -2266,13 +2330,13 @@
       ],
       "expected": {
         "error": {
-          "code": 403,
+          "code": "request_denied",
           "message": "Request has been denied"
         }
       }
     },
     {
-      "name": "Stage 3 re-provided identifier mismatching challenge.identifier returns 401",
+      "name": "Stage 3 re-provided identifier mismatching challenge.identifier returns verification_failed",
       "call": "attest",
       "args": [
         {
@@ -2283,13 +2347,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 re-provided callbackUrl mismatching challenge.cburl returns 401",
+      "name": "Stage 3 re-provided callbackUrl mismatching challenge.cburl returns verification_failed",
       "call": "attest",
       "args": [
         {
@@ -2300,13 +2364,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 challenge with type=auth (not 'attest') returns 401 at the flow type-constraint",
+      "name": "Stage 3 challenge with type=auth (not 'attest') returns verification_failed at the flow type-constraint",
       "call": "attest",
       "args": [
         {
@@ -2316,13 +2380,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 challenge with type=sign (not 'attest') returns 401 at the flow type-constraint",
+      "name": "Stage 3 challenge with type=sign (not 'attest') returns verification_failed at the flow type-constraint",
       "call": "attest",
       "args": [
         {
@@ -2332,13 +2396,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 envelope with a malformed via ('-') is rejected at parse time with 225",
+      "name": "Stage 3 envelope with a malformed via ('-') is rejected at parse time with invalid_signature",
       "call": "attest",
       "args": [
         {
@@ -2348,13 +2412,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 envelope with a non-ASCII via is rejected at parse time with 225",
+      "name": "Stage 3 envelope with a non-ASCII via is rejected at parse time with invalid_signature",
       "call": "attest",
       "args": [
         {
@@ -2364,13 +2429,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 envelope with an unknown type (not in VALID_TYPES) returns 225",
+      "name": "Stage 3 envelope with an unknown type (not in VALID_TYPES) returns invalid_signature",
       "call": "attest",
       "args": [
         {
@@ -2380,13 +2446,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 envelope with an invalid identifier returns 225",
+      "name": "Stage 3 envelope with an invalid identifier returns invalid_signature",
       "call": "attest",
       "args": [
         {
@@ -2396,13 +2463,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 envelope with ver != v1 returns 225",
+      "name": "Stage 3 envelope with ver != v1 returns invalid_signature",
       "call": "attest",
       "args": [
         {
@@ -2412,13 +2480,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 envelope with a malformed ts (0) returns 225",
+      "name": "Stage 3 envelope with a malformed ts (0) returns invalid_signature",
       "call": "attest",
       "args": [
         {
@@ -2428,13 +2497,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 envelope with no crypto signature segment returns 225",
+      "name": "Stage 3 envelope with no crypto signature segment returns invalid_signature",
       "call": "attest",
       "args": [
         {
@@ -2444,13 +2514,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 envelope crypto signature that is not base64url returns 225",
+      "name": "Stage 3 envelope crypto signature that is not base64url returns invalid_signature",
       "call": "attest",
       "args": [
         {
@@ -2460,13 +2531,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 envelope signedMetadata slot that is not base64url returns 225",
+      "name": "Stage 3 envelope signedMetadata slot that is not base64url returns invalid_signature",
       "call": "attest",
       "args": [
         {
@@ -2476,13 +2548,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 response '||||' parses into empty segments, each tripping the Signature length guard -> 225",
+      "name": "Stage 3 response '||||' parses into empty segments, each tripping the Signature length guard -> invalid_signature",
       "call": "attest",
       "args": [
         {
@@ -2492,13 +2565,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 more than 5 signature segments trips the MultiSignature maxMultiSignatures=5 count guard -> 225",
+      "name": "Stage 3 more than 5 signature segments trips the MultiSignature maxMultiSignatures=5 count guard -> invalid_signature",
       "call": "attest",
       "args": [
         {
@@ -2508,13 +2582,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 well-formed sign-typed envelope against the attest flow returns 401 (type constraint, before crypto)",
+      "name": "Stage 3 well-formed sign-typed envelope against the attest flow returns verification_failed (type constraint, before crypto)",
       "call": "attest",
       "args": [
         {
@@ -2524,13 +2599,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 well-formed auth-typed envelope against the attest flow returns 401",
+      "name": "Stage 3 well-formed auth-typed envelope against the attest flow returns verification_failed",
       "call": "attest",
       "args": [
         {
@@ -2540,13 +2615,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 well-formed attest envelope with bogus crypto bytes returns 401 (generic verification failure)",
+      "name": "Stage 3 well-formed attest envelope with bogus crypto bytes returns verification_failed (generic verification failure)",
       "call": "attest",
       "args": [
         {
@@ -2556,13 +2631,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 a 1-char crypto signature makes atob throw inside the ECDSA verifier -> caught -> 401",
+      "name": "Stage 3 a 1-char crypto signature makes atob throw inside the ECDSA verifier -> caught -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -2572,13 +2647,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 two stacked signatures exceed maxSignatures=1 for an empty-attestation challenge -> 401",
+      "name": "Stage 3 two stacked signatures exceed maxSignatures=1 for an empty-attestation challenge -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -2588,13 +2663,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 a single segment carrying 11 crypto signatures exceeds IdentityKeys maxKeysPerSignature=10 -> 401",
+      "name": "Stage 3 a single segment carrying 11 crypto signatures exceeds IdentityKeys maxKeysPerSignature=10 -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -2604,13 +2679,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 user signature for the WRONG identity (jane signs, mainSig.identifier != challenge.identifier) returns 401 (identifier-mismatch guard)",
+      "name": "Stage 3 user signature for the WRONG identity (jane signs, mainSig.identifier != challenge.identifier) returns verification_failed (identifier-mismatch guard)",
       "call": "attest",
       "args": [
         {
@@ -2620,13 +2695,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 user signature under john identifier but signed with jane key returns 401 (crypto fails)",
+      "name": "Stage 3 user signature under john identifier but signed with jane key returns verification_failed (crypto fails)",
       "call": "attest",
       "args": [
         {
@@ -2636,13 +2711,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 user signature with envelope.via on a DIFFERENT ORIGIN returns 401 (getBaseUrl(cburl) != mainSig.via)",
+      "name": "Stage 3 user signature with envelope.via on a DIFFERENT ORIGIN returns verification_failed (getBaseUrl(cburl) != mainSig.via)",
       "call": "attest",
       "args": [
         {
@@ -2652,13 +2727,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 challenge with a malformed embedded cburl returns 401 (onResponse validateCallbackUrl(cburl) fails)",
+      "name": "Stage 3 challenge with a malformed embedded cburl returns verification_failed (onResponse validateCallbackUrl(cburl) fails)",
       "call": "attest",
       "args": [
         {
@@ -2668,13 +2743,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 use mismatch: an attest-typed envelope from a use=auth key returns 401 (key skipped, no verified keys)",
+      "name": "Stage 3 use mismatch: an attest-typed envelope from a use=auth key returns verification_failed (key skipped, no verified keys)",
       "call": "attest",
       "args": [
         {
@@ -2684,13 +2759,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 user envelope type=auth fails the attest type constraint inside Signature.verify -> 401",
+      "name": "Stage 3 user envelope type=auth fails the attest type constraint inside Signature.verify -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -2700,13 +2775,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 partial multi-key signature (only laptop key 1 of 2 signs) returns 401 (per-key break, group never fully satisfied)",
+      "name": "Stage 3 partial multi-key signature (only laptop key 1 of 2 signs) returns verification_failed (per-key break, group never fully satisfied)",
       "call": "attest",
       "args": [
         {
@@ -2716,13 +2791,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 user signs but no attester signature is present -> 401 (requested attestation unmatched)",
+      "name": "Stage 3 user signs but no attester signature is present -> verification_failed (requested attestation unmatched)",
       "call": "attest",
       "args": [
         {
@@ -2732,13 +2807,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 attester via is not in the requested providers list -> 401",
+      "name": "Stage 3 attester via is not in the requested providers list -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -2748,13 +2823,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 attester identifier's domain != the attester via hostname -> 401",
+      "name": "Stage 3 attester identifier's domain != the attester via hostname -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -2764,13 +2839,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 attester bind.identifier present and != user identifier -> 401",
+      "name": "Stage 3 attester bind.identifier present and != user identifier -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -2780,13 +2855,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 attester bind.via present and != user via -> 401",
+      "name": "Stage 3 attester bind.via present and != user via -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -2796,13 +2871,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 attester bind.deviceTag present and != user deviceTag -> 401",
+      "name": "Stage 3 attester bind.deviceTag present and != user deviceTag -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -2812,13 +2887,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "SECURITY: attester bind carrying an UNRECOGNIZED binder -> 401 (every member of bind is critical; a constraint the verifier cannot enforce fails the bundle instead of going unread)",
+      "name": "SECURITY: attester bind carrying an UNRECOGNIZED binder -> verification_failed (every member of bind is critical; a constraint the verifier cannot enforce fails the bundle instead of going unread)",
       "call": "attest",
       "args": [
         {
@@ -2828,13 +2903,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "SECURITY: attester bind present but EMPTY -> 401 (a bind that states nothing is a producer error, not an anonymous attestation)",
+      "name": "SECURITY: attester bind present but EMPTY -> verification_failed (a bind that states nothing is a producer error, not an anonymous attestation)",
       "call": "attest",
       "args": [
         {
@@ -2844,13 +2919,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "SECURITY: attester bind is an ARRAY -> 401 (bind must be a non-array object of recognized binders)",
+      "name": "SECURITY: attester bind is an ARRAY -> verification_failed (bind must be a non-array object of recognized binders)",
       "call": "attest",
       "args": [
         {
@@ -2860,13 +2935,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "SECURITY: attester bind.identifier carrying a NON-STRING value -> 401 (binder values must be strings)",
+      "name": "SECURITY: attester bind.identifier carrying a NON-STRING value -> verification_failed (binder values must be strings)",
       "call": "attest",
       "args": [
         {
@@ -2876,13 +2951,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "SECURITY: attester bind with one matching and one false binder -> 401 (ALL stated binders must hold, not just some; kills an any-binder-matches implementation)",
+      "name": "SECURITY: attester bind with one matching and one false binder -> verification_failed (ALL stated binders must hold, not just some; kills an any-binder-matches implementation)",
       "call": "attest",
       "args": [
         {
@@ -2892,13 +2967,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "SECURITY: user segment bind.identifier naming someone else -> 401 (bind means the same on every segment; every binder in the envelope must hold)",
+      "name": "SECURITY: user segment bind.identifier naming someone else -> verification_failed (bind means the same on every segment; every binder in the envelope must hold)",
       "call": "attest",
       "args": [
         {
@@ -2908,13 +2983,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "SECURITY: STRAY attester with a false binder poisons the bundle -> 401 even though the clean attester alone satisfies both attestations (overlapping providers)",
+      "name": "SECURITY: STRAY attester with a false binder poisons the bundle -> verification_failed even though the clean attester alone satisfies both attestations (overlapping providers)",
       "call": "attest",
       "args": [
         {
@@ -2924,13 +2999,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 attester segment with bogus crypto fails the multisig before matching -> 401",
+      "name": "Stage 3 attester segment with bogus crypto fails the multisig before matching -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -2940,13 +3015,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "SECURITY (nonce binding): RESP_OK does not verify against a challenge differing only in the nonce -> 401",
+      "name": "SECURITY (nonce binding): RESP_OK does not verify against a challenge differing only in the nonce -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -2956,13 +3031,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "SECURITY (attestation binding / relabel): a response cannot be re-presented against a challenge that RELABELS the attestation (different id, same provider) -> 401 (the attest map is signed; the same attester proof cannot be recontextualized to a different claim — the matching loop alone would otherwise accept it)",
+      "name": "SECURITY (attestation binding / relabel): a response cannot be re-presented against a challenge that RELABELS the attestation (different id, same provider) -> verification_failed (the attest map is signed; the same attester proof cannot be recontextualized to a different claim — the matching loop alone would otherwise accept it)",
       "call": "attest",
       "args": [
         {
@@ -2972,13 +3047,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "SECURITY (iat binding): RESP_OK does not verify against a challenge whose iat was shifted within the window -> 401 (NOT 402: iat is signed, not merely range-checked)",
+      "name": "SECURITY (iat binding): RESP_OK does not verify against a challenge whose iat was shifted within the window -> verification_failed (NOT request_expired: iat is signed, not merely range-checked)",
       "call": "attest",
       "args": [
         {
@@ -2988,13 +3063,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "SECURITY (exact callbackUrl binding): RESP_OK is rejected at a SIBLING callback sharing the same base directory -> 401 (attest binds the full cburl via the signed challenge even though getBaseUrl == mainSig.via; stricter than stamp, whose via binds only the base dir)",
+      "name": "SECURITY (exact callbackUrl binding): RESP_OK is rejected at a SIBLING callback sharing the same base directory -> verification_failed (attest binds the full cburl via the signed challenge even though getBaseUrl == mainSig.via; stricter than stamp, whose via binds only the base dir)",
       "call": "attest",
       "args": [
         {
@@ -3004,13 +3079,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "SECURITY (segment order): swapping the user and attester segments (attester in slot 0) -> 401 (mainSig is always signatures[0]; its identifier must equal challenge.identifier)",
+      "name": "SECURITY (segment order): swapping the user and attester segments (attester in slot 0) -> verification_failed (mainSig is always signatures[0]; its identifier must equal challenge.identifier)",
       "call": "attest",
       "args": [
         {
@@ -3020,13 +3095,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "SECURITY (all-or-nothing): with two distinct attestations requested, satisfying only one of them -> 401 (no partial attested result leaks)",
+      "name": "SECURITY (all-or-nothing): with two distinct attestations requested, satisfying only one of them -> verification_failed (no partial attested result leaks)",
       "call": "attest",
       "args": [
         {
@@ -3036,13 +3111,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "SECURITY (signature-count bound): a 1-attestation challenge answered with user + TWO attesters (3 > maxSignatures=2) -> 401",
+      "name": "SECURITY (signature-count bound): a 1-attestation challenge answered with user + TWO attesters (3 > maxSignatures=2) -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -3052,13 +3127,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "SECURITY (prototype-pollution defense): a challenge whose attest map carries a __proto__ key is rejected at parse time -> 223 (safeParseJson blocks it before onResponse)",
+      "name": "SECURITY (prototype-pollution defense): a challenge whose attest map carries a __proto__ key is rejected at parse time -> invalid_challenge (safeParseJson blocks it before onResponse)",
       "call": "attest",
       "args": [
         {
@@ -3068,13 +3143,14 @@
       ],
       "expected": {
         "error": {
-          "code": 223,
+          "code": "invalid_challenge",
+          "reason": "invalid",
           "message": "Invalid challenge"
         }
       }
     },
     {
-      "name": "Stage 3 user identity records vanished between stages (NXDOMAIN) returns 401",
+      "name": "Stage 3 user identity records vanished between stages (NXDOMAIN) returns verification_failed",
       "call": "attest",
       "args": [
         {
@@ -3087,13 +3163,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 user authentication endpoint is gone (NXDOMAIN) returns 401",
+      "name": "Stage 3 user authentication endpoint is gone (NXDOMAIN) returns verification_failed",
       "call": "attest",
       "args": [
         {
@@ -3106,13 +3182,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 DNS SERVFAIL on the authentication endpoint propagates from signature.verify and surfaces as a retryable 110 (not a false 401)",
+      "name": "Stage 3 DNS SERVFAIL on the authentication endpoint propagates from signature.verify and surfaces as a retryable dns_unavailable (not a false verification_failed)",
       "call": "attest",
       "args": [
         {
@@ -3127,13 +3203,13 @@
       },
       "expected": {
         "error": {
-          "code": 110,
+          "code": "dns_unavailable",
           "message": "DNS resolution failed, try again later"
         }
       }
     },
     {
-      "name": "Stage 3 DNS SERVFAIL on the identity domain propagates from signature.verify and surfaces as a retryable 110 (not a false 401)",
+      "name": "Stage 3 DNS SERVFAIL on the identity domain propagates from signature.verify and surfaces as a retryable dns_unavailable (not a false verification_failed)",
       "call": "attest",
       "args": [
         {
@@ -3148,13 +3224,13 @@
       },
       "expected": {
         "error": {
-          "code": 110,
+          "code": "dns_unavailable",
           "message": "DNS resolution failed, try again later"
         }
       }
     },
     {
-      "name": "Stage 3 attester identity records gone (NXDOMAIN) makes the attester segment fail -> 401",
+      "name": "Stage 3 attester identity records gone (NXDOMAIN) makes the attester segment fail -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -3167,13 +3243,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 attester authentication endpoint gone (NXDOMAIN) makes the attester segment fail -> 401",
+      "name": "Stage 3 attester authentication endpoint gone (NXDOMAIN) makes the attester segment fail -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -3186,13 +3262,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 identity key with invalid syntax (missing [idx/count]) leaves no usable keyGroup -> 401",
+      "name": "Stage 3 identity key with invalid syntax (missing [idx/count]) leaves no usable keyGroup -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -3211,13 +3287,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 identity key that taints its device group (desktop[2/1]) leaves no valid keyGroup -> 401",
+      "name": "Stage 3 identity key that taints its device group (desktop[2/1]) leaves no valid keyGroup -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -3236,13 +3312,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 SECURITY: split key group published only as its final fragment (laptop[2/2] alone, no laptop[1/2]) never validates — a lone write to the group's last index already inflates keys.length to keyCount and Object.entries/.every iteration skips array holes, so a length-gated validity check would accept the one-signature response from the published fragment; the populated-slot count (src/identity_keys.js:153-157) keeps the group invalid -> 401",
+      "name": "Stage 3 SECURITY: split key group published only as its final fragment (laptop[2/2] alone, no laptop[1/2]) never validates — a lone write to the group's last index already inflates keys.length to keyCount and Object.entries/.every iteration skips array holes, so a length-gated validity check would accept the one-signature response from the published fragment; the populated-slot count (src/identity_keys.js:153-157) keeps the group invalid -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -3261,13 +3337,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 leading-zero keyIdx (desktop[01/1]) maps to literal 0, failing the range check and tainting the group -> 401",
+      "name": "Stage 3 leading-zero keyIdx (desktop[01/1]) maps to literal 0, failing the range check and tainting the group -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -3286,13 +3362,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 leading-zero keyCount (desktop[1/01]) maps to literal 0, failing the range check and tainting the group -> 401",
+      "name": "Stage 3 leading-zero keyCount (desktop[1/01]) maps to literal 0, failing the range check and tainting the group -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -3311,13 +3387,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 a doubled key index (two desktop[1/1] records) un-validates the already-valid group -> 401",
+      "name": "Stage 3 a doubled key index (two desktop[1/1] records) un-validates the already-valid group -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -3337,13 +3413,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 identity key value that is not base64url taints the group -> 401",
+      "name": "Stage 3 identity key value that is not base64url taints the group -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -3362,13 +3438,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 identity key value valid base64url but too short to initialize an ECDSA verifier (AAAA) -> 401 (null-verifier continue)",
+      "name": "Stage 3 identity key value valid base64url but too short to initialize an ECDSA verifier (AAAA) -> verification_failed (null-verifier continue)",
       "call": "attest",
       "args": [
         {
@@ -3387,13 +3463,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 identity key with a deviceName longer than the record-name regex allows ({1,20}, the 20-byte limit) is dropped -> 401",
+      "name": "Stage 3 identity key with a deviceName longer than the record-name regex allows ({1,20}, the 20-byte limit) is dropped -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -3412,13 +3488,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 identity records publishing more than maxDevices=10 devices drop the 11th (john's real key) -> 401",
+      "name": "Stage 3 identity records publishing more than maxDevices=10 devices drop the 11th (john's real key) -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -3447,13 +3523,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 identity key with an unknown critical (non x-) option taints its device group -> 401",
+      "name": "Stage 3 identity key with an unknown critical (non x-) option taints its device group -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -3472,13 +3548,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 key record with a negative TTL yields an already-expired keyGroup that is skipped -> 401",
+      "name": "Stage 3 key record with a negative TTL yields an already-expired keyGroup that is skipped -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -3501,13 +3577,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 TTL-less key record (expires undefined) with bogus crypto -> 401 (exercises the expires!==undefined false branch)",
+      "name": "Stage 3 TTL-less key record (expires undefined) with bogus crypto -> verification_failed (exercises the expires!==undefined false branch)",
       "call": "attest",
       "args": [
         {
@@ -3529,13 +3605,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 challenge iat far before notBefore returns 402",
+      "name": "Stage 3 challenge iat far before notBefore returns request_expired",
       "call": "attest",
       "args": [
         {
@@ -3545,13 +3621,13 @@
       ],
       "expected": {
         "error": {
-          "code": 402,
+          "code": "request_expired",
           "message": "Authentication request has expired, please try again"
         }
       }
     },
     {
-      "name": "Stage 3 challenge iat in the future (after notAfter == now) returns 402",
+      "name": "Stage 3 challenge iat in the future (after notAfter == now) returns request_expired",
       "call": "attest",
       "args": [
         {
@@ -3561,13 +3637,13 @@
       ],
       "expected": {
         "error": {
-          "code": 402,
+          "code": "request_expired",
           "message": "Authentication request has expired, please try again"
         }
       }
     },
     {
-      "name": "Stage 3 challenge iat 1ms past the 15min attestTimeout + 5s maximalAllowedServerClockDrift returns 402 (boundary)",
+      "name": "Stage 3 challenge iat 1ms past the 15min attestTimeout + 5s maximalAllowedServerClockDrift returns request_expired (boundary)",
       "call": "attest",
       "args": [
         {
@@ -3578,13 +3654,13 @@
       "currentTime": 1777454680000,
       "expected": {
         "error": {
-          "code": 402,
+          "code": "request_expired",
           "message": "Authentication request has expired, please try again"
         }
       }
     },
     {
-      "name": "Stage 3 challenge with a non-numeric iat returns 402 (Response.verify typeof-guard)",
+      "name": "Stage 3 challenge with a non-numeric iat returns request_expired (Response.verify typeof-guard)",
       "call": "attest",
       "args": [
         {
@@ -3594,13 +3670,13 @@
       ],
       "expected": {
         "error": {
-          "code": 402,
+          "code": "request_expired",
           "message": "Authentication request has expired, please try again"
         }
       }
     },
     {
-      "name": "Stage 3 fresh challenge but the SIGNATURE ts is before the widened window -> 402 (Signature.verify ts check)",
+      "name": "Stage 3 fresh challenge but the SIGNATURE ts is before the widened window -> request_expired (Signature.verify ts check)",
       "call": "attest",
       "args": [
         {
@@ -3610,13 +3686,13 @@
       ],
       "expected": {
         "error": {
-          "code": 402,
+          "code": "request_expired",
           "message": "Authentication request has expired, please try again"
         }
       }
     },
     {
-      "name": "Stage 3 fresh challenge but the SIGNATURE ts is after the widened window -> 402",
+      "name": "Stage 3 fresh challenge but the SIGNATURE ts is after the widened window -> request_expired",
       "call": "attest",
       "args": [
         {
@@ -3626,13 +3702,13 @@
       ],
       "expected": {
         "error": {
-          "code": 402,
+          "code": "request_expired",
           "message": "Authentication request has expired, please try again"
         }
       }
     },
     {
-      "name": "Stage 3 garbage signedMetadata (decodes to a JSON array) returns 225",
+      "name": "Stage 3 garbage signedMetadata (decodes to a JSON array) returns invalid_signature",
       "call": "attest",
       "args": [
         {
@@ -3642,13 +3718,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 __proto__-poisoning signedMetadata is caught by safeParseJson -> 225",
+      "name": "Stage 3 __proto__-poisoning signedMetadata is caught by safeParseJson -> invalid_signature",
       "call": "attest",
       "args": [
         {
@@ -3658,13 +3735,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 signedMetadata that is valid base64url but non-JSON text returns 225",
+      "name": "Stage 3 signedMetadata that is valid base64url but non-JSON text returns invalid_signature",
       "call": "attest",
       "args": [
         {
@@ -3674,13 +3752,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 SECURITY: signedMetadata segment decodes to a UTF-8 BOM (EF BB BF) followed by otherwise-valid ext JSON ({\"ext\":{\"bom\":true}}) — rejected at parse time with 225; the decoder must not strip the BOM, so a non-canonical byte encoding of valid metadata is never accepted (real signature covers the BOM segment)",
+      "name": "Stage 3 SECURITY: signedMetadata segment decodes to a UTF-8 BOM (EF BB BF) followed by otherwise-valid ext JSON ({\"ext\":{\"bom\":true}}) — rejected at parse time with invalid_signature; the decoder must not strip the BOM, so a non-canonical byte encoding of valid metadata is never accepted (real signature covers the BOM segment)",
       "call": "attest",
       "args": [
         {
@@ -3690,13 +3769,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 garbage unsignedMetadata (decodes to a JSON array) returns 225 (real sig, slot MITM-swapped)",
+      "name": "Stage 3 garbage unsignedMetadata (decodes to a JSON array) returns invalid_signature (real sig, slot MITM-swapped)",
       "call": "attest",
       "args": [
         {
@@ -3706,13 +3786,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 constructor.prototype-poisoning unsignedMetadata is caught by safeParseJson (second clause) -> 225",
+      "name": "Stage 3 constructor.prototype-poisoning unsignedMetadata is caught by safeParseJson (second clause) -> invalid_signature",
       "call": "attest",
       "args": [
         {
@@ -3722,13 +3803,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 unsignedMetadata of raw binary bytes (no valid JSON token) returns 225",
+      "name": "Stage 3 unsignedMetadata of raw binary bytes (no valid JSON token) returns invalid_signature",
       "call": "attest",
       "args": [
         {
@@ -3738,13 +3820,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 unsignedMetadata nested 9 deep exceeds jsonMaxNestingDepth=8 -> 225",
+      "name": "Stage 3 unsignedMetadata nested 9 deep exceeds jsonMaxNestingDepth=8 -> invalid_signature",
       "call": "attest",
       "args": [
         {
@@ -3754,13 +3837,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 unsignedMetadata with a 257-char key exceeds jsonMaxKeyLength=256 -> 225",
+      "name": "Stage 3 unsignedMetadata with a 257-char key exceeds jsonMaxKeyLength=256 -> invalid_signature",
       "call": "attest",
       "args": [
         {
@@ -3770,13 +3854,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 unsignedMetadata with a non-ASCII key returns 225",
+      "name": "Stage 3 unsignedMetadata with a non-ASCII key returns invalid_signature",
       "call": "attest",
       "args": [
         {
@@ -3786,13 +3871,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 SECURITY: unsignedMetadata whose bytes are not well-formed UTF-8 inside a string value returns 225 — payload-slot bytes must be well-formed UTF-8; decoders reject rather than substitute U+FFFD (string values have no charset rule of their own, so only the decode-time rejection pins this)",
+      "name": "Stage 3 SECURITY: unsignedMetadata whose bytes are not well-formed UTF-8 inside a string value returns invalid_signature — payload-slot bytes must be well-formed UTF-8; decoders reject rather than substitute U+FFFD (string values have no charset rule of their own, so only the decode-time rejection pins this)",
       "call": "attest",
       "args": [
         {
@@ -3802,13 +3888,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 unsignedMetadata with a non-ASCII key in well-formed UTF-8 ({\"résumé\":1} as C3 A9 bytes) returns 225 — the Bounded-JSON ASCII-key rule, distinct from the ill-formed-byte rejection",
+      "name": "Stage 3 unsignedMetadata with a non-ASCII key in well-formed UTF-8 ({\"résumé\":1} as C3 A9 bytes) returns invalid_signature — the Bounded-JSON ASCII-key rule, distinct from the ill-formed-byte rejection",
       "call": "attest",
       "args": [
         {
@@ -3818,13 +3905,14 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
     },
     {
-      "name": "Stage 3 SECURITY: unsignedMetadata whose JSON carries a lone-surrogate escape (\\ud800) in a key returns 225 — parser-independent: a parser that preserves the escape yields a non-ASCII key, one that substitutes U+FFFD likewise, one that rejects it fails the parse; no conformance vector requires accepting a lone-surrogate escape anywhere",
+      "name": "Stage 3 SECURITY: unsignedMetadata whose JSON carries a lone-surrogate escape (\\ud800) in a key returns invalid_signature — parser-independent: a parser that preserves the escape yields a non-ASCII key, one that substitutes U+FFFD likewise, one that rejects it fails the parse; no conformance vector requires accepting a lone-surrogate escape anywhere",
       "call": "attest",
       "args": [
         {
@@ -3834,7 +3922,8 @@
       ],
       "expected": {
         "error": {
-          "code": 225,
+          "code": "invalid_signature",
+          "reason": "invalid",
           "message": "Invalid signature"
         }
       }
@@ -3879,7 +3968,7 @@
       }
     },
     {
-      "name": "Stage 3 WebAuthn structurally valid assertion but a bad ECDSA signature -> 401 (crypto.subtle.verify false)",
+      "name": "Stage 3 WebAuthn structurally valid assertion but a bad ECDSA signature -> verification_failed (crypto.subtle.verify false)",
       "call": "attest",
       "args": [
         {
@@ -3889,13 +3978,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 WebAuthn unsignedMetadata has no sig object -> 401 (structure guard)",
+      "name": "Stage 3 WebAuthn unsignedMetadata has no sig object -> verification_failed (structure guard)",
       "call": "attest",
       "args": [
         {
@@ -3905,13 +3994,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 WebAuthn sig has no entry for the key index -> 401 (structure guard)",
+      "name": "Stage 3 WebAuthn sig has no entry for the key index -> verification_failed (structure guard)",
       "call": "attest",
       "args": [
         {
@@ -3921,13 +4010,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 WebAuthn clientDataJSON is not a string -> 401 (structure guard)",
+      "name": "Stage 3 WebAuthn clientDataJSON is not a string -> verification_failed (structure guard)",
       "call": "attest",
       "args": [
         {
@@ -3937,13 +4026,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 WebAuthn authenticatorData is not base64url -> 401 (structure guard)",
+      "name": "Stage 3 WebAuthn authenticatorData is not base64url -> verification_failed (structure guard)",
       "call": "attest",
       "args": [
         {
@@ -3953,13 +4042,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 WebAuthn clientData.challenge != sha256(payload) -> 401",
+      "name": "Stage 3 WebAuthn clientData.challenge != sha256(payload) -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -3969,13 +4058,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 WebAuthn clientDataJSON contains \"challenge\": more than once -> 401 (anti-injection guard)",
+      "name": "Stage 3 WebAuthn clientDataJSON contains \"challenge\": more than once -> verification_failed (anti-injection guard)",
       "call": "attest",
       "args": [
         {
@@ -3985,13 +4074,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 WebAuthn clientData.type != 'webauthn.get' -> 401",
+      "name": "Stage 3 WebAuthn clientData.type != 'webauthn.get' -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -4001,13 +4090,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 WebAuthn clientData.crossOrigin is not false -> 401",
+      "name": "Stage 3 WebAuthn clientData.crossOrigin is not false -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -4017,13 +4106,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 WebAuthn clientData.origin != the authentication endpoint origin -> 401",
+      "name": "Stage 3 WebAuthn clientData.origin != the authentication endpoint origin -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -4033,13 +4122,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 WebAuthn clientDataJSON is not valid JSON -> safeParseJson throws -> caught -> 401",
+      "name": "Stage 3 WebAuthn clientDataJSON is not valid JSON -> safeParseJson throws -> caught -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -4049,13 +4138,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 WebAuthn published key value too short to import -> fromPublishableKey returns null -> 401",
+      "name": "Stage 3 WebAuthn published key value too short to import -> fromPublishableKey returns null -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -4073,7 +4162,7 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
@@ -5039,7 +5128,7 @@
       }
     },
     {
-      "name": "Stage 3 PRIVATE SECURITY: an attester binder binding the bare device digest mismatches the suffixed result form -> 401 (the bound value is the result-form handle, not the bare digest)",
+      "name": "Stage 3 PRIVATE SECURITY: an attester binder binding the bare device digest mismatches the suffixed result form -> verification_failed (the bound value is the result-form handle, not the bare digest)",
       "call": "attest",
       "args": [
         {
@@ -5049,7 +5138,7 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
@@ -5862,7 +5951,7 @@
       }
     },
     {
-      "name": "Stage 3 SECURITY: WebAuthn assertion with the User Present (UP) flag cleared (CTAP-level silent assertion) -> 401 even though its ECDSA signature is valid",
+      "name": "Stage 3 SECURITY: WebAuthn assertion with the User Present (UP) flag cleared (CTAP-level silent assertion) -> verification_failed even though its ECDSA signature is valid",
       "call": "attest",
       "args": [
         {
@@ -5872,13 +5961,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 SECURITY: WebAuthn authenticatorData shorter than 37 bytes (rpIdHash+flags+signCount) -> 401 (length guard)",
+      "name": "Stage 3 SECURITY: WebAuthn authenticatorData shorter than 37 bytes (rpIdHash+flags+signCount) -> verification_failed (length guard)",
       "call": "attest",
       "args": [
         {
@@ -5888,13 +5977,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 SECURITY: uv=required key record rejects an assertion without the User Verified (UV) flag -> 401 (UP alone is not enough)",
+      "name": "Stage 3 SECURITY: uv=required key record rejects an assertion without the User Verified (UV) flag -> verification_failed (UP alone is not enough)",
       "call": "attest",
       "args": [
         {
@@ -5912,7 +6001,7 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
@@ -5966,7 +6055,7 @@
       }
     },
     {
-      "name": "Stage 3 SECURITY: a mistyped uv value (uv=reuired) taints the keyGroup -> 401 - fail closed, a typo must not silently drop the user verification requirement",
+      "name": "Stage 3 SECURITY: a mistyped uv value (uv=reuired) taints the keyGroup -> verification_failed - fail closed, a typo must not silently drop the user verification requirement",
       "call": "attest",
       "args": [
         {
@@ -5984,7 +6073,7 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
@@ -6140,7 +6229,7 @@
       }
     },
     {
-      "name": "Stage 3 Ed25519: 65-byte P-256 key material published as the USER's type=ed25519 key cannot import (raw Ed25519 keys are exactly 32 bytes) -> fromPublishableKey null -> 401",
+      "name": "Stage 3 Ed25519: 65-byte P-256 key material published as the USER's type=ed25519 key cannot import (raw Ed25519 keys are exactly 32 bytes) -> fromPublishableKey null -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -6158,13 +6247,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 Ed25519: 65-byte P-256 key material published as the ATTESTER's type=ed25519 key cannot import -> attester unverified -> 401",
+      "name": "Stage 3 Ed25519: 65-byte P-256 key material published as the ATTESTER's type=ed25519 key cannot import -> attester unverified -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -6182,13 +6271,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 Ed25519 SECURITY: uv=required on a type=ed25519 (non-webauthn) key is unenforceable and taints the keyGroup -> 401 - fail closed",
+      "name": "Stage 3 Ed25519 SECURITY: uv=required on a type=ed25519 (non-webauthn) key is unenforceable and taints the keyGroup -> verification_failed - fail closed",
       "call": "attest",
       "args": [
         {
@@ -6206,7 +6295,7 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
@@ -6251,7 +6340,7 @@
       }
     },
     {
-      "name": "Stage 3 WebAuthn-Ed25519: structurally valid assertion with bogus crypto -> 401",
+      "name": "Stage 3 WebAuthn-Ed25519: structurally valid assertion with bogus crypto -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -6261,13 +6350,13 @@
       ],
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 1 SECURITY: callbackUrl with a \";\" in its base directory (https://example.com/a;b/cb) returns 221 — \";\" is the signature envelope field delimiter, so the base URL that becomes the signed via must not contain it; rejecting at validation avoids a silent downstream failure (the authenticator’s Signature.generate refuses such a via)",
+      "name": "Stage 1 SECURITY: callbackUrl with a \";\" in its base directory (https://example.com/a;b/cb) returns invalid_callback_url — \";\" is the signature envelope field delimiter, so the base URL that becomes the signed via must not contain it; rejecting at validation avoids a silent downstream failure (the authenticator’s Signature.generate refuses such a via)",
       "call": "attest",
       "args": [
         {
@@ -6285,13 +6374,14 @@
       ],
       "expected": {
         "error": {
-          "code": 221,
+          "code": "invalid_callback_url",
+          "reason": "invalid",
           "message": "Invalid callbackUrl"
         }
       }
     },
     {
-      "name": "Stage 1 SECURITY: callbackUrl with a \"|\" in its base directory (https://example.com/a|b/cb) returns 221 — \"|\" is the signature envelope wrapper/separator; a base URL containing it would corrupt the envelope, so it is rejected at validation rather than failing silently downstream",
+      "name": "Stage 1 SECURITY: callbackUrl with a \"|\" in its base directory (https://example.com/a|b/cb) returns invalid_callback_url — \"|\" is the signature envelope wrapper/separator; a base URL containing it would corrupt the envelope, so it is rejected at validation rather than failing silently downstream",
       "call": "attest",
       "args": [
         {
@@ -6309,7 +6399,8 @@
       ],
       "expected": {
         "error": {
-          "code": 221,
+          "code": "invalid_callback_url",
+          "reason": "invalid",
           "message": "Invalid callbackUrl"
         }
       }
@@ -6761,7 +6852,7 @@
       }
     },
     {
-      "name": "SECURITY requireSecure: attest stage 3 - non-DNSSEC (secure:false) result is rejected with 404",
+      "name": "SECURITY requireSecure: attest stage 3 - non-DNSSEC (secure:false) result is rejected with dnssec_required",
       "call": "attest",
       "args": [
         {
@@ -6787,7 +6878,7 @@
       },
       "expected": {
         "error": {
-          "code": 404,
+          "code": "dnssec_required",
           "message": "Your domain does not support DNSSEC, which is required to continue."
         }
       }
@@ -6880,7 +6971,7 @@
       }
     },
     {
-      "name": "Stage 3 delegated USER segment whose grant publishes no scope option returns 401 - scope is required, and the record is ignored as a whole",
+      "name": "Stage 3 delegated USER segment whose grant publishes no scope option returns verification_failed - scope is required, and the record is ignored as a whole",
       "call": "attest",
       "args": [
         {
@@ -6902,13 +6993,13 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
     },
     {
-      "name": "Stage 3 SECURITY: a delegated ATTESTER segment never satisfies an attestation (attester statements are first-party) even when the delegation itself verifies -> 401",
+      "name": "Stage 3 SECURITY: a delegated ATTESTER segment never satisfies an attestation (attester statements are first-party) even when the delegation itself verifies -> verification_failed",
       "call": "attest",
       "args": [
         {
@@ -6932,7 +7023,7 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
@@ -7025,7 +7116,7 @@
       }
     },
     {
-      "name": "Stage 3 SECURITY: delegated USER segment whose grant is scoped to a different host (use=attest scope=other.example) returns 401",
+      "name": "Stage 3 SECURITY: delegated USER segment whose grant is scoped to a different host (use=attest scope=other.example) returns verification_failed",
       "call": "attest",
       "args": [
         {
@@ -7047,7 +7138,7 @@
       },
       "expected": {
         "error": {
-          "code": 401,
+          "code": "verification_failed",
           "message": "Your identity could not be verified"
         }
       }
@@ -7229,7 +7320,7 @@
       }
     },
     {
-      "name": "Stage 3 SEALED plain envelope for a challenge stored with a decryption key returns 224 (a keyed challenge has no unsealed path)",
+      "name": "Stage 3 SEALED plain envelope for a challenge stored with a decryption key returns invalid_response (a keyed challenge has no unsealed path)",
       "call": "attest",
       "args": [
         {
@@ -7239,13 +7330,14 @@
       ],
       "expected": {
         "error": {
-          "code": 224,
+          "code": "invalid_response",
+          "reason": "invalid",
           "message": "Invalid response"
         }
       }
     },
     {
-      "name": "Stage 3 SEALED challenge stored without its decryption key (ek present) returns 223",
+      "name": "Stage 3 SEALED challenge stored without its decryption key (ek present) returns invalid_challenge",
       "call": "attest",
       "args": [
         {
@@ -7255,13 +7347,14 @@
       ],
       "expected": {
         "error": {
-          "code": 223,
+          "code": "invalid_challenge",
+          "reason": "invalid",
           "message": "Invalid challenge"
         }
       }
     },
     {
-      "name": "Stage 3 SEALED decryption key on a challenge without ek returns 223",
+      "name": "Stage 3 SEALED decryption key on a challenge without ek returns invalid_challenge",
       "call": "attest",
       "args": [
         {
@@ -7271,13 +7364,14 @@
       ],
       "expected": {
         "error": {
-          "code": 223,
+          "code": "invalid_challenge",
+          "reason": "invalid",
           "message": "Invalid challenge"
         }
       }
     },
     {
-      "name": "Stage 3 SEALED challenge without ek or decryption key returns 223, even with the plain envelope signed for it (every response is sealed)",
+      "name": "Stage 3 SEALED challenge without ek or decryption key returns invalid_challenge, even with the plain envelope signed for it (every response is sealed)",
       "call": "attest",
       "args": [
         {
@@ -7287,13 +7381,14 @@
       ],
       "expected": {
         "error": {
-          "code": 223,
+          "code": "invalid_challenge",
+          "reason": "invalid",
           "message": "Invalid challenge"
         }
       }
     },
     {
-      "name": "Stage 3 SEALED malformed decryption key (42 characters) returns 223",
+      "name": "Stage 3 SEALED malformed decryption key (42 characters) returns invalid_challenge",
       "call": "attest",
       "args": [
         {
@@ -7303,13 +7398,14 @@
       ],
       "expected": {
         "error": {
-          "code": 223,
+          "code": "invalid_challenge",
+          "reason": "invalid",
           "message": "Invalid challenge"
         }
       }
     },
     {
-      "name": "Stage 3 SEALED response sealed to another challenge's key returns 224",
+      "name": "Stage 3 SEALED response sealed to another challenge's key returns invalid_response",
       "call": "attest",
       "args": [
         {
@@ -7319,13 +7415,14 @@
       ],
       "expected": {
         "error": {
-          "code": 224,
+          "code": "invalid_response",
+          "reason": "invalid",
           "message": "Invalid response"
         }
       }
     },
     {
-      "name": "Stage 3 SEALED ciphertext changed in transit returns 224",
+      "name": "Stage 3 SEALED ciphertext changed in transit returns invalid_response",
       "call": "attest",
       "args": [
         {
@@ -7335,7 +7432,8 @@
       ],
       "expected": {
         "error": {
-          "code": 224,
+          "code": "invalid_response",
+          "reason": "invalid",
           "message": "Invalid response"
         }
       }

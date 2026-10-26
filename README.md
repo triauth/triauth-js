@@ -398,7 +398,7 @@ If the user approves the authentication request, Triauth Authenticator signs the
 It then redirects the web browser to the `callbackUrl`, by default using a `HTTP GET` method, and passes the signature, together with optional additional data, inside the encrypted `response` URL parameter.
 The callback method that is used to pass the response to the client application can be configured with the [callbackMethod extension](#protocol-extensions).
 
-If the user declines the authentication request, the Triauth Authenticator sends `false` as the `response`, which `Triauth.authenticate` reports as error 403.
+If the user declines the authentication request, the Triauth Authenticator sends `false` as the `response`, which `Triauth.authenticate` reports as the error `request_denied`.
 
 **3. Verify**
 
@@ -764,7 +764,7 @@ Synopsis:
 
 let whoisResult = await Triauth.whois({identifier});
 let whoisResult = await Triauth.whois({identifier, lookupCode}); // for an identity under a mode=private domain
-// @returns {error: {code: number, message: string}} upon error
+// @returns {error: {code: string, reason?: string, message: string}} upon error
 // @returns {status:1, identifier, authenticationEndpoint:{…}, identityDomain, secure, publicProfile:{…}, groups:[…], devices:[…], includes:[…]} if identifier exists
 // @returns {status:0, identifier, authenticationEndpoint:{…}, identityDomain} if domain is configured for triauth but the identifier does not exist or, for mode=private domains, a missing or wrong lookupCode was supplied
 // @returns {status:-1, identifier} if domain is not configured for triauth
@@ -951,7 +951,7 @@ await Triauth.attest(
 Once the user's web browser is redirected to the `redirectUrl`, the Triauth Authenticator web application displays the requested attestations.
 For each attestation, it shows your `label`, a dropdown listing the `providers`, and a 'Verify' button, allowing the user to select a provider and complete the verification.
 
-If the user declines the request, the Triauth Authenticator sends `false` as the `response`, which `Triauth.attest` reports as error 403.
+If the user declines the request, the Triauth Authenticator sends `false` as the `response`, which `Triauth.attest` reports as the error `request_denied`.
 
 **3. Verify**
 
@@ -1191,7 +1191,7 @@ await Triauth.sign(
 Once the user's web browser is redirected to the `redirectUrl`, they will be taken to the Triauth Authenticator web application, 
 where they will be presented with the message, and have an opportunity to view and/or download attachments.
 
-If the user declines the signing request, the Triauth Authenticator sends `false` as the `response`, which `Triauth.sign` reports as error 403.
+If the user declines the signing request, the Triauth Authenticator sends `false` as the `response`, which `Triauth.sign` reports as the error `request_denied`.
 
 **3. Verify**
 
@@ -1666,10 +1666,9 @@ Synopsis:
 ```javascript
 let validationResult = Triauth.validate({identifier});
 // @returns {valid:true, errors:[]} if all of the objects passed validation
-// @returns {valid:false, errors:[{code:…, message:…}, …]} if at least one of the objects failed validation
-// @returns {valid:false, errors:[{code:101, message:…}]} when no objects to validate were provided
-// @returns {valid:false, errors:[{code:102, message:…}]} when an unrecognized key or an undefined value was passed
-// @returns {valid:false, errors:[{code:103, message:…}]} when the config override contains an unrecognized key or a key set to undefined
+// @returns {valid:false, errors:[{code:…, reason:…, message:…}, …]} if at least one of the objects failed validation
+// @returns {valid:false, errors:[{code:'invalid_arguments', message:…}]} when no objects to validate were provided, or an unrecognized key or an undefined value was passed
+// @returns {valid:false, errors:[{code:'invalid_config', message:…}]} when the config override contains an unrecognized key or a key set to undefined
 
 ```
 
@@ -1681,7 +1680,7 @@ Triauth.validate({identifier: 'john@triauthdemo.org'});
 // {valid: true, errors: []}
 
 Triauth.validate({identifier: 'john'});
-// {valid: false, errors: [{code: 214, message: 'Identifier must include one @ sign'}]}
+// {valid: false, errors: [{code: 'invalid_identifier', reason: 'invalid_format', message: 'Identifier must include one @ sign'}]}
 ```
 
 </details>
@@ -1698,7 +1697,7 @@ The result object has the following properties:
 | Property Name | Type      | Description                                                                                                                                                                                              |
 |---------------|-----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `valid`       | `boolean` | `true` when every given object passed validation. `false` otherwise.                                                                                                                                     |
-| `errors`      | `array`   | One entry per validation error, each with a `code` and a `message`. `[]` when `valid` is `true`. See [Error codes](#error-codes). Example: `[{code:214, message:'Identifier must include one @ sign'}]`. |
+| `errors`      | `array`   | One entry per error, each with a `code`, a `message`, and (except for `invalid_arguments` and `invalid_config`) a `reason`. `[]` when `valid` is `true`. See [Error codes](#error-codes). Example: `[{code:'invalid_identifier', reason:'invalid_format', message:'Identifier must include one @ sign'}]`. |
 
 </details>
 
@@ -1708,49 +1707,51 @@ The result object has the following properties:
 
 ## Error codes
 
-Some API methods return error information in the `error:{code, message}` format. At the moment, the following error codes are implemented,
-and may be used to provide custom or localized versions of the error message if needed:
+Some API methods return error information in the `error:{code, reason?, message}` format, and `Triauth.validate` returns a list of such errors in `errors`.
+Use `code` and `reason` to provide custom or localized versions of the error message if needed. The `message` is an English default, and its wording may change.
 
-| Error Code | Meaning                                                                                                                                           | Default Message                                                       |
-|------------|---------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------|
-| **1xx**    | **Internal and generic errors**                                                                                                                   |                                                                       |
-| 100        | Internal error, logged at `error` level. May be a defect in triauth-js - if it happens, please report it.                                         | "Internal error"                                                      |
-| 101        | Invalid or missing method arguments. For example `challenge` was passed but `response` not.                                                       | "Invalid or missing function arguments"                               |
-| 102        | Unrecognized option and/or argument passed to the function. Check for spelling mistakes.                                                          | "Unrecognized function argument"                                      |
-| 103        | Unrecognized key in the `config` override (or a misspelled global `Triauth.config` key). Check for spelling mistakes.                             | "Unrecognized configuration key"                                      |
-| 110        | DNS resolution failed - check resolver configuration and Internet connectivity                                                                    | "DNS resolution failed, try again later"                              |
-| **2xx**    | **Validation errors**                                                                                                                             |                                                                       |
-| *21x*      | *identifier validation errors*                                                                                                                    |                                                                       |
-| 210        |                                                                                                                                                   | "Identifier is invalid"                                               |
-| 211        |                                                                                                                                                   | "Identifier must not be empty"                                        |
-| 212        |                                                                                                                                                   | "Identifier is too long"                                              |
-| 213        |                                                                                                                                                   | "Identifier must be provided in lowercase"                            |
-| 214        |                                                                                                                                                   | "Identifier must include one @ sign"                                  |
-| 215        |                                                                                                                                                   | "Identifier contains invalid username"                                |
-| 216        |                                                                                                                                                   | "Identifier contains invalid domain name"                             |
-| *22x*      | *Other function parameter validation errors*                                                                                                      |                                                                       |
-| 221        |                                                                                                                                                   | "Invalid callbackUrl"                                                 |
-| 222        |                                                                                                                                                   | "Invalid ext"                                                         |
-| 223        |                                                                                                                                                   | "Invalid challenge"                                                   |
-| 224        |                                                                                                                                                   | "Invalid response"                                                    |
-| 225        |                                                                                                                                                   | "Invalid signature"                                                   |
-| 226        |                                                                                                                                                   | "Invalid session key"                                                 |
-| 227        |                                                                                                                                                   | "Invalid message"                                                     |
-| 228        |                                                                                                                                                   | "Invalid attachments"                                                 |
-| 229        |                                                                                                                                                   | "Invalid attestations"                                                |
-| *26x*      | *device name validation errors*                                                                                                                   |                                                                       |
-| 260        |                                                                                                                                                   | "Device name is invalid"                                              |
-| 261        |                                                                                                                                                   | "Device name must not be empty"                                       |
-| 262        |                                                                                                                                                   | "Device name is too long"                                             |
-| 263        |                                                                                                                                                   | "Device name must be provided in lowercase"                           |
-| 264        |                                                                                                                                                   | "Device name must include only letters, numbers, and hyphens"         |
-| **3xx**    | **Identity errors**                                                                                                                               |                                                                       |
-| 301        | Authentication endpoint for the given identifier is not configured.                                                                               | "Domain is not configured for triauth"                                |
-| **4xx**    | **Authentication errors**                                                                                                                         |                                                                       |
-| 401        | Failed authentication attempt (e.g., the received signature is invalid).                                                                          | "Your identity could not be verified"                                 |
-| 402        | Authentication request has expired (e.g., the user took too long to approve it).                                                                  | "Authentication request has expired, please try again"                |
-| 403        | Request has been denied (e.g., user clicked the "Deny" button, or the session key lacks the permission or is for another identifier or base URL). | "Request has been denied"                                             |
-| 404        | DNSSEC was required via `config.requireSecure`, but the verified response was not DNSSEC-secure (`secure !== true`).                              | "Your domain does not support DNSSEC, which is required to continue." |
+| Error Code                      | Meaning                                                                                                                                           | Default Message                                                           |
+|---------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| **Internal and generic errors** |                                                                                                                                                   |                                                                           |
+| `internal_error`                | Internal error, logged at `error` level. May be a defect in triauth-js - if it happens, please report it.                                         | "Internal error"                                                          |
+| `invalid_arguments`             | Invalid, missing, or unrecognized method arguments. For example `challenge` was passed but `response` not, or an option name is misspelled.       | "Invalid or missing function arguments", "Unrecognized function argument" |
+| `invalid_config`                | Unrecognized key in the `config` override (or a misspelled global `Triauth.config` key). Check for spelling mistakes.                             | "Unrecognized configuration key"                                          |
+| `dns_unavailable`               | DNS resolution failed - check resolver configuration and Internet connectivity                                                                    | "DNS resolution failed, try again later"                                  |
+| **Validation errors**           | *Each validation error has a `reason`, see [Validation error reasons](#validation-error-reasons)*                                                 |                                                                           |
+| `invalid_identifier`            | The identifier is invalid.                                                                                                                        |                                                                           |
+| `invalid_callback_url`          |                                                                                                                                                   | "Invalid callbackUrl"                                                     |
+| `invalid_ext`                   |                                                                                                                                                   | "Invalid ext"                                                             |
+| `invalid_challenge`             |                                                                                                                                                   | "Invalid challenge"                                                       |
+| `invalid_response`              |                                                                                                                                                   | "Invalid response"                                                        |
+| `invalid_signature`             |                                                                                                                                                   | "Invalid signature"                                                       |
+| `invalid_session_key`           |                                                                                                                                                   | "Invalid session key"                                                     |
+| `invalid_message`               |                                                                                                                                                   | "Invalid message"                                                         |
+| `invalid_attachments`           |                                                                                                                                                   | "Invalid attachments"                                                     |
+| `invalid_attestations`          |                                                                                                                                                   | "Invalid attestations"                                                    |
+| `invalid_device_name`           | The device name is invalid.                                                                                                                       |                                                                           |
+| **Identity errors**             |                                                                                                                                                   |                                                                           |
+| `domain_not_configured`         | Authentication endpoint for the given identifier is not configured.                                                                               | "Domain is not configured for triauth"                                    |
+| **Authentication errors**       |                                                                                                                                                   |                                                                           |
+| `verification_failed`           | Failed authentication attempt (e.g., the received signature is invalid).                                                                          | "Your identity could not be verified"                                     |
+| `request_expired`               | Authentication request has expired (e.g., the user took too long to approve it).                                                                  | "Authentication request has expired, please try again"                    |
+| `request_denied`                | Request has been denied (e.g., user clicked the "Deny" button, or the session key lacks the permission or is for another identifier or base URL). | "Request has been denied"                                                 |
+| `dnssec_required`               | DNSSEC was required via `config.requireSecure`, but the verified response was not DNSSEC-secure (`secure !== true`).                              | "Your domain does not support DNSSEC, which is required to continue."     |
+
+### Validation error reasons
+
+A validation error also has a `reason`, which shows the rule that the value breaks.
+The codes from `invalid_callback_url` to `invalid_attestations` always have the reason `invalid`. The other validation errors have these reasons and default messages.
+
+| Reason               | `invalid_identifier`                       | `invalid_device_name`                                         |
+|----------------------|--------------------------------------------|---------------------------------------------------------------|
+| `invalid`            | "Identifier is invalid"                    | "Device name is invalid"                                      |
+| `empty`              | "Identifier must not be empty"             | "Device name must not be empty"                               |
+| `too_long`           | "Identifier is too long"                   | "Device name is too long"                                     |
+| `not_lowercase`      | "Identifier must be provided in lowercase" | "Device name must be provided in lowercase"                   |
+| `invalid_format`     | "Identifier must include one @ sign"       |                                                               |
+| `invalid_username`   | "Identifier contains invalid username"     |                                                               |
+| `invalid_domain`     | "Identifier contains invalid domain name"  |                                                               |
+| `invalid_characters` |                                            | "Device name must include only letters, numbers, and hyphens" |
 
 [Back to TOC](#table-of-contents)
 
@@ -1811,7 +1812,7 @@ The default configuration is shown below:
 ```javascript
 Triauth.config = {
   // When true, reject any challenge-response result (authenticate, ping, attest, sign, stamp), Triauth.check, and Triauth.verify
-  // that is not DNSSEC-validated (`secure !== true`), returning error 404 instead of a success object.
+  // that is not DNSSEC-validated (`secure !== true`), returning the error `dnssec_required` instead of a success object.
   // Leave false (default) to receive results regardless of `secure` and decide what to do with it yourself.
   requireSecure: false,
   
@@ -2028,7 +2029,7 @@ DNS queries for identity records and authentication endpoints.
   It is usually OK to proceed in such a case, as by default triauth-js uses results from multiple DNS resolvers to gain different perspectives into the DNS landscape, limiting the potential for DNS poisoning and BGP based attacks.
   However, use caution when the `secure` attribute changes from `true` to `false` for the same user.
 
-* If you require **strict cryptographic integrity** at the cost of losing compatibility with non-DNSSEC domains, set `config.requireSecure = true` (globally or as a per-call override) to have triauth-js enforce DNSSEC for you: any challenge-response result (and `Triauth.check`/`Triauth.verify`) that is not DNSSEC-secure is then rejected with [error 404](#error-codes) instead of returning success.  
+* If you require **strict cryptographic integrity** at the cost of losing compatibility with non-DNSSEC domains, set `config.requireSecure = true` (globally or as a per-call override) to have triauth-js enforce DNSSEC for you: any challenge-response result (and `Triauth.check`/`Triauth.verify`) that is not DNSSEC-secure is then rejected with [the error `dnssec_required`](#error-codes) instead of returning success.  
 
 * **Stamp and sign responses are transferable proofs and are not protected against replay.**
   A captured `Triauth.stamp` or `Triauth.sign` response can be replayed against any challenge that reuses the same `message` (and `attachments`) while its timestamp stays inside the freshness window: `config.stampTimeout` / `config.signTimeout`, widened by `config.maximalAllowedClientClockDrift` on both sides.

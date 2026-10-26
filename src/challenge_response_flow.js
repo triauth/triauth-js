@@ -61,11 +61,11 @@ export class ChallengeResponseFlow {
    *        `sessionKey` is the session key from opening the sealed response (see `ResponseCipher.open`).
    * @param [config={}] {object} - Optional overrides for the global Triauth.config settings.
    *
-   * @returns {Promise<{challenge: string, redirectUrl: string}|{error: {code: number, message: string}}|*>}
+   * @returns {Promise<{challenge: string, redirectUrl: string}|{error: {code: string, reason?: string, message: string}}|*>}
    *          A promise resolving to `{challenge, redirectUrl}` (stage 1), whatever `onResponse` returned
    *          (stage 3 success), or `{error:{code,message}}` if any error was caught. When
    *          `config.requireSecure` is set, a stage-3 result that is not DNSSEC-secure is rejected with
-   *          `{error:{code:404,…}}` instead of being returned (see `assertSecure`).
+   *          `{error:{code:'dnssec_required',…}}` instead of being returned (see `assertSecure`).
    */
   static async perform(type, options={}, callbacks={onChallenge:null, onResponse:null}, config={}) {
     config.logger?.info?.('Processing Triauth.' + type);
@@ -81,14 +81,14 @@ export class ChallengeResponseFlow {
       }
 
       if (!Helpers.hasOnlyKnownProperties(options, allowedOptions)) {
-        throw new TriauthError(102, 'Unrecognized function argument');
+        throw new TriauthError({code: 'invalid_arguments', message: 'Unrecognized function argument'});
       }
 
       // Reject config overrides carrying unknown keys (typos that would otherwise be silently ignored,
       // sometimes weakening security - e.g. a misspelled `requireSecure`). We validate the MERGED config,
       // so a stray key is caught whether it came from this call's override or a global Triauth.config
       if (!Helpers.hasOnlyKnownProperties(config, KNOWN_CONFIG_KEYS)) {
-        throw new TriauthError(103, 'Unrecognized configuration key');
+        throw new TriauthError({code: 'invalid_config', message: 'Unrecognized configuration key'});
       }
 
       // Read supported options
@@ -113,12 +113,12 @@ export class ChallengeResponseFlow {
         );
 
         if (validationError) {
-          throw new TriauthError(validationError.code, validationError.message);
+          throw new TriauthError(validationError);
         }
 
         // Every flow that follows a sign-in (all but `auth`) requires the session key of that sign-in
         if (type !== 'auth' && sessionKey == null) {
-          throw new TriauthError(226, 'Invalid session key');
+          throw new TriauthError({code: 'invalid_session_key', reason: 'invalid', message: 'Invalid session key'});
         }
 
         config.logger?.info?.('Request parameters:', {identifier, callbackUrl, ext});
@@ -147,7 +147,7 @@ export class ChallengeResponseFlow {
         // Fail early if the just-built challenge is not itself a valid challenge
         const challengeError = Validator.validateChallenge(challengeString).errors[0];
         if (challengeError) {
-          throw new TriauthError(challengeError.code, challengeError.message);
+          throw new TriauthError(challengeError);
         }
 
         // A delegated session key is `<domain>:<key>`, and its session is at the authenticator of that domain
@@ -156,7 +156,7 @@ export class ChallengeResponseFlow {
 
         // Check if authentication endpoint has been configured for the domain name
         if (!(await authenticationEndpoint.resolve())) {
-          throw new TriauthError(301, 'Domain is not configured for triauth');
+          throw new TriauthError({code: 'domain_not_configured', message: 'Domain is not configured for triauth'});
         }
 
         // Enforce config.requireSecure if set
@@ -185,7 +185,7 @@ export class ChallengeResponseFlow {
       ) {
 
         if (response === 'false') {
-          throw new TriauthError(403, 'Request has been denied');
+          throw new TriauthError({code: 'request_denied', message: 'Request has been denied'});
         }
 
         // The stored challenge is `<challenge>.<decryptionKey>`, and the response is sealed to the challenge's `ek`
@@ -193,14 +193,14 @@ export class ChallengeResponseFlow {
 
         const validationError = (
           Validator.validateChallenge(challengeString).errors[0] ||
-          ((rest !== undefined || !Helpers.isBase64UrlString(decryptionKey) || decryptionKey.length !== 43) && {code: 223, message: 'Invalid challenge'}) ||
+          ((rest !== undefined || !Helpers.isBase64UrlString(decryptionKey) || decryptionKey.length !== 43) && {code: 'invalid_challenge', reason: 'invalid', message: 'Invalid challenge'}) ||
           Validator.validateSealedResponse(response).errors[0] ||
           (identifier != null && Validator.validateIdentifier(identifier).errors[0]) ||
           (callbackUrl != null && Validator.validateCallbackUrl(callbackUrl).errors[0])
         );
 
         if (validationError) {
-          throw new TriauthError(validationError.code, validationError.message);
+          throw new TriauthError(validationError);
         }
 
         config.logger?.info?.('Verifying response with constraints', {type, identifier, callbackUrl});
@@ -211,13 +211,13 @@ export class ChallengeResponseFlow {
         try {
           challengeObj = Challenge.fromString(challengeString, config);
         } catch (err) {
-          throw new TriauthError(223, 'Invalid challenge', {cause:err});
+          throw new TriauthError({code: 'invalid_challenge', reason: 'invalid', message: 'Invalid challenge'}, {cause:err});
         }
 
         // Every challenge carries the encryption key that its response is sealed to
         const encryptionKey = challengeObj.data.ek;
         if (!Helpers.isBase64UrlString(encryptionKey) || encryptionKey.length !== 87) {
-          throw new TriauthError(223, 'Invalid challenge');
+          throw new TriauthError({code: 'invalid_challenge', reason: 'invalid', message: 'Invalid challenge'});
         }
 
         let envelope, sessionKey;
@@ -225,12 +225,12 @@ export class ChallengeResponseFlow {
         try {
           ({response: envelope, sessionKey} = await ResponseCipher.open(encryptionKey, decryptionKey, response));
         } catch (err) {
-          throw new TriauthError(224, 'Invalid response', {cause:err});
+          throw new TriauthError({code: 'invalid_response', reason: 'invalid', message: 'Invalid response'}, {cause:err});
         }
 
         const responseError = Validator.validateResponse(envelope).errors[0];
         if (responseError) {
-          throw new TriauthError(responseError.code, responseError.message);
+          throw new TriauthError(responseError);
         }
 
         responseObj = new Response(envelope, config);
@@ -242,7 +242,7 @@ export class ChallengeResponseFlow {
           (identifier != null && challengeObj.identity.identifier !== identifier) ||
           (callbackUrl != null && challengeObj.data.cburl !== callbackUrl)
         ) {
-          throw new TriauthError(401, 'Your identity could not be verified');
+          throw new TriauthError({code: 'verification_failed', message: 'Your identity could not be verified'});
         }
 
         const retval = await callbacks.onResponse({challenge:challengeObj, response:responseObj, sessionKey});
@@ -253,16 +253,16 @@ export class ChallengeResponseFlow {
           return retval;
 
         } else if (retval === null) {
-          throw new TriauthError(402, 'Authentication request has expired, please try again');
+          throw new TriauthError({code: 'request_expired', message: 'Authentication request has expired, please try again'});
 
         } else {
-          throw new TriauthError(401, 'Your identity could not be verified');
+          throw new TriauthError({code: 'verification_failed', message: 'Your identity could not be verified'});
 
         }
 
       // Fail when the given function arguments do not match to any of stages.
       } else {
-        throw new TriauthError(101, 'Invalid or missing function arguments - expected either {identifier,callbackUrl,ext,...} or {challenge,response,identifier?,callbackUrl?}');
+        throw new TriauthError({code: 'invalid_arguments', message: 'Invalid or missing function arguments - expected either {identifier,callbackUrl,ext,...} or {challenge,response,identifier?,callbackUrl?}'});
 
       }
 
@@ -316,12 +316,12 @@ export class ChallengeResponseFlow {
     ) {
       return {sig, verifyResult};
 
-    // For time constraints verification failure, signal "expired" (caller surfaces 402).
+    // For time constraints verification failure, signal "expired" (caller surfaces request_expired).
     } else if (verifyResult === null) {
       config.logger?.info?.('Verification failed - request expired', {identifier:challenge.identity.identifier, iat:parseInt(challenge.data.iat, 10)});
       return null;
 
-    // For other falsy signature verification results, signal a generic failure (caller surfaces 401).
+    // For other falsy signature verification results, signal a generic failure (caller surfaces verification_failed).
     } else {
       config.logger?.info?.('Verification failed', {identifier:challenge.identity.identifier});
       return false;
@@ -336,11 +336,11 @@ export class ChallengeResponseFlow {
    *
    * @param secure {boolean|undefined} - the aggregate DNSSEC-validation flag of the result.
    * @param config {object} - effective config; `requireSecure` (default false) toggles enforcement.
-   * @throws {TriauthError} 404 when `config.requireSecure` is set and `secure` is not strictly `true`.
+   * @throws {TriauthError} `dnssec_required` when `config.requireSecure` is set and `secure` is not strictly `true`.
    */
   static assertSecure(secure, config) {
     if (config.requireSecure && secure !== true) {
-      throw new TriauthError(404, 'Your domain does not support DNSSEC, which is required to continue.');
+      throw new TriauthError({code: 'dnssec_required', message: 'Your domain does not support DNSSEC, which is required to continue.'});
     }
   }
 

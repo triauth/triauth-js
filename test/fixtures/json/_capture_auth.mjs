@@ -140,7 +140,7 @@ console.log('RESP_LAPTOP_EXT:\n' + await sign(
 
 // --- Desktop + signedMetadata.ext with non-latin-1 (UTF-8) string values --------------
 //     Regression for the btoa-era string codec: metadata chars > U+00FF used to throw at
-//     encode (surfacing as 100) and decode as mojibake. Pins the UTF-8 bytes for ports.
+//     encode (surfacing as internal_error) and decode as mojibake. Pins the UTF-8 bytes for ports.
 console.log('RESP_DESKTOP_UNICODE_EXT:\n' + await sign(
   john.devices[0].keys,
   { ext: { emoji: '🎉', text: 'Привет' } },
@@ -156,7 +156,7 @@ console.log('RESP_DESKTOP_INVALID_EXT:\n' + await sign(
 
 // --- Desktop + GARBAGE signedMetadata (the WHOLE object is an array, not just .ext) ---
 //     Tests the parse-time rejection: Helpers.safeParseJson rejects non-object roots, the
-//     Signature constructor catches and re-throws as TriauthError(225). Note that
+//     Signature constructor catches and re-throws as TriauthError(invalid_signature). Note that
 //     Signature.generate DOES accept an array signedMetadata at sign time — it just
 //     JSON.stringify's it as-is into the signed segment.
 console.log('RESP_DESKTOP_GARBAGE_SIGNED_METADATA:\n' + await sign(
@@ -199,7 +199,7 @@ console.log('RESP_DESKTOP_GARBAGE_UNSIGNED_METADATA:\n' + await mintWithGarbageU
 //       V2 — auth-typed envelope (caller passes |auth;...| to authenticate()).
 //            Crypto signature IS valid against the published key over the auth challenge,
 //            but IdentityKeys.verify (~src/identity_keys.js:258) sees mode='auth' not in
-//            key.options.use='sign' → key skipped → no verified keys → 401.
+//            key.options.use='sign' → key skipped → no verified keys → verification_failed.
 //            Counterfactual: if the DNS record dropped `use=sign`, default use is
 //            'attest,auth,ping,sign,stamp' and this same envelope WOULD authenticate.
 const signonlyChallenge = await buildChallenge(signonly.identifier);
@@ -219,7 +219,7 @@ console.log('RESP_SIGNONLY_AUTH_ENVELOPE:\n' + await Triauth.Signature.generate(
 //     `Helpers.safeParseJson` defends against this at src/helpers.js:288-296. Crafted via
 //     JSON.parse so `__proto__` becomes an own enumerable property (object literals would
 //     have triggered the setter and made __proto__ non-own → silently stripped by JSON.stringify).
-//     Same uniform 225 outcome as the array-rooted case, exercising a different defense.
+//     Same uniform invalid_signature outcome as the array-rooted case, exercising a different defense.
 console.log('RESP_DESKTOP_EVIL_PROTO_SIGNED_METADATA:\n' + await sign(
   john.devices[0].keys,
   JSON.parse('{"__proto__":{"polluted":"by signedMetadata","isAdmin":true}}'),
@@ -240,7 +240,7 @@ console.log('RESP_DESKTOP_EVIL_PROTO_UNSIGNED_METADATA:\n' + await mintWithGarba
 //     valid base64url (passes the Signature constructor's field-level format check), but
 //     once decoded to a string it isn't valid JSON at all — JSON.parse throws SyntaxError.
 //     This exercises the previously-untested branch where decodeMetadata's *parse* fails
-//     (not its post-parse validation); my try/catch in src/signature.js still re-throws as 225.
+//     (not its post-parse validation); my try/catch in src/signature.js still re-throws as invalid_signature.
 //
 //     Helpers (used here only):
 const mintWithRawSignedMetadata = async (deviceKeys, rawB64uSegment) => {
@@ -269,13 +269,13 @@ console.log('RESP_DESKTOP_BOM_SIGNED_METADATA:\n' + await mintWithRawSignedMetad
 // signedMetadata = base64url of {"ext":{"a":"\ud800"}} - a lone-surrogate JSON ESCAPE in a string VALUE of the
 // SIGNED slot (real signature over the raw segment). An unpaired surrogate has no UTF-8 encoding, and this
 // escape is the one spelling of it that passes the strict decoder, so the Bounded-JSON string rule rejects
-// it at parse time (225), before any crypto.
+// it at parse time (invalid_signature), before any crypto.
 console.log('RESP_DESKTOP_SURROGATE_VALUE_SIGNED_METADATA:\n' + await mintWithRawSignedMetadata(
   john.devices[0].keys, 'eyJleHQiOnsiYSI6Ilx1ZDgwMCJ9fQ',
 ) + '\n');
 
 // signedMetadata = base64url of {"ext":{"a":1e400}} - a number literal beyond the largest IEEE double. A JSON
-// number is a whole number of magnitude at most 2^53-1, so the metadata is malformed (225) at parse time. Minted
+// number is a whole number of magnitude at most 2^53-1, so the metadata is malformed (invalid_signature) at parse time. Minted
 // over `via`, as a response the flow would otherwise accept.
 {
   const fields = ['auth', identifier, '', via, 'v1', String(Date.now()), 'eyJleHQiOnsiYSI6MWU0MDB9fQ', '', String(challenge)];
@@ -285,7 +285,7 @@ console.log('RESP_DESKTOP_SURROGATE_VALUE_SIGNED_METADATA:\n' + await mintWithRa
 }
 
 // signedMetadata = base64url of {"ext":{"a":9007199254740993}} - an integer above 2^53, which JavaScript rounds
-// to 9007199254740992 while an exact parser keeps it. The metadata is malformed (225) at parse time, so no two
+// to 9007199254740992 while an exact parser keeps it. The metadata is malformed (invalid_signature) at parse time, so no two
 // implementations return different ext values for the same signed bytes.
 {
   const fields = ['auth', identifier, '', via, 'v1', String(Date.now()), 'eyJleHQiOnsiYSI6OTAwNzE5OTI1NDc0MDk5M319', '', String(challenge)];
@@ -316,7 +316,7 @@ console.log('RESP_DESKTOP_RAW_BINARY_UNSIGNED_METADATA:\n' + await mintWithRawUn
 //       - response.verify's `constraints.identifier !== challenge.identity.identifier` check
 //         is satisfied (both are 'john' — the constraint is built FROM the challenge)
 //       - signature.verify then sees envelope.identifier='jane' != constraints.identifier='john'
-//         → returns false → propagates as 401
+//         → returns false → propagates as verification_failed
 //     Different branch from the existing "re-provided identifier mismatching challenge.identifier"
 //     test (which fires at dispatch level when the caller passes their own `identifier` arg).
 console.log('RESP_JANE_SIGNS_JOHNS_CHALLENGE:\n' + await Triauth.Signature.generate(
@@ -328,7 +328,7 @@ console.log('RESP_JANE_SIGNS_JOHNS_CHALLENGE:\n' + await Triauth.Signature.gener
 //     Signature is cryptographically valid (john really signed an envelope with that via).
 //     But ChallengeResponseFlow.verifyChallengeResponse requires base-equality:
 //     `Helpers.getBaseUrl(challenge.data.cburl) === sig.via` — and getBaseUrl('https://example.com/cb')
-//     is 'https://example.com/', not 'https://attacker.example/' → 401.
+//     is 'https://example.com/', not 'https://attacker.example/' → verification_failed.
 //     Defends against an attacker who controls a different origin's TLS and tries to relay
 //     authenticator output back to the legitimate verifier.
 console.log('RESP_JOHN_VIA_ATTACKER:\n' + await Triauth.Signature.generate(
@@ -345,8 +345,8 @@ console.log('RESP_JOHN_VIA_ATTACKER:\n' + await Triauth.Signature.generate(
 //       LONG_KEY   — jsonMaxKeyLength:   key with 257 chars → key.length > 256 → throw
 //       NONASCII   — raw 0xE9 in the key: ill-formed UTF-8, refused at decode → throw
 //
-//     All surface as error 225 because Signature.decodeMetadata re-throws the decode /
-//     safeParseJson Error as TriauthError(225). Confirmed by the try/catch in src/signature.js:116-121.
+//     All surface as error invalid_signature because Signature.decodeMetadata re-throws the decode /
+//     safeParseJson Error as TriauthError(invalid_signature). Confirmed by the try/catch in src/signature.js:116-121.
 
 console.log('RESP_DESKTOP_DEEP_UNSIGNED_METADATA:\n' + await mintWithGarbageUnsignedMetadata(
   john.devices[0].keys,
@@ -360,27 +360,27 @@ console.log('RESP_DESKTOP_LONG_KEY_UNSIGNED_METADATA:\n' + await mintWithGarbage
 ) + '\n');
 
 // Raw Latin-1 é (0xE9) in the key — {"r<0xE9>sum<0xE9>":1} is ill-formed UTF-8, refused at
-// decode and re-thrown as 225.
+// decode and re-thrown as invalid_signature.
 console.log('RESP_DESKTOP_NONASCII_KEY_UNSIGNED_METADATA:\n' + await mintWithRawUnsignedMetadata(
   john.devices[0].keys,
   'eyJy6XN1bekiOjF9',
 ) + '\n');
 
 // Raw Latin-1 é (0xE9) inside a string VALUE — {"ext":{"a":"<0xE9>"}} — ill-formed UTF-8 in a
-// slot position that has no charset rule of its own; only the decode-time rejection pins it (225).
+// slot position that has no charset rule of its own; only the decode-time rejection pins it (invalid_signature).
 console.log('RESP_DESKTOP_BADUTF8_VALUE_UNSIGNED_METADATA:\n' + await mintWithRawUnsignedMetadata(
   john.devices[0].keys,
   'eyJleHQiOnsiYSI6IukifX0',
 ) + '\n');
 
-// {"résumé":1} as proper C3 A9 UTF-8 — decodes fine; the Bounded-JSON ASCII-key rule rejects (225).
+// {"résumé":1} as proper C3 A9 UTF-8 — decodes fine; the Bounded-JSON ASCII-key rule rejects (invalid_signature).
 console.log('RESP_DESKTOP_EKEY_UNSIGNED_METADATA:\n' + await mintWithRawUnsignedMetadata(
   john.devices[0].keys,
   'eyJyw6lzdW3DqSI6MX0',
 ) + '\n');
 
 // {"x\ud800y":1} — a lone-surrogate JSON ESCAPE in a key. Every parser behavior converges on
-// 225: preserving the escape yields a non-ASCII key, substituting U+FFFD likewise, rejecting it
+// invalid_signature: preserving the escape yields a non-ASCII key, substituting U+FFFD likewise, rejecting it
 // fails the parse. No conformance vector requires ACCEPTING a lone-surrogate escape anywhere,
 // so a port whose JSON parser rejects them outright stays conformant.
 console.log('RESP_DESKTOP_SURROGATE_KEY_UNSIGNED_METADATA:\n' + await mintWithRawUnsignedMetadata(
@@ -390,7 +390,7 @@ console.log('RESP_DESKTOP_SURROGATE_KEY_UNSIGNED_METADATA:\n' + await mintWithRa
 
 // {"ext":{"a":"\ud800"}} - the lone-surrogate JSON ESCAPE in a string VALUE. An unpaired surrogate has no UTF-8
 // encoding, and this escape is the one spelling of it that passes the strict decoder, so the Bounded-JSON
-// string rule rejects it (225). A parser that preserves the escape checks its strings, one that substitutes
+// string rule rejects it (invalid_signature). A parser that preserves the escape checks its strings, one that substitutes
 // U+FFFD checks the escapes, one that rejects it is conformant as is.
 console.log('RESP_DESKTOP_SURROGATE_VALUE_UNSIGNED_METADATA:\n' + await mintWithRawUnsignedMetadata(
   john.devices[0].keys,
@@ -433,7 +433,7 @@ console.log('RESP_DESKTOP_NULL_VALUE_UNSIGNED_METADATA:\n' + await mintWithGarba
   // Nonzero-padding-bits twin for the canonical-decode case, made from this challenge WITHOUT `ek`: it decodes to
   // 145 bytes, so its final base64url quantum carries 4 padding bits (with `ek` it is 240 bytes, exact quanta, no
   // padding bits to flip). +1 on the last character sets a padding bit: a forgiving decoder yields identical JSON;
-  // the strict decoder must reject (223) before anything else. auth.json pairs it with the plain envelope it had.
+  // the strict decoder must reject (invalid_challenge) before anything else. auth.json pairs it with the plain envelope it had.
   const B64U = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
   const {ek: _ek, ...bareTrailingSlashData} = challengeData(storedTrailingSlash);
   const bareTrailingSlash = Triauth.Helpers.stringToBase64Url(JSON.stringify(bareTrailingSlashData));
@@ -457,7 +457,7 @@ console.log('RESP_DESKTOP_NULL_VALUE_UNSIGNED_METADATA:\n' + await mintWithGarba
     'auth', ed25519.identifier, '', via, ed25519Challenge,
   ) + '\n');
 
-  // The same envelope with a signature that parses but fails the Ed25519 check (401)
+  // The same envelope with a signature that parses but fails the Ed25519 check (verification_failed)
   console.log('RESP_ED25519_BOGUS:\n' + `|auth;${ed25519.identifier};;${via};v1;${T};;;AAAA|` + '\n');
 }
 
@@ -493,7 +493,7 @@ const mintSig = (deviceKeys, type, id, via_, challengeStr, signedMetadata) =>
 // --- [replay] Cross-challenge replay --------------------------------------------------
 //     Reuse RESP_DESKTOP (above) as the response and pair it with a SECOND valid challenge that
 //     differs ONLY in the nonce. The crypto signature is bound to the exact challenge bytes (the
-//     nonce lives inside them), so verification must fail → 401. No new signature is minted; this
+//     nonce lives inside them), so verification must fail → verification_failed. No new signature is minted; this
 //     block only emits the alternate challenge.
 console.log('CH_OTHER_NONCE (pair with RESP_DESKTOP):\n'
   + encodeChallenge(challengeObj({cburl: callbackUrl, nonce: 'zZ9OtherNonceReplay0001x'})) + '\n');
@@ -517,7 +517,7 @@ console.log('RESP_LAPTOP_PARTIAL_ONE_KEY:\n' + await sign([john.devices[1].keys[
 //     group's final index makes keys.length equal keyCount, and Object.entries/.every
 //     iteration skips array holes, so a length-gated validity check would accept the group
 //     and authenticate on ONE signature of a declared 2-key device. The populated-slot
-//     count (src/identity_keys.js:153-157) keeps the group invalid → 401.
+//     count (src/identity_keys.js:153-157) keeps the group invalid → verification_failed.
 //     Sign with ONLY laptop key #2 (the published fragment) so the response matches the
 //     records exactly as served.
 console.log('RESP_LAPTOP_LAST_FRAGMENT_ONLY:\n' + await sign([john.devices[1].keys[1]]) + '\n');
@@ -544,7 +544,7 @@ console.log('RESP_DESKTOP_OVER_EXT_CHALLENGE_NO_SIGNED_EXT:\n' + await mintSig(j
 // --- [SECURITY] via must EQUAL getBaseUrl(cburl), not merely be a prefix --------------
 //     Nested callback path (cburl=https://example.com/app/callback ⇒ getBaseUrl=https://example.com/app/):
 //       EXACT  — via=https://example.com/app/  → equal → authenticates (also proves nested cbs work)
-//       PARENT — via=https://example.com/       → parent prefix, NOT equal → 401
+//       PARENT — via=https://example.com/       → parent prefix, NOT equal → verification_failed
 //     Guards against a port implementing the check as `cburl.startsWith(via)`, under which a
 //     root-scoped signature would be accepted for a deeper callback path.
 const CH_NESTED = encodeChallenge(challengeObj({cburl: 'https://example.com/app/callback'}));
@@ -557,7 +557,7 @@ console.log('RESP_NESTED_VIA_PARENT:\n' + await mintSig(john.devices[0].keys, 'a
 //     stays at T (in-window); only the signature timestamp moves. (The rest of the suite only ever
 //     moves currentTime, which shifts BOTH windows together and lets the iat check mask the ts one.)
 //       WITHIN — ts=T+29999 → within drift → authenticates
-//       BEYOND — ts=T+30001 → beyond drift → 402 expired
+//       BEYOND — ts=T+30001 → beyond drift → request_expired expired
 const mintWithTs = async (delta, challengeStr) => {
   Date.now = () => T + delta;       // Signature.generate stamps ts from Date.now()
   try { return await mintSig(john.devices[0].keys, 'auth', identifier, via, challengeStr); }
@@ -578,7 +578,7 @@ console.log('RESP_ED_LAN:\n' + await mintSig(ed25519.devices[0].keys, 'auth', ed
 //     A tampered challenge whose cburl embeds userinfo credentials must be rejected even with an
 //     otherwise-valid signature. getBaseUrl() strips the credentials (so the via-equality check
 //     alone would pass), but the explicit Validator.validateCallbackUrl(challenge.data.cburl) guard
-//     fails → 401. A port that trusted the challenge cburl without re-validating it would accept it.
+//     fails → verification_failed. A port that trusted the challenge cburl without re-validating it would accept it.
 const CH_CREDS = encodeChallenge(challengeObj({cburl: 'https://user:pass@example.com/cb'}));
 console.log('CH_CREDS (cburl=https://user:pass@example.com/cb):\n' + CH_CREDS + '\n');
 console.log('RESP_CREDS_CBURL:\n' + await mintSig(john.devices[0].keys, 'auth', identifier, via, CH_CREDS) + '\n');
@@ -586,7 +586,7 @@ console.log('RESP_CREDS_CBURL:\n' + await mintSig(john.devices[0].keys, 'auth', 
 // --- [delegation] jane signs ON BEHALF of john under an include grant ------------------
 //     The envelope's actor slot carries jane; verification walks john's include records for a
 //     covering grant (patched into the test's dnsEntries) and reports the composite deviceTag.
-//     ONE blob serves every delegated auth case (positive, use=/scope= variants, and their 401
+//     ONE blob serves every delegated auth case (positive, use=/scope= variants, and their verification_failed
 //     twins) - the cases differ only in the include record their dnsEntries publish, so a re-mint
 //     must be pasted into each of them (grep auth.json for the old blob).
 console.log('RESP_DELEGATED:\n' + await Triauth.Signature.generate(
@@ -596,7 +596,7 @@ console.log('RESP_DELEGATED:\n' + await Triauth.Signature.generate(
 
 // --- [private] mode=private: the identity's lookup code rides signed-metadata -
 //     CH_PRIVATE pairs with: RESP_PRIVATE (positive; the result deviceTag gains the ~lookupCode
-//     suffix) and RESP_PRIVATE_NOCODE (401 - the identity domain cannot derive without it).
+//     suffix) and RESP_PRIVATE_NOCODE (verification_failed - the identity domain cannot derive without it).
 //     RESP_PUBLIC_CODE pairs with the canonical john challenge: a lookupCode member under a
 //     public-mode domain is inert, so it authenticates. John's private-mode records live at
 //     PRIVATE.john.identityDomain with the `commit` record (see _capture_common.mjs).

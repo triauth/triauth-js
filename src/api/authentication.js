@@ -78,7 +78,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  * If the user approves the authentication request, Triauth Authenticator signs the challenge using one or more private keys that are available to it, and for which matching public keys may be obtained from the identity records, associated with the user's `identifier`, stored in the DNS.
  * It then redirects the web browser to the `callbackUrl`, by default using a `HTTP GET` method, and passes the signature, together with optional additional data, inside the `response` URL parameter.
  *
- * If the user declines the authentication request, the Triauth Authenticator sends `false` as the `response`, which `Triauth.authenticate` reports as error 403.
+ * If the user declines the authentication request, the Triauth Authenticator sends `false` as the `response`, which `Triauth.authenticate` reports as the error `request_denied`.
  *
  * **3. Verify**
  *
@@ -171,7 +171,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  * @returns {Promise<
  *     {challenge: string, redirectUrl: string}
  *   | {authenticated: true, issuedAt: number, signedAt: number, verifiedAt: number, expires: (number|undefined), secure: boolean, identifier: string, identityDomain: string, lookupCode: string, actor: string, actorIdentityDomain: string, actorLookupCode: string, publicProfile: object, groups: Array<string>, deviceName: string, deviceTag: string, keys: Array<object>, sessionKey: string, ext: object}
- *   | {error: {code: number, message: string}}
+ *   | {error: {code: string, reason?: string, message: string}}
  * >} A promise that resolves to one of the following:
  * - `{challenge: string, redirectUrl: string}`: Returned during stage 1 when a challenge is generated. The `challenge` should be stored and the user should be redirected to the `redirectUrl`.
  * - `{authenticated: true, issuedAt: number, signedAt: number, verifiedAt: number, expires?: number, secure: boolean, identifier: string, identityDomain: string, lookupCode: string, actor: string, actorIdentityDomain: string, actorLookupCode: string, publicProfile: object, groups: Array<string>, deviceName: string, deviceTag: string, keys: Array<object>, sessionKey: string, ext: object}`: Returned during stage 3 upon successful authentication. Includes:
@@ -194,7 +194,7 @@ import { ChallengeResponseFlow } from '../challenge_response_flow.js';
  *   - `keys` (array): Public keys that were considered and/or used during verification.
  *   - `sessionKey` (string): A secret of this sign-in, in 43 base64url characters, that only your application and the user's authenticator know. Pass it to `Triauth.ping`, `Triauth.sign`, `Triauth.stamp` and `Triauth.attest`. Store it with the user's server-side or encrypted session, and keep it out of logs. After a delegated sign-in, it starts with the actor's domain and a colon.
  *   - `ext` (object): Data returned by the authenticator application for the requested protocol extensions. Always present - `{}` when no extension data was returned (a malformed `ext` is discarded with a logged warning and also yields `{}`).
- * - `{error: {code: number, message: string}}`: Returned during stage 1 or stage 3 when authentication fails, includes an error object with code and message.
+ * - `{error: {code: string, reason?: string, message: string}}`: Returned during stage 1 or stage 3 when authentication fails, includes an error object with code and message.
  */
 export const authenticate = async(options, config = {}) => {
   config = Helpers.mergeConfig(config);
@@ -208,7 +208,7 @@ export const authenticate = async(options, config = {}) => {
     // Verify the response against the challenge
     const result = await ChallengeResponseFlow.verifyChallengeResponse('auth', challenge.challengeString, challenge, response, config.authTimeout, config);
 
-    // Propagate the failure signals unchanged: null -> 402 (expired), false -> 401 (invalid).
+    // Propagate the failure signals unchanged: null -> request_expired, false -> verification_failed.
     if (!result) {
       return result;
     }
@@ -304,11 +304,11 @@ export const authenticate = async(options, config = {}) => {
  * @returns {Promise<
  *     {valid: true, secure: boolean, expires: (number|undefined), groups: Array<string>}
  *   | {valid: false, reason: 'revoked'|'unresolved'}
- *   | {error: {code: number, message: string}}
+ *   | {error: {code: string, reason?: string, message: string}}
  * >} A promise that resolves to one of the following:
  * - `{valid: true, secure: boolean, expires?: number, groups: Array<string>}`: Indicates that the user may remain authenticated. The `secure` property is `true` only when the domain's `triauth` configuration record and every well-formed record of the identity answer (for composite device tags, of both identities' answers) were DNSSEC-validated. The `expires` property, when a number, is the Unix timestamp until which the `check` method need not be called again; it is `undefined` when the DNS records carry no TTL (e.g., under the NodeDns resolver) - in that case apply your own minimum re-check interval. The `groups` property carries the identity's **current** fully-qualified group names — replace any session-cached groups with this list on every check, so membership changes take effect within the same bound as key revocation.
  * - `{valid: false, reason: 'revoked'|'unresolved'}`: Indicates that the device may no longer remain authenticated and should be logged out (call `Triauth.authenticate` again to re-authenticate). The `reason` is diagnostic only: `'revoked'` - the device's keys are no longer published in the DNS; `'unresolved'` - the identity itself (or, for a delegated `deviceTag`, the actor's identity) no longer resolves (e.g., the domain is no longer configured for triauth, or has no identity records).
- * - `{error: {code: number, message:string}}`: Indicates that there was some problem, and the status cannot be determined at the moment, including an `error` message with more details.
+ * - `{error: {code: string, reason?: string, message: string}}`: Indicates that there was some problem, and the status cannot be determined at the moment, including an `error` message with more details.
  */
 export const check = async (options, config = {}) => {
   config = Helpers.mergeConfig(config);
@@ -321,12 +321,12 @@ export const check = async (options, config = {}) => {
 
     // Ensure only recognized options are present to help avoid misspellings.
     if (!Helpers.hasOnlyKnownProperties(options, ['identifier', 'deviceTag'])) {
-      throw new TriauthError(102, 'Unrecognized function argument');
+      throw new TriauthError({code: 'invalid_arguments', message: 'Unrecognized function argument'});
     }
 
     // Reject config overrides carrying unknown keys
     if (!Helpers.hasOnlyKnownProperties(config, KNOWN_CONFIG_KEYS)) {
-      throw new TriauthError(103, 'Unrecognized configuration key');
+      throw new TriauthError({code: 'invalid_config', message: 'Unrecognized configuration key'});
     }
 
     const identifier = options.identifier;
@@ -335,7 +335,7 @@ export const check = async (options, config = {}) => {
     config.logger?.info?.('Request parameters:', {identifier, deviceTag});
 
     if (typeof identifier !== 'string' || typeof deviceTag !== 'string') {
-      throw new TriauthError(101, 'Invalid or missing function arguments');
+      throw new TriauthError({code: 'invalid_arguments', message: 'Invalid or missing function arguments'});
     }
 
     // Parse the composite deviceTag
@@ -578,7 +578,7 @@ export const check = async (options, config = {}) => {
  *
  * @param [options.identifier] {string} - (stage 1) the user provided identifier
  * @param [options.callbackUrl] {string} - (stage 1) an application provided URL to which the user's web browser should be redirected with the response
- * @param [options.sessionKey] {string} - (stage 1, required) the `sessionKey` of a `Triauth.authenticate` result whose `ext.permissions.ping` is `true`; a stage-1 request without a valid session key returns error 226
+ * @param [options.sessionKey] {string} - (stage 1, required) the `sessionKey` of a `Triauth.authenticate` result whose `ext.permissions.ping` is `true`; a stage-1 request without a valid session key returns the error `invalid_session_key`
  * @param [options.ext] {object} - (stage 1) an optional object of protocol extensions to use (e.g., `{callbackMethod:'GET'}`)
  *
  * @param [options.challenge] {string} - (stage 3) a challenge as it was returned by the method after stage 1 call
@@ -589,7 +589,7 @@ export const check = async (options, config = {}) => {
  * @returns {Promise<
  *     {challenge: string, redirectUrl: string}
  *   | {pinged: true, issuedAt: number, signedAt: number, verifiedAt: number, expires: (number|undefined), secure: boolean, identifier: string, identityDomain: string, lookupCode: string, actor: string, actorIdentityDomain: string, actorLookupCode: string, groups: Array<string>, deviceName: string, deviceTag: string, keys: Array<object>}
- *   | {error: {code: number, message: string}}
+ *   | {error: {code: string, reason?: string, message: string}}
  * >}
  */
 export const ping = async(options, config = {}) => {
@@ -604,7 +604,7 @@ export const ping = async(options, config = {}) => {
     // Verify the response against the challenge
     const result = await ChallengeResponseFlow.verifyChallengeResponse('ping', challenge.challengeString, challenge, response, config.pingTimeout, config);
 
-    // Propagate the failure signals unchanged: null -> 402 (expired), false -> 401 (invalid).
+    // Propagate the failure signals unchanged: null -> request_expired, false -> verification_failed.
     if (!result) {
       return result;
     }

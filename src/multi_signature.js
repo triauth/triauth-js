@@ -47,7 +47,7 @@ export class MultiSignature {
    *                           and delimited by, the `|` character.
    * @param [config={}] {object} - Optional overrides for the global Triauth.config settings
    *
-   * @throws {TriauthError} code 225 when the envelope is not a string, is not `|`-wrapped, exceeds
+   * @throws {TriauthError} `invalid_signature` when the envelope is not a string, is not `|`-wrapped, exceeds
    *                        `LIMITS.signatureBytesize`, carries more than `LIMITS.maxMultiSignatures`
    *                        segments, or repeats a byte-identical segment.
    */
@@ -61,7 +61,7 @@ export class MultiSignature {
       (rawData[0] !== WRAPPER || rawData[rawData.length - 1] !== WRAPPER) ||
       Helpers.byteSize(rawData) > LIMITS.signatureBytesize
     ) {
-      throw new TriauthError(225, 'Invalid signature');
+      throw new TriauthError({code: 'invalid_signature', reason: 'invalid', message: 'Invalid signature'});
     }
 
     this.rawData = rawData;
@@ -70,12 +70,12 @@ export class MultiSignature {
 
     const {maxMultiSignatures} = LIMITS;
     if (segments.length < 1 || segments.length > maxMultiSignatures) {
-      throw new TriauthError(225, 'Invalid signature');
+      throw new TriauthError({code: 'invalid_signature', reason: 'invalid', message: 'Invalid signature'});
     }
 
     // Do not allow byte-identical duplicate segments
     if (new Set(segments).size !== segments.length) {
-      throw new TriauthError(225, 'Invalid signature');
+      throw new TriauthError({code: 'invalid_signature', reason: 'invalid', message: 'Invalid signature'});
     }
 
     // Extract and parse signature segments

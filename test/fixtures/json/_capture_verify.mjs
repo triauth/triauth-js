@@ -13,7 +13,7 @@
 //                                                                  -> IdentityKeys.verify -> Verifiers
 //
 // so this suite drives that whole sub-tree plus verify's own argument guards, its catch routing
-// (TriauthError code>=200 -> {verified:true,valid:false}; code 101 -> {error}), and the
+// (TriauthError code>=200 -> {verified:true,valid:false}; code invalid_arguments -> {error}), and the
 // multi-signature SUCCESS path (length>1) that is UNIQUE to verify (sign/stamp pin maxSignatures:1).
 // Note: verify applies a secure-by-default single-signature policy — maxSignatures defaults to 1, so a
 // multi-segment envelope is rejected (valid:false) unless the caller explicitly raises maxSignatures
@@ -62,16 +62,16 @@
 //     `cryptoSignatures.length>0` guard (the ctor already guarantees >=1); IdentityKeys.verify's
 //     non-base64url-signature guard (the Signature ctor already enforces base64url); the
 //     Identity ctor's identifier-validation throw (the Signature ctor already rejected any invalid
-//     identifier with 225 before Identity is constructed); the hasOnlyKnownProperties
+//     identifier with invalid_signature before Identity is constructed); the hasOnlyKnownProperties
 //     `obj[key] !== undefined` arm (JSON args cannot carry `undefined`); IdentityDomain.resolve's
 //     immutable-options re-call guard; the createLRUCache set-re-set / eviction / resize arms (the
 //     CachingResolver store is never resized or filled to capacity by a verify); Resolvers.Base#resolve (the stub
 //     overrides it) and resolveConfig's `!isNormalString(entry.key)` skip (the TXT key is matched by
 //     a \w regex); safeParseJson's 256KB limit (a signature is capped at 10KB first);
 //     AuthenticationEndpoint.resolve's `candidate.hostname !== value` arm (isDomainName gates it out);
-//   - TriauthError.process branches OTHER than the code-101 `else`/warn arm: verify's catch absorbs
+//   - TriauthError.process branches OTHER than the code-invalid_arguments `else`/warn arm: verify's catch absorbs
 //     every code>=200 itself (so process never sees a validation 2xx), and verify never throws a
-//     non-TriauthError, so process's 2xx-info and internal-100 arms are not reachable here;
+//     non-TriauthError, so process's validation-info and internal_error arms are not reachable here;
 //   - logger?.() optional-chaining NULL arms (test/setup.js installs a stub logger, so the present
 //     arm is always taken).
 // The single verify-REACHABLE branch this JSON harness cannot exercise is the `expires:undefined`
@@ -166,7 +166,7 @@ const mintRawSigned = async (deviceKeys, rawB64uSegment, opts = {}) => {
 // unsignedMetadata are special: ver is structurally pinned to 'v1', and slot 7 is excluded from the
 // signed payload, so it is the one slot a tamper does NOT break — already pinned by the slot-7-swap
 // successes above.) The new value must itself be well-formed so the Signature ctor reaches crypto
-// rather than rejecting the envelope at parse time (225).
+// rather than rejecting the envelope at parse time (invalid_signature).
 const tamperSlot = (env, idx, value) => {
   const seg = env.slice(1, -1).split(';');
   seg[idx] = value;
@@ -253,13 +253,13 @@ const SIG_PUBLICACTOR_ACTORCODE   = await mint(jane.keys, { actor: jane.identifi
 // unsignedMetadata that PARSES fine (null value) -> success, exercising safeParseJson null-node arm.
 const SIG_NULLVALUE_UNSIGNED = await mintUnsignedSwap(john.devices[0].keys, { ok: null });
 
-// signedMetadata parse rejections (real sig; ctor throws at decode before any crypto) -> 225.
+// signedMetadata parse rejections (real sig; ctor throws at decode before any crypto) -> invalid_signature.
 const SIG_GARBAGE_SIGNED = await mint(john.devices[0].keys, { signedMetadata: ['totally', 'wrong', 'shape'] });   // array root
 const SIG_PROTO_SIGNED   = await mint(john.devices[0].keys, { signedMetadata: JSON.parse('{"__proto__":{"polluted":true}}') });
 const SIG_RAWTEXT_SIGNED = await mintRawSigned(john.devices[0].keys, 'c29tZS1yYW5kb20tcGxhaW4tdGV4dC1ub3QtanNvbg'); // "some-random-plain-text-not-json"
 const SIG_BOM_SIGNED     = await mintRawSigned(john.devices[0].keys, "77u_eyJleHQiOnsiYm9tIjp0cnVlfX0"); // EF BB BF + {"ext":{"bom":true}} — BOM must not be stripped
 
-// unsignedMetadata parse rejections (real sig, slot-6 MITM swap) -> 225.
+// unsignedMetadata parse rejections (real sig, slot-6 MITM swap) -> invalid_signature.
 const SIG_GARBAGE_UNSIGNED = await mintUnsignedSwap(john.devices[0].keys, ['evil', 'array']);
 const SIG_PROTO_UNSIGNED   = await mintUnsignedSwap(john.devices[0].keys, { constructor: { prototype: { escalated: true } } });
 const SIG_RAWBIN_UNSIGNED  = await mintRawUnsigned(john.devices[0].keys, 'AAECAwQFBgcICQoLDA0ODw'); // raw 0x00..0x0F (not JSON)
@@ -279,7 +279,7 @@ const SIG_BIGINT_UNSIGNED      = await mintRawUnsigned(john.devices[0].keys, 'ey
 const SIG_POW53_UNSIGNED       = await mintRawUnsigned(john.devices[0].keys, 'eyJuIjo5MDA3MTk5MjU0NzQwOTkyfQ'); // {"n":9007199254740992} - 2^53 itself -> malformed
 const SIG_NEGPOW53_UNSIGNED    = await mintRawUnsigned(john.devices[0].keys, 'eyJuIjotOTAwNzE5OTI1NDc0MDk5Mn0'); // {"n":-9007199254740992} - -2^53 -> malformed, the bound is on the magnitude
 const SIG_SAFEBOUNDS_UNSIGNED  = await mintRawUnsigned(john.devices[0].keys, 'eyJuIjo5MDA3MTk5MjU0NzQwOTkxLCJtIjotOTAwNzE5OTI1NDc0MDk5MX0'); // {"n":9007199254740991,"m":-9007199254740991} - 2^53-1 and -(2^53-1) -> verifies with both values exact
-const SIG_WHOLEFLOAT_UNSIGNED  = await mintRawUnsigned(john.devices[0].keys, 'eyJuIjoxLjAsIm0iOjFlMn0'); // {"n":1.0,"m":1e2} - whole numbers spelled 1.0 and 1e2 -> verifies with the integers 1 and 100
+const SIG_WHOLEFLOAT_UNSIGNED  = await mintRawUnsigned(john.devices[0].keys, 'eyJuIjoxLjAsIm0iOjFlMn0'); // {"n":1.0,"m":1e2} - whole numbers spelled 1.0 and 1e2 -> verifies with the integers 1 and internal_error
 const SIG_FRACTION_UNSIGNED    = await mintRawUnsigned(john.devices[0].keys, 'eyJuIjoxLjV9'); // {"n":1.5} - a fraction -> malformed
 const SIG_OVERFLOW_UNSIGNED    = await mintRawUnsigned(john.devices[0].keys, 'eyJuIjoxZTQwMH0'); // {"n":1e400} - beyond the largest IEEE double, Infinity in JavaScript -> malformed
 const SIG_NAN_UNSIGNED         = await mintRawUnsigned(john.devices[0].keys, 'eyJuIjpOYU59'); // {"n":NaN} - the bare word NaN, no JSON value -> malformed
@@ -362,7 +362,7 @@ const SIG_WAED_BADSIG = await mkWebAuthnEd25519({ sign: false }); // structure/c
 const SIG_MULTI         = Triauth.MultiSignature.generate(SIG_DESKTOP, SIG_JANE);   // john + jane over MSG -> multisig success
 const SIG_DESKTOP_2     = await mint(john.devices[0].keys);                          // fresh second john signature (distinct bytes - signing is randomized)
 const SIG_MULTI_SAME2   = Triauth.MultiSignature.generate(SIG_DESKTOP, SIG_DESKTOP_2); // same signer twice, fresh signatures (used under a dnssec:false patch -> secure:false aggregation)
-const SIG_MULTI_DUPED   = Triauth.MultiSignature.generate(SIG_DESKTOP, SIG_DESKTOP);   // byte-identical duplicate segments -> rejected by the MultiSignature ctor (225)
+const SIG_MULTI_DUPED   = Triauth.MultiSignature.generate(SIG_DESKTOP, SIG_DESKTOP);   // byte-identical duplicate segments -> rejected by the MultiSignature ctor (invalid_signature)
 const SIG_MULTI_FIVE    = Triauth.MultiSignature.generate(SIG_DESKTOP, SIG_DESKTOP_2, await mint(john.devices[0].keys), await mint(john.devices[0].keys), await mint(john.devices[0].keys)); // exactly maxMultiSignatures=5 distinct segments
 const SIG_MULTI_MIXED   = Triauth.MultiSignature.generate(SIG_DESKTOP, SIG_ED25519_OK); // heterogeneous algorithms: john (es256) + ed25519 signer in one envelope
 
@@ -388,15 +388,15 @@ const SIG_BOGUS      = `|sign;${sigBody};;;AAAA|`;            // well-formed, cr
 const SIG_ONECHAR    = `|sign;${sigBody};;;A|`;              // 1-char crypto sig -> atob throws inside Ecdsa.verify -> caught -> failure
 const SIG_ELEVEN     = `|sign;${sigBody};;;AAAA;BBBB;CCCC;DDDD;EEEE;FFFF;GGGG;HHHH;IIII;JJJJ;KKKK|`; // 11 sigs > maxKeysPerSignature=10
 const SIG_SIX_SEGS   = '|' + Array.from({ length: 6 }, () => `sign;${sigBody};;;AAAA`).join('|') + '|'; // 6 segments > maxMultiSignatures=5
-const SIG_EMPTY_SEGS = '||||';                              // empty segments -> Signature length guard -> 225
+const SIG_EMPTY_SEGS = '||||';                              // empty segments -> Signature length guard -> invalid_signature
 const SIG_MULTI_BAD2 = Triauth.MultiSignature.generate(SIG_DESKTOP, SIG_BOGUS);  // seg1 valid (pushed), seg2 fails -> loop returns false
 
-// Length / envelope guards (MultiSignature ctor -> 225)
+// Length / envelope guards (MultiSignature ctor -> invalid_signature)
 const SIG_TOO_SHORT  = '|';                                 // length <= 3
 const SIG_UNWRAPPED  = 'abcd';                              // does not start/end with '|'
 const SIG_OVERSIZED  = '|' + 'a'.repeat(11000) + '|';       // byteSize > signatureBytesize (10KB)
 
-// Signature-envelope field-format rejections (Signature ctor -> 225). Each isolates one slot.
+// Signature-envelope field-format rejections (Signature ctor -> invalid_signature). Each isolates one slot.
 const SIG_BADVIA       = `|sign;john@triauthdemo.org;;-;v1;${T};;;AAAA|`;                       // via not a URL
 const SIG_NONASCII_VIA = `|sign;john@triauthdemo.org;;https://example.com/é;v1;${T};;;AAAA|`; // via not isNormalString
 const SIG_BADTYPE      = `|bogus;john@triauthdemo.org;;https://example.com/;v1;${T};;;AAAA|`;   // type not in VALID_TYPES
@@ -409,14 +409,14 @@ const SIG_BADSIGMETA   = `|sign;john@triauthdemo.org;;https://example.com/;v1;${
 const SIG_BADUNSIGNED  = `|sign;john@triauthdemo.org;;https://example.com/;v1;${T};;!!!;AAAA|`; // unsignedMetadata slot not base64url
 
 // Envelope identifier rejections — the Signature ctor runs Validator.validateIdentifier on slot 1,
-// so each malformed (but non-empty) identifier exercises one validateIdentifier branch -> 225.
-// (210 non-string and 211 empty are NOT reachable here: the slot is always a string, and an empty
+// so each malformed (but non-empty) identifier exercises one validateIdentifier branch -> invalid_signature.
+// (invalid_identifier/invalid non-string and invalid_identifier/empty empty are NOT reachable here: the slot is always a string, and an empty
 //  identifier is short-circuited by the `this.identifier && ...` guard before validateIdentifier.)
-const SIG_ID_LONG  = `|sign;${'a'.repeat(240)}@triauthdemo.org;;https://example.com/;v1;${T};;;AAAA|`; // byteSize>identifierBytesize -> 212
-const SIG_ID_UPPER = `|sign;John@triauthdemo.org;;https://example.com/;v1;${T};;;AAAA|`;               // uppercase -> 213
-const SIG_ID_WS    = `|sign;john doe@triauthdemo.org;;https://example.com/;v1;${T};;;AAAA|`;           // whitespace -> 210 (the /[\s\0]/ arm)
-const SIG_ID_USER  = `|sign;jo..hn@triauthdemo.org;;https://example.com/;v1;${T};;;AAAA|`;             // consecutive dots -> 215
-const SIG_ID_DOMAIN= `|sign;john@xn--example.org;;https://example.com/;v1;${T};;;AAAA|`;               // punycode domain -> 216
+const SIG_ID_LONG  = `|sign;${'a'.repeat(240)}@triauthdemo.org;;https://example.com/;v1;${T};;;AAAA|`; // byteSize>identifierBytesize -> invalid_identifier/too_long
+const SIG_ID_UPPER = `|sign;John@triauthdemo.org;;https://example.com/;v1;${T};;;AAAA|`;               // uppercase -> invalid_identifier/not_lowercase
+const SIG_ID_WS    = `|sign;john doe@triauthdemo.org;;https://example.com/;v1;${T};;;AAAA|`;           // whitespace -> invalid_identifier/invalid (the /[\s\0]/ arm)
+const SIG_ID_USER  = `|sign;jo..hn@triauthdemo.org;;https://example.com/;v1;${T};;;AAAA|`;             // consecutive dots -> invalid_identifier/invalid_username
+const SIG_ID_DOMAIN= `|sign;john@xn--example.org;;https://example.com/;v1;${T};;;AAAA|`;               // punycode domain -> invalid_identifier/invalid_domain
 
 // Envelope `via` handling — the Signature ctor runs Helpers.isCanonicalUrl on slot 3.
 // (A non-string / empty via is short-circuited before validateCallbackUrl, so those arms are not
@@ -425,10 +425,10 @@ const SIG_ID_DOMAIN= `|sign;john@xn--example.org;;https://example.com/;v1;${T};;
 //  carrying ';' can never arrive: the extra delimiter splits the envelope fields, so such input
 //  fails at the field-count layer, not here.)
 const SIG_VIA_HTTP = `|sign;john@triauthdemo.org;;http://example.com/;v1;${T};;;AAAA|`;                  // parses fine, bogus crypto -> invalid
-const SIG_VIA_IP6  = `|sign;john@triauthdemo.org;;https://[::1]/;v1;${T};;;AAAA|`;                       // bracketed IPv6 literal -> 221
-const SIG_VIA_CREDS= `|sign;john@triauthdemo.org;;https://u:p@example.com/;v1;${T};;;AAAA|`;             // userinfo present -> 221
-const SIG_VIA_HREF = `|sign;john@triauthdemo.org;;https://example.com;v1;${T};;;AAAA|`;                  // no path (one spelling per resource) -> 221
-const SIG_VIA_LONG = `|sign;john@triauthdemo.org;;https://example.com/${'a'.repeat(2048)};v1;${T};;;AAAA|`; // byteSize>urlBytesize(2048) -> 221
+const SIG_VIA_IP6  = `|sign;john@triauthdemo.org;;https://[::1]/;v1;${T};;;AAAA|`;                       // bracketed IPv6 literal -> invalid_callback_url
+const SIG_VIA_CREDS= `|sign;john@triauthdemo.org;;https://u:p@example.com/;v1;${T};;;AAAA|`;             // userinfo present -> invalid_callback_url
+const SIG_VIA_HREF = `|sign;john@triauthdemo.org;;https://example.com;v1;${T};;;AAAA|`;                  // no path (one spelling per resource) -> invalid_callback_url
+const SIG_VIA_LONG = `|sign;john@triauthdemo.org;;https://example.com/${'a'.repeat(2048)};v1;${T};;;AAAA|`; // byteSize>urlBytesize(2048) -> invalid_callback_url
 
 // --- DNS layout --------------------------------------------------------------------------------
 const dnsEntries = {
@@ -538,19 +538,19 @@ const v = (name, args, extra = {}) => ({ name, call: 'verify', args, ...extra })
 
 const tests = [
   // ===================================================================================
-  // Argument-shape guards (101) -> TriauthError(101) -> process -> {error:{code:101}}.
+  // Argument-shape guards (invalid_arguments) -> TriauthError(invalid_arguments) -> process -> {error:{code:invalid_arguments}}.
   // (These are the ONLY verify failures that surface as an {error} object; every other
-  //  failure below — parse 225 and verification false/null — returns {verified:true,valid:false}.)
+  //  failure below — parse invalid_signature and verification false/null — returns {verified:true,valid:false}.)
   // ===================================================================================
-  v('non-string message (number) returns 101', [123, SIG_DESKTOP]),
-  v('non-string signature (number) returns 101', [MSG, 123]),
-  v('non-object constraints (string) returns 101', [MSG, SIG_DESKTOP, 'not-an-object']),
-  v('null constraints returns 101 (hasOnlyKnownProperties null-guard)', [MSG, SIG_DESKTOP, null]),
-  v('array constraints returns 101 (hasOnlyKnownProperties Array.isArray-guard)', [MSG, SIG_DESKTOP, []]),
-  v('constraints with an unrecognized key returns 101', [MSG, SIG_DESKTOP, { bogus: 1 }]),
+  v('non-string message (number) returns invalid_arguments', [123, SIG_DESKTOP]),
+  v('non-string signature (number) returns invalid_arguments', [MSG, 123]),
+  v('non-object constraints (string) returns invalid_arguments', [MSG, SIG_DESKTOP, 'not-an-object']),
+  v('null constraints returns invalid_arguments (hasOnlyKnownProperties null-guard)', [MSG, SIG_DESKTOP, null]),
+  v('array constraints returns invalid_arguments (hasOnlyKnownProperties Array.isArray-guard)', [MSG, SIG_DESKTOP, []]),
+  v('constraints with an unrecognized key returns invalid_arguments', [MSG, SIG_DESKTOP, { bogus: 1 }]),
 
   // ===================================================================================
-  // MultiSignature / Signature parse failures (TriauthError 225, caught by verify's
+  // MultiSignature / Signature parse failures (TriauthError invalid_signature, caught by verify's
   // `code>=200` arm) -> {verified:true, valid:false}. Each isolates one envelope guard.
   // ===================================================================================
   v('signature too short (length <= 3) returns valid:false', [MSG, SIG_TOO_SHORT]),
@@ -588,7 +588,7 @@ const tests = [
   v('unsignedMetadata with the integer 2^53 ({"n":9007199254740992}) -> valid:false, the largest magnitude is 2^53-1', [MSG, SIG_POW53_UNSIGNED]),
   v('unsignedMetadata with the integer -2^53 ({"n":-9007199254740992}) -> valid:false, the bound applies to the magnitude', [MSG, SIG_NEGPOW53_UNSIGNED]),
   v('unsignedMetadata with the integers 2^53-1 and -(2^53-1) verifies and keeps both values exact', [MSG, SIG_SAFEBOUNDS_UNSIGNED]),
-  v('unsignedMetadata with the whole numbers spelled 1.0 and 1e2 verifies, and the values are the integers 1 and 100', [MSG, SIG_WHOLEFLOAT_UNSIGNED]),
+  v('unsignedMetadata with the whole numbers spelled 1.0 and 1e2 verifies, and the values are the integers 1 and internal_error', [MSG, SIG_WHOLEFLOAT_UNSIGNED]),
   v('unsignedMetadata with a fraction ({"n":1.5}) -> valid:false, a JSON number is a whole number', [MSG, SIG_FRACTION_UNSIGNED]),
   v('unsignedMetadata with the number 1e400 -> valid:false, it is beyond the largest IEEE double and JavaScript reads it as Infinity', [MSG, SIG_OVERFLOW_UNSIGNED]),
   v('unsignedMetadata with the bare word NaN ({"n":NaN}) -> valid:false, NaN is no JSON value', [MSG, SIG_NAN_UNSIGNED]),
@@ -604,13 +604,13 @@ const tests = [
 
   // ===================================================================================
   // Envelope identifier / via field validation (Signature ctor -> validateIdentifier /
-  // validateCallbackUrl -> 225). Each isolates one validator branch reachable from verify.
+  // validateCallbackUrl -> invalid_signature). Each isolates one validator branch reachable from verify.
   // ===================================================================================
-  v('envelope identifier exceeding identifierBytesize (>249) -> valid:false (validateIdentifier 212)', [MSG, SIG_ID_LONG]),
-  v('envelope identifier with uppercase -> valid:false (validateIdentifier 213)', [MSG, SIG_ID_UPPER]),
-  v('envelope identifier containing whitespace -> valid:false (validateIdentifier 210 /[\\s\\0]/ arm)', [MSG, SIG_ID_WS]),
-  v('envelope identifier with consecutive dots in the username -> valid:false (validateIdentifier 215)', [MSG, SIG_ID_USER]),
-  v('envelope identifier with a punycode domain -> valid:false (validateIdentifier 216)', [MSG, SIG_ID_DOMAIN]),
+  v('envelope identifier exceeding identifierBytesize (>249) -> valid:false (validateIdentifier invalid_identifier/too_long)', [MSG, SIG_ID_LONG]),
+  v('envelope identifier with uppercase -> valid:false (validateIdentifier invalid_identifier/not_lowercase)', [MSG, SIG_ID_UPPER]),
+  v('envelope identifier containing whitespace -> valid:false (validateIdentifier invalid_identifier/invalid /[\\s\\0]/ arm)', [MSG, SIG_ID_WS]),
+  v('envelope identifier with consecutive dots in the username -> valid:false (validateIdentifier invalid_identifier/invalid_username)', [MSG, SIG_ID_USER]),
+  v('envelope identifier with a punycode domain -> valid:false (validateIdentifier invalid_identifier/invalid_domain)', [MSG, SIG_ID_DOMAIN]),
   v('envelope via using http on a named host parses under the URL grammar; the bogus signature bytes then fail crypto -> valid:false with reason:invalid (the via format arm no longer rejects http)', [MSG, SIG_VIA_HTTP]),
   v('envelope via with a bracketed IPv6 literal (https://[::1]/) -> valid:false with reason:malformed (IPv6 literals stay outside the URL grammar)', [MSG, SIG_VIA_IP6]),
   v('envelope via carrying userinfo (user:pass@) -> valid:false (validateCallbackUrl credentials arm)', [MSG, SIG_VIA_CREDS]),
@@ -657,12 +657,12 @@ const tests = [
   // ===================================================================================
   // Identity resolution failures during verification.
   // (resolve()==false (NXDOMAIN/unconfigured) -> valid:false; resolve() THROWING (DNS SERVFAIL)
-  //  propagates out of signature.verify -> retryable {error:110}.)
+  //  propagates out of signature.verify -> retryable {error:dns_unavailable}.)
   // ===================================================================================
   v("identifier's identity records vanished (NXDOMAIN) -> valid:false", [MSG, SIG_DESKTOP], { dnsEntries: { 'john._at.triauthdemo.org': null } }),
   v("identifier's authentication endpoint is gone (NXDOMAIN) -> valid:false", [MSG, SIG_DESKTOP], { dnsEntries: { 'triauthdemo.org': null } }),
-  v('DNS SERVFAIL on the authentication endpoint propagates -> retryable {error:110}, not a false valid:false', [MSG, SIG_DESKTOP], { dnsEntries: { 'triauthdemo.org': { _error: 'SERVFAIL' } } }),
-  v('DNS SERVFAIL on the identity domain propagates -> retryable {error:110}, not a false valid:false', [MSG, SIG_DESKTOP], { dnsEntries: { 'john._at.triauthdemo.org': { _error: 'SERVFAIL' } } }),
+  v('DNS SERVFAIL on the authentication endpoint propagates -> retryable {error:dns_unavailable}, not a false valid:false', [MSG, SIG_DESKTOP], { dnsEntries: { 'triauthdemo.org': { _error: 'SERVFAIL' } } }),
+  v('DNS SERVFAIL on the identity domain propagates -> retryable {error:dns_unavailable}, not a false valid:false', [MSG, SIG_DESKTOP], { dnsEntries: { 'john._at.triauthdemo.org': { _error: 'SERVFAIL' } } }),
   v('domain not configured for triauth (no triauth TXT) -> valid:false', [MSG, SIG_UNCONF]),
   v('ambiguous endpoint (multiple triauth records) -> valid:false', [MSG, SIG_AMBIG]),
   v('unknown identifier under a configured domain (no identity records) -> valid:false (resolve length>0 false)', [MSG, SIG_GHOST]),
@@ -785,8 +785,8 @@ const tests = [
   v('minSignatures:2 (with maxSignatures:2) accepts a 2-segment multisig -> multisig success', [MSG, SIG_MULTI, { minSignatures: 2, maxSignatures: 2 }]),
   v('minSignatures:3 (with maxSignatures:5) rejects a 2-segment multisig -> valid:false (below the floor)', [MSG, SIG_MULTI, { minSignatures: 3, maxSignatures: 5 }]),
   v('SECURITY: minSignatures alone does NOT relax the single-signature default - {minSignatures:2} on a 2-segment envelope still rejects because maxSignatures defaults to 1 -> valid:false', [MSG, SIG_MULTI, { minSignatures: 2 }]),
-  v('non-numeric maxSignatures is a caller argument error -> {error:101} (rejected before any cryptographic work)', [MSG, SIG_DESKTOP, { maxSignatures: '1' }]),
-  v('SECURITY: byte-identical duplicate segments are rejected outright (MultiSignature ctor 225) -> valid:false - a single signature replayed to pad the segment count', [MSG, SIG_MULTI_DUPED]),
+  v('non-numeric maxSignatures is a caller argument error -> {error:invalid_arguments} (rejected before any cryptographic work)', [MSG, SIG_DESKTOP, { maxSignatures: '1' }]),
+  v('SECURITY: byte-identical duplicate segments are rejected outright (MultiSignature ctor invalid_signature) -> valid:false - a single signature replayed to pad the segment count', [MSG, SIG_MULTI_DUPED]),
   v('SECURITY: minSignatures counts segments, NOT distinct signers - a same-signer-twice envelope (fresh signatures) satisfies minSignatures:2 (with maxSignatures:2); require distinctness via signatures[].identifier/deviceTag', [MSG, SIG_MULTI_SAME2, { minSignatures: 2, maxSignatures: 2 }]),
 
   // --- Multi-signature fail-safe aggregation ----------------------------------------------------
@@ -903,7 +903,7 @@ const tests = [
     } }),
   // requireSecure: per-call config; the non-DNSSEC twin patches the key record to dnssec:false.
   v('requireSecure: verify - a DNSSEC-secure key chain still verifies when requireSecure:true (config, 4th positional)', [MSG, SIG_DESKTOP, {}, { requireSecure: true }]),
-  v('SECURITY requireSecure: verify - a non-DNSSEC (secure:false) key chain is rejected with 404 as {error}, not valid:false', [MSG, SIG_DESKTOP, {}, { requireSecure: true }], { dnsEntries: johnKeyRecord('', { ttl: 1800, dnssec: false }) }),
+  v('SECURITY requireSecure: verify - a non-DNSSEC (secure:false) key chain is rejected with dnssec_required as {error}, not valid:false', [MSG, SIG_DESKTOP, {}, { requireSecure: true }], { dnsEntries: johnKeyRecord('', { ttl: 1800, dnssec: false }) }),
 
   // GROUPS: the membership list surfaced on verify results, and the resolution-level secure
   // semantics it rides on (per-test dnsEntries publish the groups records; envelopes are the
@@ -1014,13 +1014,13 @@ const suite = {
     'Comprehensive, branch-complete coverage of Triauth.verify(message, signature, constraints?, config?). ' +
     'verify takes a raw signature envelope directly and runs MultiSignature -> Signature -> Identity.resolve ' +
     '-> IdentityKeys.verify -> Verifiers, with no challenge/response, attachment, or callbackUrl machinery. ' +
-    'Covered: the argument-shape guards (101) and the DNS-failure path (110) — the only {error} bodies; every other failure is ' +
+    'Covered: the argument-shape guards (invalid_arguments) and the DNS-failure path (dns_unavailable) — the only {error} bodies; every other failure is ' +
     '{verified:true,valid:false}; MultiSignature/Signature envelope parse failures and metadata-parse ' +
     'rejections (caught by verify’s code>=200 arm); constraint-driven failures (type/identifier/ver/via ' +
     'mismatch -> false, out-of-window notBefore/notAfter -> null); generic crypto failures (bogus bytes, ' +
     'atob-throw, message<->signature binding, use-mismatch, partial multi-key, too many signatures); identity ' +
     'resolution failures (NXDOMAIN/unconfigured/ambiguous/unknown-identifier/unknown-mode errors -> valid:false; ' +
-    'DNS SERVFAIL propagates as a retryable 110); the IdentityKeys add/verify taint & skip branches; the WebAuthn verifier ' +
+    'DNS SERVFAIL propagates as a retryable dns_unavailable); the IdentityKeys add/verify taint & skip branches; the WebAuthn verifier ' +
     '(type=webauthn-es256) success plus every structure/clientData guard and the import-failure path; ' +
     'the Ed25519 (type=ed25519) and WebAuthn-Ed25519 (type=webauthn-ed25519) verifier backends, including ' +
     'a heterogeneous es256+ed25519 multisig; ' +
@@ -1032,7 +1032,7 @@ const suite = {
     'valid,secure,expires,signatures}), which verify accepts only when the caller raises maxSignatures ' +
     '(which defaults to 1) — by default, and when only minSignatures is given, a multi-segment envelope ' +
     'is rejected as valid:false under verify\'s secure-by-default single-signature policy. A final EMERGENT-SECURITY / REGRESSION-GUARD section pins ' +
-    'invariants that a refactor could break while keeping 100% branch coverage: cryptographic binding ' +
+    'invariants that a refactor could break while keeping internal_error% branch coverage: cryptographic binding ' +
     'of every signed envelope field (tampering type/identifier/via/ts/signedMetadata on an otherwise-' +
     'valid signature flips valid->false; identifier binding is isolated from key identity via a twin ' +
     'that republishes john\'s exact key); message opacity (a delimiter-laden message cannot be smuggled ' +

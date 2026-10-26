@@ -173,8 +173,8 @@ export default function() { describe('Triauth.Signature', () => {
 
   describe('Triauth.Signature constructor', () => {
 
-    it('throws (code 225) when raw data contains extra pipe delimiters', () => {
-      assert.throws(() => new Triauth.Signature('|a|b|'), (err) => err.code === 225);
+    it('throws (code invalid_signature) when raw data contains extra pipe delimiters', () => {
+      assert.throws(() => new Triauth.Signature('|a|b|'), (err) => err.code === 'invalid_signature');
     });
 
   });
@@ -192,16 +192,16 @@ export default function() { describe('Triauth.Signature', () => {
       assert.strictEqual(result, false);
     });
 
-    it('rejects with TriauthError 110 when DNS resolution throws (propagated, not swallowed into false)', async () => {
+    it('rejects with TriauthError dns_unavailable when DNS resolution throws (propagated, not swallowed into false)', async () => {
       const signerStub = await SignerStub.fromJWK(identityFixture.devices[0].keys[0].private);
       const sig = await Triauth.Signature.generate(
         async (p) => signerStub.sign(p), 'auth', 'a@dnssec-failed.org', '', via, message
       );
       // No custom resolver: the suite's zone resolver publishes dnssec-failed.org as a resolution
       // failure, exactly as a validating resolver reports it. The rejection must propagate so API
-      // methods can surface a retryable {error:110} instead of a false "signature invalid" verdict.
+      // methods can surface a retryable {error:dns_unavailable} instead of a false "signature invalid" verdict.
       const sigObj = new Triauth.Signature(sig);
-      await assert.rejects(sigObj.verify(message), (err) => err instanceof Triauth.Error && err.code === 110);
+      await assert.rejects(sigObj.verify(message), (err) => err instanceof Triauth.Error && err.code === 'dns_unavailable');
     });
 
   });
@@ -229,20 +229,20 @@ export default function() { describe('Triauth.Signature', () => {
     });
 
     it('fails closed (returns false) when a signature-count bound is non-numeric', async () => {
-      // The primitive defends itself even though Triauth.verify now rejects non-numeric bounds with 101
+      // The primitive defends itself even though Triauth.verify now rejects non-numeric bounds with invalid_arguments
       // before delegating here; Response.verify (the challenge-response flows) reaches this guard directly.
       const sig = await buildSig();
       const ms = new Triauth.MultiSignature(Triauth.MultiSignature.generate(sig), {resolver: dnsResolver});
       assert.strictEqual(await ms.verify(message, {maxSignatures: '1'}), false);
     });
 
-    it('rejects byte-identical duplicate segments at parse time (225), while distinct segments of the same identity parse fine', async () => {
+    it('rejects byte-identical duplicate segments at parse time (invalid_signature), while distinct segments of the same identity parse fine', async () => {
       const sig = await buildSig();
 
       // A single signature replayed to pad the segment count is never legitimate
       assert.throws(
         () => new Triauth.MultiSignature(Triauth.MultiSignature.generate(sig, sig), {resolver: dnsResolver}),
-        (err) => err instanceof Triauth.Error && err.code === 225
+        (err) => err instanceof Triauth.Error && err.code === 'invalid_signature'
       );
 
       // Two signatures by two devices of the same identity differ in bytes on every runtime and parse fine

@@ -89,7 +89,7 @@ describe('Identity API', () => {
       const identifiers = ['a@dnssec-failed.org'];
       for (const identifier of identifiers) {
         const whoisRes = (await Triauth.whois({identifier}));
-        assert.equal(whoisRes.error.code, 110);
+        assert.equal(whoisRes.error.code, 'dns_unavailable');
       }
     });
 

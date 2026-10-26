@@ -70,7 +70,7 @@ export class Base {
    * @returns {Promise.<Array.<{key:string, value:string, options:object, ttl:(number|undefined), dnssec:(boolean|undefined)}>>}
    *          A promise that resolves to the array of configuration entries/objects, as read from DNS, each in form of {key, value, options, ttl, dnssec}.
    *
-   * @throws {TriauthError} code 110 when the underlying DNS query fails - intentionally propagated so that
+   * @throws {TriauthError} `dns_unavailable` when the underlying DNS query fails - intentionally propagated so that
    *                        API methods report a retryable error instead of treating the name as unconfigured.
    */
   async resolveConfig(domainName, config={}) {
@@ -86,7 +86,7 @@ export class Base {
 
     } catch (err) {
       config.logger?.debug?.(`DNS name resolution failed for ${domainName}`, {cause:err});
-      throw new TriauthError(110, 'DNS resolution failed, try again later');
+      throw new TriauthError({code: 'dns_unavailable', message: 'DNS resolution failed, try again later'});
     }
 
     // A record is its key, a blank run, and a rest with no line terminator. An option is a whole

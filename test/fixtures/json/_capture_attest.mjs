@@ -159,18 +159,18 @@ const CH_EDATT      = mkChallenge({ attest: ATT_EDCHECK });                     
 const CH_WAED       = mkChallenge({ identifier: 'webauthn-ed25519@triauthdemo.org', attest: ATT_EMPTY });
 const CH_AUTHTYPE   = mkChallenge({ type: 'auth' });                 // type mismatch vs attest flow
 const CH_SIGNTYPE   = mkChallenge({ type: 'sign' });                 // type mismatch vs attest flow
-const CH_BADID     = mkChallenge({ identifier: 'no-at-sign.example' });    // valid JSON, malformed identifier -> Identity ctor throws -> 223
+const CH_BADID     = mkChallenge({ identifier: 'no-at-sign.example' });    // valid JSON, malformed identifier -> Identity ctor throws -> invalid_challenge
 // BOM-prefixed canonical challenge: EF BB BF + the CH_EMPTY bytes. Decodes to valid JSON only if
-// the decoder strips the BOM — which it must not (223; canonical-encoding guarantee for ports).
+// the decoder strips the BOM — which it must not (invalid_challenge; canonical-encoding guarantee for ports).
 const CH_BOM = Triauth.Helpers.arrayBufferToBase64Url(Uint8Array.from([0xEF, 0xBB, 0xBF, ...Triauth.Helpers.base64UrlToUint8(CH_EMPTY)]));
-const CH_BADCBURL   = mkChallenge({ cburl: 'not-a-url' });           // embedded cburl not a valid URL -> onResponse validateCallbackUrl fails -> 401
+const CH_BADCBURL   = mkChallenge({ cburl: 'not-a-url' });           // embedded cburl not a valid URL -> onResponse validateCallbackUrl fails -> verification_failed
 const CH_PAST       = mkChallenge({ iat: 1700000000000 });           // far before notBefore
 const CH_FUTURE     = mkChallenge({ iat: 1800000000000 });           // after notAfter (== T)
 const CH_JUST_EXP   = mkChallenge({ iat: T - (15 * 60e3) - 1 });     // 1ms past attestTimeout (15min) -> expired
 const CH_14MIN      = mkChallenge({ iat: T - (14 * 60e3) });         // 14min old: still inside attest's 15min window
-const CH_IAT_NAN    = mkChallenge({ iat: 'not-a-number' });          // non-numeric iat -> Response.verify typeof-guard -> 402
-const CH_NOATTEST   = mkChallenge({ includeAttest: false });         // challenge has no attest field -> onResponse validateAttestations(undefined) -> 229
-const CH_ATTEST_ARR = mkChallenge({ attest: ['not', 'an', 'object'] }); // attest is an array -> onResponse validateAttestations -> 229
+const CH_IAT_NAN    = mkChallenge({ iat: 'not-a-number' });          // non-numeric iat -> Response.verify typeof-guard -> request_expired
+const CH_NOATTEST   = mkChallenge({ includeAttest: false });         // challenge has no attest field -> onResponse validateAttestations(undefined) -> invalid_attestations
+const CH_ATTEST_ARR = mkChallenge({ attest: ['not', 'an', 'object'] }); // attest is an array -> onResponse validateAttestations -> invalid_attestations
 
 // Security/regression challenges. Each differs from CH in exactly ONE field that is part of the
 // signed payload (sha256(challengeString)), so a response minted for CH must FAIL against it — pinning
@@ -180,12 +180,12 @@ const CH_DIFF_NONCE = mkChallenge({ nonce: 'DiFfErEnTnOnCe0000000000' });   // d
 const CH_DIFF_IAT   = mkChallenge({ iat: T - 60e3 });                       // differs only in iat (still INSIDE the 15min window)
 const CH_SIBLING    = mkChallenge({ cburl: 'https://example.com/other' });  // sibling callback: getBaseUrl == VIA, so the via-check would pass
 // Relabel: a DIFFERENT attestation id ('is-human') under the SAME provider (robot.via). RESP_OK's
-// attester (robot) WOULD satisfy the is-human matching if its crypto verified — so the 401 is purely
+// attester (robot) WOULD satisfy the is-human matching if its crypto verified — so the verification_failed is purely
 // the challenge binding, not the matching loop (proven empirically). A regression that dropped the
 // attest map from the signed payload would let this relabel attack succeed; this guard catches it.
 const CH_RELABEL    = mkChallenge({ attest: { 'is-human': { label: 'I am human', providers: [ROBOT_VIA] } } });
 // attest map carrying a literal __proto__ key (own property via JSON.parse). safeParseJson rejects it
-// when Challenge.fromString re-hydrates the challenge in Stage 3 -> 223, before onResponse runs.
+// when Challenge.fromString re-hydrates the challenge in Stage 3 -> invalid_challenge, before onResponse runs.
 const CH_PROTO_ATTEST = mkChallenge({ attest: JSON.parse('{"__proto__":{"label":"evil","providers":["https://triauthdemo.org/evil"]}}') });
 
 // --- signature minting helpers --------------------------------------------------------
@@ -275,16 +275,16 @@ const RESP_ED25519U    = await mintResponse(CH_ED25519U, { user: { keys: ed25519
                             attesters: [{ keys: robot.devices[0].keys, identifier: robot.identifier, via: ROBOT_VIA }] }); // ed25519 USER + es256 attester
 const RESP_EDATT       = await mintResponse(CH_EDATT,    { attesters: [{ keys: ed25519.keys, identifier: EDATT_ID, via: EDCHECK_VIA }] }); // es256 user + ed25519 ATTESTER
 
-// ATTEST-DISTINCT negatives (the user sig verifies; the attester match or a mainSig check fails -> 401)
-const RESP_MISSING_ATT = await mintResponse(CH);                                            // user-only against a 1-attestation challenge -> unmatched -> 401
-const RESP_VIA_NOTPROV = await mintResponse(CH,          { attesters: [{ keys: robot.devices[0].keys, identifier: robot.identifier, via: AGE_VIA }] }); // attester via not in providers -> 401
-const RESP_HOSTMIS     = await mintResponse(CH_HOSTMIS,  { attesters: [{ keys: robot.devices[0].keys, identifier: robot.identifier, via: 'https://example.com/not-a-robot' }] }); // attester domain != via hostname -> 401
-const RESP_ID_MIS      = await mintResponse(CH,          { attesters: [{ keys: robot.devices[0].keys, identifier: robot.identifier, via: ROBOT_VIA, signedMetadata: { bind: { identifier: 'someone-else@example.com' } } }] }); // identifier binder mismatch -> 401
-const RESP_VIA_MIS     = await mintResponse(CH,          { attesters: [{ keys: robot.devices[0].keys, identifier: robot.identifier, via: ROBOT_VIA, signedMetadata: { bind: { via: 'https://wrong.example/' } } }] });   // via binder mismatch -> 401
-const RESP_TAG_MIS     = await mintResponse(CH,          { attesters: [{ keys: robot.devices[0].keys, identifier: robot.identifier, via: ROBOT_VIA, signedMetadata: { bind: { deviceTag: 'not-the-users-device-tag' } } }] });  // deviceTag binder mismatch -> 401
+// ATTEST-DISTINCT negatives (the user sig verifies; the attester match or a mainSig check fails -> verification_failed)
+const RESP_MISSING_ATT = await mintResponse(CH);                                            // user-only against a 1-attestation challenge -> unmatched -> verification_failed
+const RESP_VIA_NOTPROV = await mintResponse(CH,          { attesters: [{ keys: robot.devices[0].keys, identifier: robot.identifier, via: AGE_VIA }] }); // attester via not in providers -> verification_failed
+const RESP_HOSTMIS     = await mintResponse(CH_HOSTMIS,  { attesters: [{ keys: robot.devices[0].keys, identifier: robot.identifier, via: 'https://example.com/not-a-robot' }] }); // attester domain != via hostname -> verification_failed
+const RESP_ID_MIS      = await mintResponse(CH,          { attesters: [{ keys: robot.devices[0].keys, identifier: robot.identifier, via: ROBOT_VIA, signedMetadata: { bind: { identifier: 'someone-else@example.com' } } }] }); // identifier binder mismatch -> verification_failed
+const RESP_VIA_MIS     = await mintResponse(CH,          { attesters: [{ keys: robot.devices[0].keys, identifier: robot.identifier, via: ROBOT_VIA, signedMetadata: { bind: { via: 'https://wrong.example/' } } }] });   // via binder mismatch -> verification_failed
+const RESP_TAG_MIS     = await mintResponse(CH,          { attesters: [{ keys: robot.devices[0].keys, identifier: robot.identifier, via: ROBOT_VIA, signedMetadata: { bind: { deviceTag: 'not-the-users-device-tag' } } }] });  // deviceTag binder mismatch -> verification_failed
 // Fail-closed binder grammar: an unrecognized binder inside `bind`, a malformed `bind` (empty /
 // array / non-string value), or a binder false of the verified user rejects the whole envelope
-// (401) — on any segment. Top-level members stay auxiliary: an unrecognized one, regardless of
+// (verification_failed) — on any segment. Top-level members stay auxiliary: an unrecognized one, regardless of
 // name or value, is ignored (the extensibility half of the rule).
 const RESP_BIND_UNKNOWN = await mintResponse(CH,         { attesters: [{ keys: robot.devices[0].keys, identifier: robot.identifier, via: ROBOT_VIA, signedMetadata: { bind: { audience: 'https://somewhere.example/' } } }] });
 const RESP_BIND_EMPTY   = await mintResponse(CH,         { attesters: [{ keys: robot.devices[0].keys, identifier: robot.identifier, via: ROBOT_VIA, signedMetadata: { bind: {} } }] });
@@ -301,40 +301,40 @@ const RESP_BIND_ON_USER_MIS = await mintResponse(CH,     { user: { signedMetadat
 const RESP_BIND_STRAY   = await mintResponse(CH_MULTI,   { attesters: [
                             { keys: robot.devices[0].keys, identifier: robot.identifier, via: ROBOT_VIA },
                             { keys: robot.devices[0].keys, identifier: robot.identifier, via: ROBOT_VIA, signedMetadata: { bind: { identifier: 'someone-else@example.com' } } } ] });
-const RESP_VIA_ATTACK  = await mintResponse(CH_EMPTY,    { user: { via: 'https://attacker.example/' } }); // mainSig.via != getBaseUrl(cburl) -> 401 (check B, 2nd clause)
-const RESP_BADCBURL    = await mintResponse(CH_BADCBURL, { user: { via: VIA } });           // challenge cburl invalid -> 401 (check B, 1st clause)
-const RESP_WRONGID     = await mintResponse(CH_EMPTY,    { user: { keys: jane.keys, identifier: jane.identifier } }); // mainSig.identifier != challenge.identifier -> 401 (check A)
+const RESP_VIA_ATTACK  = await mintResponse(CH_EMPTY,    { user: { via: 'https://attacker.example/' } }); // mainSig.via != getBaseUrl(cburl) -> verification_failed (check B, 2nd clause)
+const RESP_BADCBURL    = await mintResponse(CH_BADCBURL, { user: { via: VIA } });           // challenge cburl invalid -> verification_failed (check B, 1st clause)
+const RESP_WRONGID     = await mintResponse(CH_EMPTY,    { user: { keys: jane.keys, identifier: jane.identifier } }); // mainSig.identifier != challenge.identifier -> verification_failed (check A)
 
 // Delegated segments (actor slot set; the delegation walk runs at verify time, driven by per-test include grants):
 // jane's key signs the USER segment on john's behalf; and, separately, an ATTESTER segment on robot's behalf.
 const RESP_DELEGATED_USER     = await mintResponse(CH, { user: { keys: jane.keys, actor: jane.identifier },
                                                          attesters: [{ keys: robot.devices[0].keys, identifier: robot.identifier, via: ROBOT_VIA }] });
 const RESP_DELEGATED_ATTESTER = await mintResponse(CH, { attesters: [{ keys: jane.keys, identifier: robot.identifier, actor: jane.identifier, via: ROBOT_VIA }] });
-const RESP_BADKEY      = await mintResponse(CH_EMPTY,    { user: { keys: jane.keys, identifier: ID } });   // signed with jane's key under john's id -> crypto fails -> 401
-const RESP_AUTHONLY    = await mintResponse(CH_AUTHONLY, { user: { identifier: 'authonly@triauthdemo.org' } }); // key use=auth blocks attest -> 401
-const RESP_USERTYPE    = await mintResponse(CH_EMPTY,    { user: { type: 'auth' } });        // user segment type=auth != attest constraint -> 401
-const RESP_LAPTOP_PART = await mintResponse(CH_EMPTY,    { user: { keys: [john.devices[1].keys[0]] } }); // only laptop key 1 of 2 signs -> group never fully satisfied -> 401
+const RESP_BADKEY      = await mintResponse(CH_EMPTY,    { user: { keys: jane.keys, identifier: ID } });   // signed with jane's key under john's id -> crypto fails -> verification_failed
+const RESP_AUTHONLY    = await mintResponse(CH_AUTHONLY, { user: { identifier: 'authonly@triauthdemo.org' } }); // key use=auth blocks attest -> verification_failed
+const RESP_USERTYPE    = await mintResponse(CH_EMPTY,    { user: { type: 'auth' } });        // user segment type=auth != attest constraint -> verification_failed
+const RESP_LAPTOP_PART = await mintResponse(CH_EMPTY,    { user: { keys: [john.devices[1].keys[0]] } }); // only laptop key 1 of 2 signs -> group never fully satisfied -> verification_failed
 
 // Security/regression responses (all minted over their challenge's payload, so the ONLY thing wrong
 // is the property under test).
 // Segment-order: attester in slot 0, user in slot 1. Both verify cryptographically, but mainSig =
-// signatures[0] = the attester, whose identifier != challenge.identifier -> 401 (the user-must-be-first invariant).
+// signatures[0] = the attester, whose identifier != challenge.identifier -> verification_failed (the user-must-be-first invariant).
 const RESP_SWAPPED = Triauth.MultiSignature.generate(
   await mintAttesterSig(payloadCH, { keys: robot.devices[0].keys, identifier: robot.identifier, via: ROBOT_VIA }),
   await mintUserSig(payloadCH),
 );
 // Partial: a 2-attestation challenge (not-a-robot -> robot, over-18 -> age) satisfied by ONLY the robot
-// attester -> over-18 stays unmatched -> 401 (all-or-nothing).
+// attester -> over-18 stays unmatched -> verification_failed (all-or-nothing).
 const RESP_TWO_PARTIAL = await mintResponse(CH_TWO, { attesters: [{ keys: robot.devices[0].keys, identifier: robot.identifier, via: ROBOT_VIA }] });
 // Over-supply: a 1-attestation challenge (maxSignatures = 2) answered with user + TWO attesters (3 sigs)
-// -> MultiSignature count guard -> 401 (cannot pad the envelope past requested + 1).
+// -> MultiSignature count guard -> verification_failed (cannot pad the envelope past requested + 1).
 const RESP_OVERSUPPLY = await mintResponse(CH, { attesters: [
   { keys: robot.devices[0].keys, identifier: robot.identifier, via: ROBOT_VIA },
   { keys: age.devices[0].keys,   identifier: age.identifier,   via: AGE_VIA } ] });
 
 // A real user segment (valid crypto over payloadCH) paired with an attester segment carrying bogus
 // crypto (a structurally valid attest envelope whose AAAA sig can never verify against robot's key)
-// -> the whole multisig fails at the attester segment, before the matching loop -> 401.
+// -> the whole multisig fails at the attester segment, before the matching loop -> verification_failed.
 const RESP_ATT_BADCRYPTO = (() => {
   const userSeg = RESP_OK.slice(1).split('|')[0];                                  // user segment body (no wrappers)
   const bogusAttester = `attest;${robot.identifier};;${ROBOT_VIA};v1;${T};;;AAAA`;
@@ -358,36 +358,36 @@ const RESP_PROTO_UNSIGNED   = await mintUnsignedSwap(payloadEmpty, { constructor
 const RESP_RAWBIN_UNSIGNED  = await mintRawUnsigned(payloadEmpty, 'AAECAwQFBgcICQoLDA0ODw'); // raw 0x00..0x0F
 const RESP_DEEP_UNSIGNED    = await mintUnsignedSwap(payloadEmpty, {a:{b:{c:{d:{e:{f:{g:{h:{}}}}}}}}}); // depth 9 > 8
 const RESP_LONGKEY_UNSIGNED = await mintUnsignedSwap(payloadEmpty, {['a'.repeat(257)]: 1});
-const RESP_NONASCII_UNSIGNED= await mintRawUnsigned(payloadEmpty, 'eyJy6XN1bekiOjF9'); // {"r<0xE9>sum<0xE9>":1} — raw Latin-1 é: ill-formed UTF-8, refused at decode -> 225
-const RESP_BADUTF8_VALUE_UNSIGNED = await mintRawUnsigned(payloadEmpty, 'eyJleHQiOnsiYSI6IukifX0'); // {"ext":{"a":"<0xE9>"}} — raw Latin-1 é inside a string VALUE: ill-formed UTF-8, refused at decode -> 225
-const RESP_EKEY_UNSIGNED    = await mintRawUnsigned(payloadEmpty, 'eyJyw6lzdW3DqSI6MX0'); // {"résumé":1} as proper C3 A9 UTF-8 — decodes fine; the Bounded-JSON ASCII-key rule rejects -> 225
-const RESP_SURROGATE_KEY_UNSIGNED = await mintRawUnsigned(payloadEmpty, 'eyJ4XHVkODAweSI6MX0'); // {"x\ud800y":1} — a lone-surrogate JSON ESCAPE in a key; every parser behavior converges on 225 (preserve -> non-ASCII key, substitute U+FFFD -> likewise, reject -> parse failure)
+const RESP_NONASCII_UNSIGNED= await mintRawUnsigned(payloadEmpty, 'eyJy6XN1bekiOjF9'); // {"r<0xE9>sum<0xE9>":1} — raw Latin-1 é: ill-formed UTF-8, refused at decode -> invalid_signature
+const RESP_BADUTF8_VALUE_UNSIGNED = await mintRawUnsigned(payloadEmpty, 'eyJleHQiOnsiYSI6IukifX0'); // {"ext":{"a":"<0xE9>"}} — raw Latin-1 é inside a string VALUE: ill-formed UTF-8, refused at decode -> invalid_signature
+const RESP_EKEY_UNSIGNED    = await mintRawUnsigned(payloadEmpty, 'eyJyw6lzdW3DqSI6MX0'); // {"résumé":1} as proper C3 A9 UTF-8 — decodes fine; the Bounded-JSON ASCII-key rule rejects -> invalid_signature
+const RESP_SURROGATE_KEY_UNSIGNED = await mintRawUnsigned(payloadEmpty, 'eyJ4XHVkODAweSI6MX0'); // {"x\ud800y":1} — a lone-surrogate JSON ESCAPE in a key; every parser behavior converges on invalid_signature (preserve -> non-ASCII key, substitute U+FFFD -> likewise, reject -> parse failure)
 const RESP_NULLVALUE_UNSIGNED = await mintUnsignedSwap(payloadEmpty, {ok: null}); // valid -> success
 
 // --- hand-written (no valid crypto needed) responses ----------------------------------
 // A bogus attest envelope that is syntactically valid (passes validateResponse + Signature parse)
-// but whose AAAA "signature" can never verify against John's real key -> generic 401.
+// but whose AAAA "signature" can never verify against John's real key -> generic verification_failed.
 const RESP_BOGUS = `|attest;${ID};;${VIA};v1;${T};;;AAAA|`;
-// Well-formed SIGN/AUTH-typed envelopes; the attest flow's type constraint rejects them before crypto -> 401.
+// Well-formed SIGN/AUTH-typed envelopes; the attest flow's type constraint rejects them before crypto -> verification_failed.
 const RESP_SIGN_TYPED = `|sign;${ID};;${VIA};v1;${T};;;AAAA|`;
 const RESP_AUTH_TYPED = `|auth;${ID};;${VIA};v1;${T};;;AAAA|`;
-// Three stacked attest segments against an empty-attestation challenge -> exceeds maxSignatures=1 -> 401.
+// Three stacked attest segments against an empty-attestation challenge -> exceeds maxSignatures=1 -> verification_failed.
 const RESP_EMPTY_TWO = Triauth.MultiSignature.generate(
   await mintUserSig(payloadEmpty),
   await mintAttesterSig(payloadEmpty, { keys: robot.devices[0].keys, identifier: robot.identifier, via: ROBOT_VIA }),
 );
 // 11 crypto signatures inside ONE segment -> trips IdentityKeys.verify's maxKeysPerSignature=10 guard.
 const RESP_ELEVEN_SIGS = `|attest;${ID};;${VIA};v1;${T};;;AAAA;BBBB;CCCC;DDDD;EEEE;FFFF;GGGG;HHHH;IIII;JJJJ;KKKK|`;
-// 6 signature segments -> trips MultiSignature's maxMultiSignatures=5 guard (in the constructor) -> 225.
+// 6 signature segments -> trips MultiSignature's maxMultiSignatures=5 guard (in the constructor) -> invalid_signature.
 const RESP_SIX_SEGMENTS = '|' + Array.from({ length: 6 }, () => `attest;${ID};;${VIA};v1;${T};;;AAAA`).join('|') + '|';
-// Fresh challenge (iat in window) but the SIGNATURE's own ts is outside the widened window -> 402
+// Fresh challenge (iat in window) but the SIGNATURE's own ts is outside the widened window -> request_expired
 // (Signature.verify ts check, distinct from Response.verify's challenge.iat check). Crypto unreached.
 const RESP_TS_PAST   = `|attest;${ID};;${VIA};v1;1700000000000;;;AAAA|`;
 const RESP_TS_FUTURE = `|attest;${ID};;${VIA};v1;1800000000000;;;AAAA|`;
 // A single-character crypto signature: passes the base64url guards, but atob() of a 1-char string
-// throws inside the ECDSA verifier's base64UrlToUint8 -> caught by Ecdsa.verify's try/catch -> 401.
+// throws inside the ECDSA verifier's base64UrlToUint8 -> caught by Ecdsa.verify's try/catch -> verification_failed.
 const RESP_ONECHAR_SIG = `|attest;${ID};;${VIA};v1;${T};;;A|`;
-// Signature-envelope field-format rejections (Signature constructor -> 225). Each isolates one slot.
+// Signature-envelope field-format rejections (Signature constructor -> invalid_signature). Each isolates one slot.
 const RESP_BADVIA      = `|attest;${ID};;-;v1;${T};;;AAAA|`;                       // via not a URL
 const RESP_NONASCII_VIA= `|attest;${ID};;https://example.com/é;v1;${T};;;AAAA|`;   // via not isNormalString
 const RESP_BADTYPE     = `|bogus;${ID};;${VIA};v1;${T};;;AAAA|`;                   // type not in VALID_TYPES
@@ -397,7 +397,7 @@ const RESP_BADTS       = `|attest;${ID};;${VIA};v1;0;;;AAAA|`;                  
 const RESP_NOSIG       = `|attest;${ID};;${VIA};v1;${T};;;|`;                      // no crypto signature segment
 const RESP_BADSIGB64   = `|attest;${ID};;${VIA};v1;${T};;;AA!A|`;                  // crypto sig not base64url
 const RESP_BADSIGMETA  = `|attest;${ID};;${VIA};v1;${T};!!!;;AAAA|`;               // signedMetadata slot not base64url
-const RESP_EMPTY_SEGS  = '||||';                                                 // empty segments -> Signature length guard -> 225
+const RESP_EMPTY_SEGS  = '||||';                                                 // empty segments -> Signature length guard -> invalid_signature
 
 // --- WebAuthn (key type=webauthn-es256) responses -------------------------------------
 // Reached when the matched device key has type=webauthn-es256. The envelope's crypto signature is
@@ -435,7 +435,7 @@ const mkWebAuthn = async ({
 };
 
 const RESP_WA_OK        = await mkWebAuthn();                                                                // valid assertion -> success
-const RESP_WA_BADSIG    = await mkWebAuthn({ sign: false });                                                 // structure/clientData valid, crypto false -> 401
+const RESP_WA_BADSIG    = await mkWebAuthn({ sign: false });                                                 // structure/clientData valid, crypto false -> verification_failed
 const RESP_WA_NOSIG     = await mkWebAuthn({ sign: false, unsigned: {} });                                   // no sig object
 const RESP_WA_NOIDX     = await mkWebAuthn({ sign: false, unsigned: { sig: {} } });                          // no sig[idx]
 const RESP_WA_CDJ_NOSTR = await mkWebAuthn({ sign: false, unsigned: { sig: { '0': { clientDataJSON: 123, authenticatorData: WA_AUTHDATA } } } }); // clientDataJSON not a string
@@ -455,8 +455,8 @@ const waAuthData = (flagsByte, length = 37) => {
   if (length > 32) bytes[32] = flagsByte;
   return Triauth.Helpers.arrayBufferToBase64Url(bytes);
 };
-const RESP_WA_NOUP  = await mkWebAuthn({ authenticatorData: waAuthData(0x00) });     // signed, UP flag cleared -> 401
-const RESP_WA_SHORT = await mkWebAuthn({ authenticatorData: waAuthData(0x01, 36) }); // signed, 36-byte authenticatorData -> 401
+const RESP_WA_NOUP  = await mkWebAuthn({ authenticatorData: waAuthData(0x00) });     // signed, UP flag cleared -> verification_failed
+const RESP_WA_SHORT = await mkWebAuthn({ authenticatorData: waAuthData(0x01, 36) }); // signed, 36-byte authenticatorData -> verification_failed
 const RESP_WA_UPUV  = await mkWebAuthn({ authenticatorData: waAuthData(0x05) });     // signed, UP|UV set -> satisfies uv=required
 // A patch that republishes the webauthn identity's key record with extra options appended (e.g., ' uv=required').
 const waKeyRecord = (suffix = '') => ({ 'webauthn._at.triauthdemo.org': { TXT: ['name WebAuthn', `key wa[1/1]:${john.devices[0].keys[0].public} type=webauthn-es256${suffix}`] } });
@@ -485,7 +485,7 @@ const mkWebAuthnEd25519 = async ({ sign = true } = {}) => {
 };
 
 const RESP_WAED_OK     = await mkWebAuthnEd25519();                // valid Ed25519-backed assertion -> success
-const RESP_WAED_BADSIG = await mkWebAuthnEd25519({ sign: false }); // structure/clientData valid, crypto false -> 401
+const RESP_WAED_BADSIG = await mkWebAuthnEd25519({ sign: false }); // structure/clientData valid, crypto false -> verification_failed
 
 // --- DNS layout -----------------------------------------------------------------------
 const dnsEntries = {
@@ -560,7 +560,7 @@ const johnKeyRecord = (suffix = '', meta) => {
 // A patch that publishes a john._at record set with a single replacement key record (plus profile).
 const johnSingleKey = (keyRecord) => ({ 'john._at.triauthdemo.org': { TXT: ['initials JD', 'name John Doe', keyRecord] } });
 // 11 devices: dev01..dev10 (dummy keys) + john's real desktop key. The 11th (desktop) is dropped by
-// the maxDevices=10 guard, leaving only unusable dummy groups -> 401.
+// the maxDevices=10 guard, leaving only unusable dummy groups -> verification_failed.
 const elevenDevices = { 'john._at.triauthdemo.org': { TXT: [
   'initials JD', 'name John Doe',
   ...Array.from({ length: 10 }, (_, i) => `key dev${String(i + 1).padStart(2, '0')}[1/1]:AAAA`),
@@ -575,102 +575,102 @@ const tests = [
   // ===================================================================================
   // Dispatch & argument-shape guards (flow-level, before Stage 1/3 detection)
   // ===================================================================================
-  s3('empty options object returns 101 (matches neither Stage 1 nor Stage 3)', {}),
-  s3('null sole arg is normalized to {} by attest Object.assign -> 101', null, { _argsOverride: [null] }),
-  s3('empty-array sole arg is normalized to {} by attest Object.assign -> 101', null, { _argsOverride: [[]] }),
-  s1('Stage 1 unrecognized option returns 102', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, unknownKey: 'x' }),
-  s1('Stage 1 ATTEST-DISTINCT: attachments are a sign-only input — supplying them (even empty) to attest is a misplaced input, 102', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY, attachments: [] }),
-  s3('Stage 3 unrecognized option returns 102', { challenge: CH, response: RESP_OK, unknownKey: 1 }),
+  s3('empty options object returns invalid_arguments (matches neither Stage 1 nor Stage 3)', {}),
+  s3('null sole arg is normalized to {} by attest Object.assign -> invalid_arguments', null, { _argsOverride: [null] }),
+  s3('empty-array sole arg is normalized to {} by attest Object.assign -> invalid_arguments', null, { _argsOverride: [[]] }),
+  s1('Stage 1 unrecognized option returns invalid_arguments', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, unknownKey: 'x' }),
+  s1('Stage 1 ATTEST-DISTINCT: attachments are a sign-only input — supplying them (even empty) to attest is a misplaced input, invalid_arguments', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY, attachments: [] }),
+  s3('Stage 3 unrecognized option returns invalid_arguments', { challenge: CH, response: RESP_OK, unknownKey: 1 }),
 
   // ===================================================================================
-  // Stage 1 — identifier validation (210-216)
+  // Stage 1 — identifier validation (invalid_identifier)
   // ===================================================================================
-  s1('Stage 1 non-string identifier returns 210', { identifier: 123, callbackUrl: CB, attestations: ATT_ROBOT }),
-  s1("Stage 1 identifier with whitespace returns 210 (the /[\\s\\0]/ branch, distinct from non-string 210)",
+  s1('Stage 1 non-string identifier returns invalid_identifier/invalid', { identifier: 123, callbackUrl: CB, attestations: ATT_ROBOT }),
+  s1("Stage 1 identifier with whitespace returns invalid_identifier/invalid (the /[\\s\\0]/ branch, distinct from non-string invalid_identifier/invalid)",
     { identifier: 'john @triauthdemo.org', callbackUrl: CB, attestations: ATT_ROBOT }),
-  s1('Stage 1 empty-string identifier returns 211', { identifier: '', callbackUrl: CB, attestations: ATT_ROBOT }),
-  s1('Stage 1 too-long identifier returns 212 (byteSize check before username regex)',
+  s1('Stage 1 empty-string identifier returns invalid_identifier/empty', { identifier: '', callbackUrl: CB, attestations: ATT_ROBOT }),
+  s1('Stage 1 too-long identifier returns invalid_identifier/too_long (byteSize check before username regex)',
     { identifier: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@triauthdemo.org', callbackUrl: CB, attestations: ATT_ROBOT }),
-  s1('Stage 1 uppercase identifier returns 213', { identifier: 'John@triauthdemo.org', callbackUrl: CB, attestations: ATT_ROBOT }),
-  s1('Stage 1 identifier missing @-sign returns 214', { identifier: 'johntriauthdemo.org', callbackUrl: CB, attestations: ATT_ROBOT }),
-  s1('Stage 1 identifier with consecutive dots in username returns 215', { identifier: 'john..doe@triauthdemo.org', callbackUrl: CB, attestations: ATT_ROBOT }),
-  s1('Stage 1 identifier with punycode domain returns 216', { identifier: 'john@xn--example.org', callbackUrl: CB, attestations: ATT_ROBOT }),
-  s1('Stage 1 identifier with an IPv4-literal domain (john@1.2.3.4) returns 216 — a numeric final label is never a domain part', { identifier: 'john@1.2.3.4', callbackUrl: CB, attestations: ATT_ROBOT }),
-  s1('Stage 1 identifier with a 64-character domain label returns 216 — labels are capped at 63 characters (the DNS bound)', { identifier: 'john@' + 'a'.repeat(64) + '.com', callbackUrl: CB, attestations: ATT_ROBOT }),
-  s1('Stage 1 identifier with a single-character final label (john@a.b) returns 216', { identifier: 'john@a.b', callbackUrl: CB, attestations: ATT_ROBOT }),
+  s1('Stage 1 uppercase identifier returns invalid_identifier/not_lowercase', { identifier: 'John@triauthdemo.org', callbackUrl: CB, attestations: ATT_ROBOT }),
+  s1('Stage 1 identifier missing @-sign returns invalid_identifier/invalid_format', { identifier: 'johntriauthdemo.org', callbackUrl: CB, attestations: ATT_ROBOT }),
+  s1('Stage 1 identifier with consecutive dots in username returns invalid_identifier/invalid_username', { identifier: 'john..doe@triauthdemo.org', callbackUrl: CB, attestations: ATT_ROBOT }),
+  s1('Stage 1 identifier with punycode domain returns invalid_identifier/invalid_domain', { identifier: 'john@xn--example.org', callbackUrl: CB, attestations: ATT_ROBOT }),
+  s1('Stage 1 identifier with an IPv4-literal domain (john@1.2.3.4) returns invalid_identifier/invalid_domain — a numeric final label is never a domain part', { identifier: 'john@1.2.3.4', callbackUrl: CB, attestations: ATT_ROBOT }),
+  s1('Stage 1 identifier with a 64-character domain label returns invalid_identifier/invalid_domain — labels are capped at 63 characters (the DNS bound)', { identifier: 'john@' + 'a'.repeat(64) + '.com', callbackUrl: CB, attestations: ATT_ROBOT }),
+  s1('Stage 1 identifier with a single-character final label (john@a.b) returns invalid_identifier/invalid_domain', { identifier: 'john@a.b', callbackUrl: CB, attestations: ATT_ROBOT }),
 
   // ===================================================================================
-  // Stage 1 — callbackUrl (221) & ext (222) validation
+  // Stage 1 — callbackUrl (invalid_callback_url) & ext (invalid_ext) validation
   // ===================================================================================
-  s1('Stage 1 non-string callbackUrl returns 221', { identifier: ID, callbackUrl: 123, attestations: ATT_ROBOT }),
-  s1('Stage 1 over-length callbackUrl (>2048 bytes) returns 221',
+  s1('Stage 1 non-string callbackUrl returns invalid_callback_url', { identifier: ID, callbackUrl: 123, attestations: ATT_ROBOT }),
+  s1('Stage 1 over-length callbackUrl (>2048 bytes) returns invalid_callback_url',
     { identifier: ID, callbackUrl: 'https://example.com/' + 'a'.repeat(2048), attestations: ATT_ROBOT }),
-  s1('Stage 1 plain-http callbackUrl on a named host (http://example.com/cb) passes URL validation; the request without a session key then returns 226 — an ordering pin: the callbackUrl gate precedes the session key gate', { identifier: ID, callbackUrl: 'http://example.com/cb', attestations: ATT_ROBOT }),
+  s1('Stage 1 plain-http callbackUrl on a named host (http://example.com/cb) passes URL validation; the request without a session key then returns invalid_session_key — an ordering pin: the callbackUrl gate precedes the session key gate', { identifier: ID, callbackUrl: 'http://example.com/cb', attestations: ATT_ROBOT }),
   s1('Stage 1 plain-http callbackUrl on a LAN IPv4-literal host (http://10.0.0.5:8080/cb) builds a challenge — the callback is transport, while the provider URLs stay on secure origins', { identifier: ID, callbackUrl: 'http://10.0.0.5:8080/cb', sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND }),
-  s1("Stage 1 callbackUrl with punycode domain returns 221", {"identifier":ID,"callbackUrl":"https://xn--mller-kva.de/cb","attestations":{"not-a-robot":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}}),
-  s1('Stage 1 array-shaped ext returns 222', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, ext: ['not', 'a', 'plain', 'object'] }),
+  s1("Stage 1 callbackUrl with punycode domain returns invalid_callback_url", {"identifier":ID,"callbackUrl":"https://xn--mller-kva.de/cb","attestations":{"not-a-robot":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}}),
+  s1('Stage 1 array-shaped ext returns invalid_ext', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, ext: ['not', 'a', 'plain', 'object'] }),
 
   // ===================================================================================
-  // Stage 1 — session key validation (226). ATTEST takes sessionKey (like ping/sign/stamp).
+  // Stage 1 — session key validation (invalid_session_key). ATTEST takes sessionKey (like ping/sign/stamp).
   // ===================================================================================
-  s1('Stage 1 too-short session key (42 characters) returns 226', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY.slice(0, 42) }),
-  s1('Stage 1 session key in standard base64 (with /) returns 226 - a session key is base64url', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY.slice(0, 42) + '/' }),
-  s1('Stage 1 session key with base64 padding (44 characters ending in =) returns 226', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY + '=' }),
-  s1('Stage 1 session key in the issuer:secret form of a token returns 226', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: ':aaaaaaaaaaaaaaaa' }),
-  s1('Stage 1 empty session key returns 226', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: '' }),
-  s1('Stage 1 non-string session key returns 226', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: 123 }),
-  s1('Stage 1 too-long session key (44 characters) returns 226', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY + 'A' }),
-  s1('Stage 1 session key with data in the unused bits of its last character (not canonical base64url) returns 226', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY.slice(0, 42) + '9' }),
+  s1('Stage 1 too-short session key (42 characters) returns invalid_session_key', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY.slice(0, 42) }),
+  s1('Stage 1 session key in standard base64 (with /) returns invalid_session_key - a session key is base64url', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY.slice(0, 42) + '/' }),
+  s1('Stage 1 session key with base64 padding (44 characters ending in =) returns invalid_session_key', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY + '=' }),
+  s1('Stage 1 session key in the issuer:secret form of a token returns invalid_session_key', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: ':aaaaaaaaaaaaaaaa' }),
+  s1('Stage 1 empty session key returns invalid_session_key', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: '' }),
+  s1('Stage 1 non-string session key returns invalid_session_key', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: 123 }),
+  s1('Stage 1 too-long session key (44 characters) returns invalid_session_key', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY + 'A' }),
+  s1('Stage 1 session key with data in the unused bits of its last character (not canonical base64url) returns invalid_session_key', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY.slice(0, 42) + '9' }),
 
   // ===================================================================================
-  // Stage 1 — ATTEST-DISTINCT attestations validation (229), done in onChallenge (after
+  // Stage 1 — ATTEST-DISTINCT attestations validation (invalid_attestations), done in onChallenge (after
   // id/callbackUrl/ext/sessionKey, before DNS). Each case isolates one validateAttestations branch.
   // ===================================================================================
-  s1('Stage 1 omitting attestations entirely returns 229 (validateAttestations(undefined))', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY }),
-  s1('Stage 1 null attestations returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: null }),
-  s1('Stage 1 string attestations returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: 'nope' }),
-  s1('Stage 1 number attestations returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: 123 }),
-  s1('Stage 1 array attestations returns 229 (object-but-Array guard)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: [] }),
+  s1('Stage 1 omitting attestations entirely returns invalid_attestations (validateAttestations(undefined))', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY }),
+  s1('Stage 1 null attestations returns invalid_attestations', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: null }),
+  s1('Stage 1 string attestations returns invalid_attestations', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: 'nope' }),
+  s1('Stage 1 number attestations returns invalid_attestations', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: 123 }),
+  s1('Stage 1 array attestations returns invalid_attestations (object-but-Array guard)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: [] }),
   // JSON.parse, not an object literal — a literal {__proto__: ...} sets the prototype instead of
   // creating the own key that this case needs. The name would bake into the challenge, which
   // stage-3 safeParseJson categorically refuses — validateAttestations fails fast instead.
-  s1('Stage 1 attestation named __proto__ returns 229 — a prototype-poisoning name would bake into a challenge that stage-3 safeParseJson could never verify', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: JSON.parse('{"__proto__":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}') }),
-  s1('Stage 1 attestation entry that is null returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: null } }),
-  s1('Stage 1 attestation ID with a non-ASCII character (wiek-ż) returns 229, an attestation ID is a property name of the challenge, which stage-3 safeParseJson admits only in printable ASCII', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { 'wiek-ż': { label: 'Wiek', providers: [ROBOT_VIA] } } }),
-  s1('Stage 1 more than maxMultiSignatures-1 (5) attestation IDs returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: {
+  s1('Stage 1 attestation named __proto__ returns invalid_attestations — a prototype-poisoning name would bake into a challenge that stage-3 safeParseJson could never verify', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: JSON.parse('{"__proto__":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}') }),
+  s1('Stage 1 attestation entry that is null returns invalid_attestations', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: null } }),
+  s1('Stage 1 attestation ID with a non-ASCII character (wiek-ż) returns invalid_attestations, an attestation ID is a property name of the challenge, which stage-3 safeParseJson admits only in printable ASCII', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { 'wiek-ż': { label: 'Wiek', providers: [ROBOT_VIA] } } }),
+  s1('Stage 1 more than maxMultiSignatures-1 (5) attestation IDs returns invalid_attestations', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: {
     a: { label: 'a', providers: [ROBOT_VIA] }, b: { label: 'b', providers: [ROBOT_VIA] }, c: { label: 'c', providers: [ROBOT_VIA] },
     d: { label: 'd', providers: [ROBOT_VIA] }, e: { label: 'e', providers: [ROBOT_VIA] } } }),
-  s1('Stage 1 attestation entry that is not an object returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: 'not-an-object' } }),
-  s1('Stage 1 attestation entry with an unknown property returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: [ROBOT_VIA], extra: 'x' } } }),
-  s1('Stage 1 attestation entry missing label returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { providers: [ROBOT_VIA] } } }),
-  s1('Stage 1 attestation entry with empty-string label returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: '', providers: [ROBOT_VIA] } } }),
-  s1('Stage 1 attestation entry missing providers returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l' } } }),
-  s1('Stage 1 attestation entry with empty providers array returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: [] } } }),
-  s1('Stage 1 attestation entry with too many providers (>4) returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: [ROBOT_VIA, ROBOT_VIA, ROBOT_VIA, ROBOT_VIA, ROBOT_VIA] } } }),
-  s1('Stage 1 provider URL on plain http returns 229 — providers are verbatim trust anchors and keep the secure-origin rule the callback no longer needs', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['http://insecure.example/p'] } } }),
-  s1('Stage 1 provider URL with an IPv4-literal host (https://127.0.0.1/p) returns 229 — the secure-origin rule wants a named host even where the callback grammar admits the dotted quad', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://127.0.0.1/p'] } } }),
-  s1('Stage 1 provider URL with a ";" in its path (https://attest.triauthdemo.org/p;v1) returns 229 — a provider URL is embedded whole as the attestation via, so the envelope delimiter is banned in every span of it', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://attest.triauthdemo.org/p;v1'] } } }),
-  s1("Stage 1 provider URL with an apostrophe (https://attest.triauthdemo.org/o'brien) returns 229 — the trust-anchor charset stays apostrophe-free even where the callback grammar admits it", { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ["https://attest.triauthdemo.org/o'brien"] } } }),
-  s1('Stage 1 provider URL with credentials returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://user:pass@example.com/p'] } } }),
-  s1('Stage 1 provider URL with a query string returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://example.com/p?q=1'] } } }),
-  s1('Stage 1 provider URL ending in a bare "?" (https://example.com/p?) returns 229 — a canonical URL cannot carry an empty query, and provider URLs allow no query at all', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://example.com/p?'] } } }),
-  s1('Stage 1 provider URL with a fragment returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://example.com/p#frag'] } } }),
-  s1('Stage 1 provider URL with percent-encoding returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://example.com/p%20space'] } } }),
-  s1('Stage 1 provider URL with a punycode domain returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://xn--example.com/p'] } } }),
-  s1('Stage 1 provider URL that is unparseable returns 229', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://'] } } }),
+  s1('Stage 1 attestation entry that is not an object returns invalid_attestations', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: 'not-an-object' } }),
+  s1('Stage 1 attestation entry with an unknown property returns invalid_attestations', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: [ROBOT_VIA], extra: 'x' } } }),
+  s1('Stage 1 attestation entry missing label returns invalid_attestations', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { providers: [ROBOT_VIA] } } }),
+  s1('Stage 1 attestation entry with empty-string label returns invalid_attestations', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: '', providers: [ROBOT_VIA] } } }),
+  s1('Stage 1 attestation entry missing providers returns invalid_attestations', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l' } } }),
+  s1('Stage 1 attestation entry with empty providers array returns invalid_attestations', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: [] } } }),
+  s1('Stage 1 attestation entry with too many providers (>4) returns invalid_attestations', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: [ROBOT_VIA, ROBOT_VIA, ROBOT_VIA, ROBOT_VIA, ROBOT_VIA] } } }),
+  s1('Stage 1 provider URL on plain http returns invalid_attestations — providers are verbatim trust anchors and keep the secure-origin rule the callback no longer needs', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['http://insecure.example/p'] } } }),
+  s1('Stage 1 provider URL with an IPv4-literal host (https://127.0.0.1/p) returns invalid_attestations — the secure-origin rule wants a named host even where the callback grammar admits the dotted quad', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://127.0.0.1/p'] } } }),
+  s1('Stage 1 provider URL with a ";" in its path (https://attest.triauthdemo.org/p;v1) returns invalid_attestations — a provider URL is embedded whole as the attestation via, so the envelope delimiter is banned in every span of it', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://attest.triauthdemo.org/p;v1'] } } }),
+  s1("Stage 1 provider URL with an apostrophe (https://attest.triauthdemo.org/o'brien) returns invalid_attestations — the trust-anchor charset stays apostrophe-free even where the callback grammar admits it", { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ["https://attest.triauthdemo.org/o'brien"] } } }),
+  s1('Stage 1 provider URL with credentials returns invalid_attestations', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://user:pass@example.com/p'] } } }),
+  s1('Stage 1 provider URL with a query string returns invalid_attestations', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://example.com/p?q=1'] } } }),
+  s1('Stage 1 provider URL ending in a bare "?" (https://example.com/p?) returns invalid_attestations — a canonical URL cannot carry an empty query, and provider URLs allow no query at all', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://example.com/p?'] } } }),
+  s1('Stage 1 provider URL with a fragment returns invalid_attestations', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://example.com/p#frag'] } } }),
+  s1('Stage 1 provider URL with percent-encoding returns invalid_attestations', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://example.com/p%20space'] } } }),
+  s1('Stage 1 provider URL with a punycode domain returns invalid_attestations', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://xn--example.com/p'] } } }),
+  s1('Stage 1 provider URL that is unparseable returns invalid_attestations', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { a: { label: 'l', providers: ['https://'] } } }),
   s1('Stage 1 ATTEST-DISTINCT: a provider URL on localhost (http accepted) is valid and builds a challenge — the secure-origin rule keeps localhost-http for development', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: { 'local-check': { label: 'local check', providers: ['http://localhost:8080/verify'] } } }, { random: RAND }),
 
   // ===================================================================================
-  // Stage 1 — DNS / configuration (301, 110). Stage 1 resolves the endpoint record only; identity
+  // Stage 1 — DNS / configuration (domain_not_configured, dns_unavailable). Stage 1 resolves the endpoint record only; identity
   // existence and the identity-domain derivation are settled on the signed response at stage 3.
   // ===================================================================================
-  s1('Stage 1 domain with no triauth TXT record returns 301', { identifier: 'john@unconfigured.example', callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND }),
-  s1('Stage 1 endpoint record with an invalid (non-domain) value returns 301 (isDomainName false)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'triauthdemo.org': { TXT: ['triauth invalid_domain mode=public'] } } }),
-  s1('Stage 1 domain with multiple triauth TXT records returns 301 (ambiguous, refuse to choose)', { identifier: 'user@ambiguous.example', callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND }),
+  s1('Stage 1 domain with no triauth TXT record returns domain_not_configured', { identifier: 'john@unconfigured.example', callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND }),
+  s1('Stage 1 endpoint record with an invalid (non-domain) value returns domain_not_configured (isDomainName false)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'triauthdemo.org': { TXT: ['triauth invalid_domain mode=public'] } } }),
+  s1('Stage 1 domain with multiple triauth TXT records returns domain_not_configured (ambiguous, refuse to choose)', { identifier: 'user@ambiguous.example', callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND }),
   s1('Stage 1 unknown identifier under a configured domain still builds a challenge - existence is never probed at issue', { identifier: 'ghost@triauthdemo.org', callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND }),
-  s1('Stage 1 per-test dnsEntries patch can NXDOMAIN a known domain (returns 301)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'triauthdemo.org': null } }),
+  s1('Stage 1 per-test dnsEntries patch can NXDOMAIN a known domain (returns domain_not_configured)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'triauthdemo.org': null } }),
   s1('Stage 1 endpoint with an unknown mode still builds a challenge - an unresolvable mode surfaces only once a response is verified', { identifier: 'john@hashed.triauthdemo.org', callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'hashed.triauthdemo.org': { TXT: ['triauth auth.triauthdemo.org mode=unknownmode'] } } }),
-  s1('Stage 1 SERVFAIL on the identifier domain (endpoint lookup) surfaces as 110', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'triauthdemo.org': { _error: 'SERVFAIL' } } }),
+  s1('Stage 1 SERVFAIL on the identifier domain (endpoint lookup) surfaces as dns_unavailable', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'triauthdemo.org': { _error: 'SERVFAIL' } } }),
   s1('Stage 1 SERVFAIL on the identity domain (records lookup) still builds a challenge - the identity domain is never queried at issue', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'john._at.triauthdemo.org': { _error: 'SERVFAIL' } } }),
 
   // ===================================================================================
@@ -681,7 +681,7 @@ const tests = [
   s1('Stage 1 multiple attestation IDs are all baked into the challenge', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_TWO }, { random: RAND }),
   s1("Stage 1 session key produces a redirectUrl with skid and the sealed request", { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY }, { random: RAND }),
   s1('Stage 1 session key + ext together: challenge bakes the ext, redirectUrl has the sealed request', { identifier: ID, callbackUrl: CB, attestations: ATT_ROBOT, sessionKey: SESSION_KEY, ext: { callbackMethod: 'POST' } }, { random: RAND }),
-  s1("Stage 1 omitting the session key returns 226 - the flows that follow a sign-in require it at issue (src/challenge_response_flow.js)", {"identifier":ID,"callbackUrl":CB,"attestations":{"not-a-robot":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}}, { random: RAND }),
+  s1("Stage 1 omitting the session key returns invalid_session_key - the flows that follow a sign-in require it at issue (src/challenge_response_flow.js)", {"identifier":ID,"callbackUrl":CB,"attestations":{"not-a-robot":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}}, { random: RAND }),
   s1('Stage 1 endpoint record with a __proto__ option is parsed safely (option dropped) and still builds a challenge', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND, dnsEntries: { 'triauthdemo.org': { TXT: ['triauth auth.triauthdemo.org __proto__=evil mode=public'] } } }),
   s1('Stage 1 challenge bakes in the ext object', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT, ext: { callbackMethod: 'POST', nested: { foo: 'bar' } } }, { random: RAND }),
   s1('Stage 1 multi-device identity still builds a challenge', { identifier: 'multi@triauthdemo.org', callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND }),
@@ -690,84 +690,84 @@ const tests = [
   s1('Stage 1 per-test currentTime changes the iat baked into the challenge (nonce unchanged)', { identifier: ID, callbackUrl: CB, sessionKey: SESSION_KEY, attestations: ATT_ROBOT }, { random: RAND, currentTime: 1800000000000 }),
 
   // ===================================================================================
-  // Stage 3 — challenge (223) & response (224) validation
+  // Stage 3 — challenge (invalid_challenge) & response (invalid_response) validation
   // ===================================================================================
-  s3('Stage 3 non-string challenge returns 223', { challenge: 12345, response: RESP_OK }),
-  s3('Stage 3 non-base64url challenge returns 223', { challenge: '!!!not-base64url!!!', response: RESP_OK }),
-  s3('Stage 3 challenge is valid base64url but decodes to non-JSON bytes returns 223 (Challenge.fromString parse path)', { challenge: 'AAEC', response: RESP_OK }),
-  s3('Stage 3 SECURITY: challenge whose decoded bytes are a UTF-8 BOM (EF BB BF) followed by the CANONICAL valid challenge JSON returns 223 — the decoder must not strip the BOM (a second, non-canonical byte encoding of the same challenge must never be accepted; ports must not BOM-sniff when decoding base64url payloads)', { challenge: CH_BOM, response: RESP_OK }),
-  s3('Stage 3 challenge decodes to valid JSON but its identifier member is malformed returns 223 (Identity ctor throws inside Challenge.fromString)', { challenge: CH_BADID, response: RESP_OK }),
-  s3('Stage 3 non-string response returns 224', { challenge: CH, response: 12345 }),
-  s3('Stage 3 response without the | envelope delimiters returns 224', { challenge: CH, response: 'no-envelope-delimiters' }),
-  s3('Stage 3 short/empty response (length <= 3) returns 224 via the validator length-check', { challenge: CH, response: '' }),
-  s3('Stage 3 re-provided malformed identifier returns 210 (the optional Stage-3 identifier validator)', { challenge: CH, response: RESP_OK, identifier: 'john @triauthdemo.org' }),
-  s3('Stage 3 re-provided malformed callbackUrl returns 221 (the optional Stage-3 callbackUrl validator)', { challenge: CH, response: RESP_OK, callbackUrl: 'https://[::1]/cb' }),
-  s3('Stage 3 re-provided callbackUrl that is URL-valid but mismatches challenge.cburl (http://example.com/cb vs https) returns 401 — the equality gate, distinct from the 221 format gate', { challenge: CH, response: RESP_OK, callbackUrl: 'http://example.com/cb' }),
+  s3('Stage 3 non-string challenge returns invalid_challenge', { challenge: 12345, response: RESP_OK }),
+  s3('Stage 3 non-base64url challenge returns invalid_challenge', { challenge: '!!!not-base64url!!!', response: RESP_OK }),
+  s3('Stage 3 challenge is valid base64url but decodes to non-JSON bytes returns invalid_challenge (Challenge.fromString parse path)', { challenge: 'AAEC', response: RESP_OK }),
+  s3('Stage 3 SECURITY: challenge whose decoded bytes are a UTF-8 BOM (EF BB BF) followed by the CANONICAL valid challenge JSON returns invalid_challenge — the decoder must not strip the BOM (a second, non-canonical byte encoding of the same challenge must never be accepted; ports must not BOM-sniff when decoding base64url payloads)', { challenge: CH_BOM, response: RESP_OK }),
+  s3('Stage 3 challenge decodes to valid JSON but its identifier member is malformed returns invalid_challenge (Identity ctor throws inside Challenge.fromString)', { challenge: CH_BADID, response: RESP_OK }),
+  s3('Stage 3 non-string response returns invalid_response', { challenge: CH, response: 12345 }),
+  s3('Stage 3 response without the | envelope delimiters returns invalid_response', { challenge: CH, response: 'no-envelope-delimiters' }),
+  s3('Stage 3 short/empty response (length <= 3) returns invalid_response via the validator length-check', { challenge: CH, response: '' }),
+  s3('Stage 3 re-provided malformed identifier returns invalid_identifier/invalid (the optional Stage-3 identifier validator)', { challenge: CH, response: RESP_OK, identifier: 'john @triauthdemo.org' }),
+  s3('Stage 3 re-provided malformed callbackUrl returns invalid_callback_url (the optional Stage-3 callbackUrl validator)', { challenge: CH, response: RESP_OK, callbackUrl: 'https://[::1]/cb' }),
+  s3('Stage 3 re-provided callbackUrl that is URL-valid but mismatches challenge.cburl (http://example.com/cb vs https) returns verification_failed — the equality gate, distinct from the invalid_callback_url format gate', { challenge: CH, response: RESP_OK, callbackUrl: 'http://example.com/cb' }),
 
   // ===================================================================================
-  // Stage 3 — ATTEST-DISTINCT challenge.attest re-validation (229) in onResponse
+  // Stage 3 — ATTEST-DISTINCT challenge.attest re-validation (invalid_attestations) in onResponse
   // ===================================================================================
-  s3('Stage 3 challenge missing the attest field returns 229 (onResponse validateAttestations(undefined))', { challenge: CH_NOATTEST, response: RESP_OK }),
-  s3('Stage 3 challenge whose attest field is an array returns 229 (onResponse re-validation)', { challenge: CH_ATTEST_ARR, response: RESP_OK }),
+  s3('Stage 3 challenge missing the attest field returns invalid_attestations (onResponse validateAttestations(undefined))', { challenge: CH_NOATTEST, response: RESP_OK }),
+  s3('Stage 3 challenge whose attest field is an array returns invalid_attestations (onResponse re-validation)', { challenge: CH_ATTEST_ARR, response: RESP_OK }),
 
   // ===================================================================================
-  // Stage 3 — dispatch-level constraint checks (401) & denial (403)
+  // Stage 3 — dispatch-level constraint checks (verification_failed) & denial (request_denied)
   // ===================================================================================
-  s3("Stage 3 response equal to the literal 'false' returns 403 (user-denial sentinel)", { challenge: CH, response: 'false' }),
-  s3('Stage 3 re-provided identifier mismatching challenge.identifier returns 401', { challenge: CH, response: RESP_OK, identifier: 'someone-else@triauthdemo.org' }),
-  s3('Stage 3 re-provided callbackUrl mismatching challenge.cburl returns 401', { challenge: CH, response: RESP_OK, callbackUrl: 'https://other-domain.example/' }),
-  s3("Stage 3 challenge with type=auth (not 'attest') returns 401 at the flow type-constraint", { challenge: CH_AUTHTYPE, response: RESP_EMPTY_OK }),
-  s3("Stage 3 challenge with type=sign (not 'attest') returns 401 at the flow type-constraint", { challenge: CH_SIGNTYPE, response: RESP_EMPTY_OK }),
+  s3("Stage 3 response equal to the literal 'false' returns request_denied (user-denial sentinel)", { challenge: CH, response: 'false' }),
+  s3('Stage 3 re-provided identifier mismatching challenge.identifier returns verification_failed', { challenge: CH, response: RESP_OK, identifier: 'someone-else@triauthdemo.org' }),
+  s3('Stage 3 re-provided callbackUrl mismatching challenge.cburl returns verification_failed', { challenge: CH, response: RESP_OK, callbackUrl: 'https://other-domain.example/' }),
+  s3("Stage 3 challenge with type=auth (not 'attest') returns verification_failed at the flow type-constraint", { challenge: CH_AUTHTYPE, response: RESP_EMPTY_OK }),
+  s3("Stage 3 challenge with type=sign (not 'attest') returns verification_failed at the flow type-constraint", { challenge: CH_SIGNTYPE, response: RESP_EMPTY_OK }),
 
   // ===================================================================================
-  // Stage 3 — signature-envelope parse failures (225), each isolating one field/slot
+  // Stage 3 — signature-envelope parse failures (invalid_signature), each isolating one field/slot
   // ===================================================================================
-  s3("Stage 3 envelope with a malformed via ('-') is rejected at parse time with 225", { challenge: CH, response: RESP_BADVIA }),
-  s3('Stage 3 envelope with a non-ASCII via is rejected at parse time with 225', { challenge: CH, response: RESP_NONASCII_VIA }),
-  s3('Stage 3 envelope with an unknown type (not in VALID_TYPES) returns 225', { challenge: CH, response: RESP_BADTYPE }),
-  s3('Stage 3 envelope with an invalid identifier returns 225', { challenge: CH, response: RESP_BADID }),
-  s3('Stage 3 envelope with ver != v1 returns 225', { challenge: CH, response: RESP_BADVER }),
-  s3('Stage 3 envelope with a malformed ts (0) returns 225', { challenge: CH, response: RESP_BADTS }),
-  s3('Stage 3 envelope with no crypto signature segment returns 225', { challenge: CH, response: RESP_NOSIG }),
-  s3('Stage 3 envelope crypto signature that is not base64url returns 225', { challenge: CH, response: RESP_BADSIGB64 }),
-  s3('Stage 3 envelope signedMetadata slot that is not base64url returns 225', { challenge: CH, response: RESP_BADSIGMETA }),
-  s3("Stage 3 response '||||' parses into empty segments, each tripping the Signature length guard -> 225", { challenge: CH, response: RESP_EMPTY_SEGS }),
-  s3('Stage 3 more than 5 signature segments trips the MultiSignature maxMultiSignatures=5 count guard -> 225', { challenge: CH, response: RESP_SIX_SEGMENTS }),
+  s3("Stage 3 envelope with a malformed via ('-') is rejected at parse time with invalid_signature", { challenge: CH, response: RESP_BADVIA }),
+  s3('Stage 3 envelope with a non-ASCII via is rejected at parse time with invalid_signature', { challenge: CH, response: RESP_NONASCII_VIA }),
+  s3('Stage 3 envelope with an unknown type (not in VALID_TYPES) returns invalid_signature', { challenge: CH, response: RESP_BADTYPE }),
+  s3('Stage 3 envelope with an invalid identifier returns invalid_signature', { challenge: CH, response: RESP_BADID }),
+  s3('Stage 3 envelope with ver != v1 returns invalid_signature', { challenge: CH, response: RESP_BADVER }),
+  s3('Stage 3 envelope with a malformed ts (0) returns invalid_signature', { challenge: CH, response: RESP_BADTS }),
+  s3('Stage 3 envelope with no crypto signature segment returns invalid_signature', { challenge: CH, response: RESP_NOSIG }),
+  s3('Stage 3 envelope crypto signature that is not base64url returns invalid_signature', { challenge: CH, response: RESP_BADSIGB64 }),
+  s3('Stage 3 envelope signedMetadata slot that is not base64url returns invalid_signature', { challenge: CH, response: RESP_BADSIGMETA }),
+  s3("Stage 3 response '||||' parses into empty segments, each tripping the Signature length guard -> invalid_signature", { challenge: CH, response: RESP_EMPTY_SEGS }),
+  s3('Stage 3 more than 5 signature segments trips the MultiSignature maxMultiSignatures=5 count guard -> invalid_signature', { challenge: CH, response: RESP_SIX_SEGMENTS }),
 
   // ===================================================================================
-  // Stage 3 — generic verification failures (401)
+  // Stage 3 — generic verification failures (verification_failed)
   // ===================================================================================
-  s3('Stage 3 well-formed sign-typed envelope against the attest flow returns 401 (type constraint, before crypto)', { challenge: CH_EMPTY, response: RESP_SIGN_TYPED }),
-  s3('Stage 3 well-formed auth-typed envelope against the attest flow returns 401', { challenge: CH_EMPTY, response: RESP_AUTH_TYPED }),
-  s3('Stage 3 well-formed attest envelope with bogus crypto bytes returns 401 (generic verification failure)', { challenge: CH_EMPTY, response: RESP_BOGUS }),
-  s3('Stage 3 a 1-char crypto signature makes atob throw inside the ECDSA verifier -> caught -> 401', { challenge: CH_EMPTY, response: RESP_ONECHAR_SIG }),
-  s3('Stage 3 two stacked signatures exceed maxSignatures=1 for an empty-attestation challenge -> 401', { challenge: CH_EMPTY, response: RESP_EMPTY_TWO }),
-  s3('Stage 3 a single segment carrying 11 crypto signatures exceeds IdentityKeys maxKeysPerSignature=10 -> 401', { challenge: CH_EMPTY, response: RESP_ELEVEN_SIGS }),
-  s3('Stage 3 user signature for the WRONG identity (jane signs, mainSig.identifier != challenge.identifier) returns 401 (identifier-mismatch guard)', { challenge: CH_EMPTY, response: RESP_WRONGID }),
-  s3('Stage 3 user signature under john identifier but signed with jane key returns 401 (crypto fails)', { challenge: CH_EMPTY, response: RESP_BADKEY }),
-  s3('Stage 3 user signature with envelope.via on a DIFFERENT ORIGIN returns 401 (getBaseUrl(cburl) != mainSig.via)', { challenge: CH_EMPTY, response: RESP_VIA_ATTACK }),
-  s3('Stage 3 challenge with a malformed embedded cburl returns 401 (onResponse validateCallbackUrl(cburl) fails)', { challenge: CH_BADCBURL, response: RESP_BADCBURL }),
-  s3('Stage 3 use mismatch: an attest-typed envelope from a use=auth key returns 401 (key skipped, no verified keys)', { challenge: CH_AUTHONLY, response: RESP_AUTHONLY }),
-  s3('Stage 3 user envelope type=auth fails the attest type constraint inside Signature.verify -> 401', { challenge: CH_EMPTY, response: RESP_USERTYPE }),
-  s3('Stage 3 partial multi-key signature (only laptop key 1 of 2 signs) returns 401 (per-key break, group never fully satisfied)', { challenge: CH_EMPTY, response: RESP_LAPTOP_PART }),
+  s3('Stage 3 well-formed sign-typed envelope against the attest flow returns verification_failed (type constraint, before crypto)', { challenge: CH_EMPTY, response: RESP_SIGN_TYPED }),
+  s3('Stage 3 well-formed auth-typed envelope against the attest flow returns verification_failed', { challenge: CH_EMPTY, response: RESP_AUTH_TYPED }),
+  s3('Stage 3 well-formed attest envelope with bogus crypto bytes returns verification_failed (generic verification failure)', { challenge: CH_EMPTY, response: RESP_BOGUS }),
+  s3('Stage 3 a 1-char crypto signature makes atob throw inside the ECDSA verifier -> caught -> verification_failed', { challenge: CH_EMPTY, response: RESP_ONECHAR_SIG }),
+  s3('Stage 3 two stacked signatures exceed maxSignatures=1 for an empty-attestation challenge -> verification_failed', { challenge: CH_EMPTY, response: RESP_EMPTY_TWO }),
+  s3('Stage 3 a single segment carrying 11 crypto signatures exceeds IdentityKeys maxKeysPerSignature=10 -> verification_failed', { challenge: CH_EMPTY, response: RESP_ELEVEN_SIGS }),
+  s3('Stage 3 user signature for the WRONG identity (jane signs, mainSig.identifier != challenge.identifier) returns verification_failed (identifier-mismatch guard)', { challenge: CH_EMPTY, response: RESP_WRONGID }),
+  s3('Stage 3 user signature under john identifier but signed with jane key returns verification_failed (crypto fails)', { challenge: CH_EMPTY, response: RESP_BADKEY }),
+  s3('Stage 3 user signature with envelope.via on a DIFFERENT ORIGIN returns verification_failed (getBaseUrl(cburl) != mainSig.via)', { challenge: CH_EMPTY, response: RESP_VIA_ATTACK }),
+  s3('Stage 3 challenge with a malformed embedded cburl returns verification_failed (onResponse validateCallbackUrl(cburl) fails)', { challenge: CH_BADCBURL, response: RESP_BADCBURL }),
+  s3('Stage 3 use mismatch: an attest-typed envelope from a use=auth key returns verification_failed (key skipped, no verified keys)', { challenge: CH_AUTHONLY, response: RESP_AUTHONLY }),
+  s3('Stage 3 user envelope type=auth fails the attest type constraint inside Signature.verify -> verification_failed', { challenge: CH_EMPTY, response: RESP_USERTYPE }),
+  s3('Stage 3 partial multi-key signature (only laptop key 1 of 2 signs) returns verification_failed (per-key break, group never fully satisfied)', { challenge: CH_EMPTY, response: RESP_LAPTOP_PART }),
 
   // ===================================================================================
-  // Stage 3 — ATTEST-DISTINCT attester matching (the heart of onResponse) -> 401 unless matched
+  // Stage 3 — ATTEST-DISTINCT attester matching (the heart of onResponse) -> verification_failed unless matched
   // ===================================================================================
-  s3('Stage 3 user signs but no attester signature is present -> 401 (requested attestation unmatched)', { challenge: CH, response: RESP_MISSING_ATT }),
-  s3('Stage 3 attester via is not in the requested providers list -> 401', { challenge: CH, response: RESP_VIA_NOTPROV }),
-  s3("Stage 3 attester identifier's domain != the attester via hostname -> 401", { challenge: CH_HOSTMIS, response: RESP_HOSTMIS }),
-  s3('Stage 3 attester bind.identifier present and != user identifier -> 401', { challenge: CH, response: RESP_ID_MIS }),
-  s3('Stage 3 attester bind.via present and != user via -> 401', { challenge: CH, response: RESP_VIA_MIS }),
-  s3('Stage 3 attester bind.deviceTag present and != user deviceTag -> 401', { challenge: CH, response: RESP_TAG_MIS }),
-  s3('SECURITY: attester bind carrying an UNRECOGNIZED binder -> 401 (every member of bind is critical; a constraint the verifier cannot enforce fails the bundle instead of going unread)', { challenge: CH, response: RESP_BIND_UNKNOWN }),
-  s3('SECURITY: attester bind present but EMPTY -> 401 (a bind that states nothing is a producer error, not an anonymous attestation)', { challenge: CH, response: RESP_BIND_EMPTY }),
-  s3('SECURITY: attester bind is an ARRAY -> 401 (bind must be a non-array object of recognized binders)', { challenge: CH, response: RESP_BIND_ARRAY }),
-  s3('SECURITY: attester bind.identifier carrying a NON-STRING value -> 401 (binder values must be strings)', { challenge: CH, response: RESP_BIND_NONSTR }),
-  s3('SECURITY: attester bind with one matching and one false binder -> 401 (ALL stated binders must hold, not just some; kills an any-binder-matches implementation)', { challenge: CH, response: RESP_BIND_MIXED }),
-  s3('SECURITY: user segment bind.identifier naming someone else -> 401 (bind means the same on every segment; every binder in the envelope must hold)', { challenge: CH, response: RESP_BIND_ON_USER_MIS }),
-  s3('SECURITY: STRAY attester with a false binder poisons the bundle -> 401 even though the clean attester alone satisfies both attestations (overlapping providers)', { challenge: CH_MULTI, response: RESP_BIND_STRAY }),
-  s3('Stage 3 attester segment with bogus crypto fails the multisig before matching -> 401', { challenge: CH, response: RESP_ATT_BADCRYPTO }),
+  s3('Stage 3 user signs but no attester signature is present -> verification_failed (requested attestation unmatched)', { challenge: CH, response: RESP_MISSING_ATT }),
+  s3('Stage 3 attester via is not in the requested providers list -> verification_failed', { challenge: CH, response: RESP_VIA_NOTPROV }),
+  s3("Stage 3 attester identifier's domain != the attester via hostname -> verification_failed", { challenge: CH_HOSTMIS, response: RESP_HOSTMIS }),
+  s3('Stage 3 attester bind.identifier present and != user identifier -> verification_failed', { challenge: CH, response: RESP_ID_MIS }),
+  s3('Stage 3 attester bind.via present and != user via -> verification_failed', { challenge: CH, response: RESP_VIA_MIS }),
+  s3('Stage 3 attester bind.deviceTag present and != user deviceTag -> verification_failed', { challenge: CH, response: RESP_TAG_MIS }),
+  s3('SECURITY: attester bind carrying an UNRECOGNIZED binder -> verification_failed (every member of bind is critical; a constraint the verifier cannot enforce fails the bundle instead of going unread)', { challenge: CH, response: RESP_BIND_UNKNOWN }),
+  s3('SECURITY: attester bind present but EMPTY -> verification_failed (a bind that states nothing is a producer error, not an anonymous attestation)', { challenge: CH, response: RESP_BIND_EMPTY }),
+  s3('SECURITY: attester bind is an ARRAY -> verification_failed (bind must be a non-array object of recognized binders)', { challenge: CH, response: RESP_BIND_ARRAY }),
+  s3('SECURITY: attester bind.identifier carrying a NON-STRING value -> verification_failed (binder values must be strings)', { challenge: CH, response: RESP_BIND_NONSTR }),
+  s3('SECURITY: attester bind with one matching and one false binder -> verification_failed (ALL stated binders must hold, not just some; kills an any-binder-matches implementation)', { challenge: CH, response: RESP_BIND_MIXED }),
+  s3('SECURITY: user segment bind.identifier naming someone else -> verification_failed (bind means the same on every segment; every binder in the envelope must hold)', { challenge: CH, response: RESP_BIND_ON_USER_MIS }),
+  s3('SECURITY: STRAY attester with a false binder poisons the bundle -> verification_failed even though the clean attester alone satisfies both attestations (overlapping providers)', { challenge: CH_MULTI, response: RESP_BIND_STRAY }),
+  s3('Stage 3 attester segment with bogus crypto fails the multisig before matching -> verification_failed', { challenge: CH, response: RESP_ATT_BADCRYPTO }),
 
   // ===================================================================================
   // Stage 3 — SECURITY properties & regression guards (ATTEST-DISTINCT)
@@ -779,95 +779,95 @@ const tests = [
   // ===================================================================================
   // Challenge binding: a response is non-transferable to any other challenge. Each of the next four
   // submits the valid RESP_OK (minted for CH) against a challenge differing in ONE signed field; the
-  // user/attester crypto no longer verifies -> 401. (If a refactor signed only a subset of the
+  // user/attester crypto no longer verifies -> verification_failed. (If a refactor signed only a subset of the
   // challenge, these would silently start passing — that is the regression they guard against.)
-  s3('SECURITY (nonce binding): RESP_OK does not verify against a challenge differing only in the nonce -> 401', { challenge: CH_DIFF_NONCE, response: RESP_OK }),
-  s3('SECURITY (attestation binding / relabel): a response cannot be re-presented against a challenge that RELABELS the attestation (different id, same provider) -> 401 (the attest map is signed; the same attester proof cannot be recontextualized to a different claim — the matching loop alone would otherwise accept it)', { challenge: CH_RELABEL, response: RESP_OK }),
-  s3('SECURITY (iat binding): RESP_OK does not verify against a challenge whose iat was shifted within the window -> 401 (NOT 402: iat is signed, not merely range-checked)', { challenge: CH_DIFF_IAT, response: RESP_OK }),
-  s3('SECURITY (exact callbackUrl binding): RESP_OK is rejected at a SIBLING callback sharing the same base directory -> 401 (attest binds the full cburl via the signed challenge even though getBaseUrl == mainSig.via; stricter than stamp, whose via binds only the base dir)', { challenge: CH_SIBLING, response: RESP_OK }),
+  s3('SECURITY (nonce binding): RESP_OK does not verify against a challenge differing only in the nonce -> verification_failed', { challenge: CH_DIFF_NONCE, response: RESP_OK }),
+  s3('SECURITY (attestation binding / relabel): a response cannot be re-presented against a challenge that RELABELS the attestation (different id, same provider) -> verification_failed (the attest map is signed; the same attester proof cannot be recontextualized to a different claim — the matching loop alone would otherwise accept it)', { challenge: CH_RELABEL, response: RESP_OK }),
+  s3('SECURITY (iat binding): RESP_OK does not verify against a challenge whose iat was shifted within the window -> verification_failed (NOT request_expired: iat is signed, not merely range-checked)', { challenge: CH_DIFF_IAT, response: RESP_OK }),
+  s3('SECURITY (exact callbackUrl binding): RESP_OK is rejected at a SIBLING callback sharing the same base directory -> verification_failed (attest binds the full cburl via the signed challenge even though getBaseUrl == mainSig.via; stricter than stamp, whose via binds only the base dir)', { challenge: CH_SIBLING, response: RESP_OK }),
   // Protocol invariant: the user signature must be the first segment.
-  s3('SECURITY (segment order): swapping the user and attester segments (attester in slot 0) -> 401 (mainSig is always signatures[0]; its identifier must equal challenge.identifier)', { challenge: CH, response: RESP_SWAPPED }),
+  s3('SECURITY (segment order): swapping the user and attester segments (attester in slot 0) -> verification_failed (mainSig is always signatures[0]; its identifier must equal challenge.identifier)', { challenge: CH, response: RESP_SWAPPED }),
   // All-or-nothing: a partially-satisfied multi-attestation request never yields a partial result.
-  s3('SECURITY (all-or-nothing): with two distinct attestations requested, satisfying only one of them -> 401 (no partial attested result leaks)', { challenge: CH_TWO, response: RESP_TWO_PARTIAL }),
+  s3('SECURITY (all-or-nothing): with two distinct attestations requested, satisfying only one of them -> verification_failed (no partial attested result leaks)', { challenge: CH_TWO, response: RESP_TWO_PARTIAL }),
   // Signature-count bound: cannot pad the envelope with attesters beyond maxSignatures = requested + 1.
-  s3('SECURITY (signature-count bound): a 1-attestation challenge answered with user + TWO attesters (3 > maxSignatures=2) -> 401', { challenge: CH, response: RESP_OVERSUPPLY }),
+  s3('SECURITY (signature-count bound): a 1-attestation challenge answered with user + TWO attesters (3 > maxSignatures=2) -> verification_failed', { challenge: CH, response: RESP_OVERSUPPLY }),
   // Prototype-pollution defense at the challenge-parse boundary.
-  s3('SECURITY (prototype-pollution defense): a challenge whose attest map carries a __proto__ key is rejected at parse time -> 223 (safeParseJson blocks it before onResponse)', { challenge: CH_PROTO_ATTEST, response: RESP_OK }),
+  s3('SECURITY (prototype-pollution defense): a challenge whose attest map carries a __proto__ key is rejected at parse time -> invalid_challenge (safeParseJson blocks it before onResponse)', { challenge: CH_PROTO_ATTEST, response: RESP_OK }),
 
   // ===================================================================================
-  // Stage 3 — identity / DNS failures during verification (401)
+  // Stage 3 — identity / DNS failures during verification (verification_failed)
   // ===================================================================================
-  s3("Stage 3 user identity records vanished between stages (NXDOMAIN) returns 401", { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: { 'john._at.triauthdemo.org': null } }),
-  s3("Stage 3 user authentication endpoint is gone (NXDOMAIN) returns 401", { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: { 'triauthdemo.org': null } }),
-  s3('Stage 3 DNS SERVFAIL on the authentication endpoint propagates from signature.verify and surfaces as a retryable 110 (not a false 401)', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: { 'triauthdemo.org': { _error: 'SERVFAIL' } } }),
-  s3('Stage 3 DNS SERVFAIL on the identity domain propagates from signature.verify and surfaces as a retryable 110 (not a false 401)', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: { 'john._at.triauthdemo.org': { _error: 'SERVFAIL' } } }),
-  s3("Stage 3 attester identity records gone (NXDOMAIN) makes the attester segment fail -> 401", { challenge: CH, response: RESP_OK }, { dnsEntries: { 'robot-attester._at.attest.triauthdemo.org': null } }),
-  s3("Stage 3 attester authentication endpoint gone (NXDOMAIN) makes the attester segment fail -> 401", { challenge: CH, response: RESP_OK }, { dnsEntries: { 'attest.triauthdemo.org': null } }),
+  s3("Stage 3 user identity records vanished between stages (NXDOMAIN) returns verification_failed", { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: { 'john._at.triauthdemo.org': null } }),
+  s3("Stage 3 user authentication endpoint is gone (NXDOMAIN) returns verification_failed", { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: { 'triauthdemo.org': null } }),
+  s3('Stage 3 DNS SERVFAIL on the authentication endpoint propagates from signature.verify and surfaces as a retryable dns_unavailable (not a false verification_failed)', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: { 'triauthdemo.org': { _error: 'SERVFAIL' } } }),
+  s3('Stage 3 DNS SERVFAIL on the identity domain propagates from signature.verify and surfaces as a retryable dns_unavailable (not a false verification_failed)', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: { 'john._at.triauthdemo.org': { _error: 'SERVFAIL' } } }),
+  s3("Stage 3 attester identity records gone (NXDOMAIN) makes the attester segment fail -> verification_failed", { challenge: CH, response: RESP_OK }, { dnsEntries: { 'robot-attester._at.attest.triauthdemo.org': null } }),
+  s3("Stage 3 attester authentication endpoint gone (NXDOMAIN) makes the attester segment fail -> verification_failed", { challenge: CH, response: RESP_OK }, { dnsEntries: { 'attest.triauthdemo.org': null } }),
 
   // ===================================================================================
-  // Stage 3 — IdentityKeys.add / verify branches reached via the attest verify path (-> 401)
+  // Stage 3 — IdentityKeys.add / verify branches reached via the attest verify path (-> verification_failed)
   // (driven through the USER segment with an empty-attestation challenge + patched john._at records)
   // ===================================================================================
-  s3('Stage 3 identity key with invalid syntax (missing [idx/count]) leaves no usable keyGroup -> 401', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: johnSingleKey(`key desktop:${john.devices[0].keys[0].public}`) }),
-  s3('Stage 3 identity key that taints its device group (desktop[2/1]) leaves no valid keyGroup -> 401', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: johnSingleKey(`key desktop[2/1]:${john.devices[0].keys[0].public}`) }),
-  s3('Stage 3 SECURITY: split key group published only as its final fragment (laptop[2/2] alone, no laptop[1/2]) never validates — a lone write to the group\'s last index already inflates keys.length to keyCount and Object.entries/.every iteration skips array holes, so a length-gated validity check would accept the one-signature response from the published fragment; the populated-slot count (src/identity_keys.js:153-157) keeps the group invalid -> 401', { challenge: CH_EMPTY, response: RESP_EMPTY_LASTFRAG }, { dnsEntries: johnSingleKey(`key laptop[2/2]:${john.devices[1].keys[1].public}`) }),
-  s3('Stage 3 leading-zero keyIdx (desktop[01/1]) maps to literal 0, failing the range check and tainting the group -> 401', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: johnSingleKey(`key desktop[01/1]:${john.devices[0].keys[0].public}`) }),
-  s3('Stage 3 leading-zero keyCount (desktop[1/01]) maps to literal 0, failing the range check and tainting the group -> 401', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: johnSingleKey(`key desktop[1/01]:${john.devices[0].keys[0].public}`) }),
-  s3('Stage 3 a doubled key index (two desktop[1/1] records) un-validates the already-valid group -> 401', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: { 'john._at.triauthdemo.org': { TXT: ['initials JD', 'name John Doe', `key desktop[1/1]:${john.devices[0].keys[0].public}`, `key desktop[1/1]:${john.devices[1].keys[0].public}`] } } }),
-  s3('Stage 3 identity key value that is not base64url taints the group -> 401', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: johnSingleKey('key desktop[1/1]:has!bang') }),
-  s3('Stage 3 identity key value valid base64url but too short to initialize an ECDSA verifier (AAAA) -> 401 (null-verifier continue)', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: johnSingleKey('key desktop[1/1]:AAAA') }),
-  s3('Stage 3 identity key with a deviceName longer than the record-name regex allows ({1,20}, the 20-byte limit) is dropped -> 401', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: johnSingleKey(`key abcdefghijklmnopqrstu[1/1]:${john.devices[0].keys[0].public}`) }),
-  s3("Stage 3 identity records publishing more than maxDevices=10 devices drop the 11th (john's real key) -> 401", { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: elevenDevices }),
-  s3('Stage 3 identity key with an unknown critical (non x-) option taints its device group -> 401', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: johnKeyRecord(' badopt=value') }),
-  s3('Stage 3 key record with a negative TTL yields an already-expired keyGroup that is skipped -> 401', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: johnKeyRecord('', { ttl: -2000, dnssec: true }) }),
-  s3('Stage 3 TTL-less key record (expires undefined) with bogus crypto -> 401 (exercises the expires!==undefined false branch)', { challenge: CH_EMPTY, response: RESP_BOGUS }, { dnsEntries: johnKeyRecord('', { dnssec: true }) }),
+  s3('Stage 3 identity key with invalid syntax (missing [idx/count]) leaves no usable keyGroup -> verification_failed', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: johnSingleKey(`key desktop:${john.devices[0].keys[0].public}`) }),
+  s3('Stage 3 identity key that taints its device group (desktop[2/1]) leaves no valid keyGroup -> verification_failed', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: johnSingleKey(`key desktop[2/1]:${john.devices[0].keys[0].public}`) }),
+  s3('Stage 3 SECURITY: split key group published only as its final fragment (laptop[2/2] alone, no laptop[1/2]) never validates — a lone write to the group\'s last index already inflates keys.length to keyCount and Object.entries/.every iteration skips array holes, so a length-gated validity check would accept the one-signature response from the published fragment; the populated-slot count (src/identity_keys.js:153-157) keeps the group invalid -> verification_failed', { challenge: CH_EMPTY, response: RESP_EMPTY_LASTFRAG }, { dnsEntries: johnSingleKey(`key laptop[2/2]:${john.devices[1].keys[1].public}`) }),
+  s3('Stage 3 leading-zero keyIdx (desktop[01/1]) maps to literal 0, failing the range check and tainting the group -> verification_failed', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: johnSingleKey(`key desktop[01/1]:${john.devices[0].keys[0].public}`) }),
+  s3('Stage 3 leading-zero keyCount (desktop[1/01]) maps to literal 0, failing the range check and tainting the group -> verification_failed', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: johnSingleKey(`key desktop[1/01]:${john.devices[0].keys[0].public}`) }),
+  s3('Stage 3 a doubled key index (two desktop[1/1] records) un-validates the already-valid group -> verification_failed', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: { 'john._at.triauthdemo.org': { TXT: ['initials JD', 'name John Doe', `key desktop[1/1]:${john.devices[0].keys[0].public}`, `key desktop[1/1]:${john.devices[1].keys[0].public}`] } } }),
+  s3('Stage 3 identity key value that is not base64url taints the group -> verification_failed', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: johnSingleKey('key desktop[1/1]:has!bang') }),
+  s3('Stage 3 identity key value valid base64url but too short to initialize an ECDSA verifier (AAAA) -> verification_failed (null-verifier continue)', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: johnSingleKey('key desktop[1/1]:AAAA') }),
+  s3('Stage 3 identity key with a deviceName longer than the record-name regex allows ({1,20}, the 20-byte limit) is dropped -> verification_failed', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: johnSingleKey(`key abcdefghijklmnopqrstu[1/1]:${john.devices[0].keys[0].public}`) }),
+  s3("Stage 3 identity records publishing more than maxDevices=10 devices drop the 11th (john's real key) -> verification_failed", { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: elevenDevices }),
+  s3('Stage 3 identity key with an unknown critical (non x-) option taints its device group -> verification_failed', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: johnKeyRecord(' badopt=value') }),
+  s3('Stage 3 key record with a negative TTL yields an already-expired keyGroup that is skipped -> verification_failed', { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { dnsEntries: johnKeyRecord('', { ttl: -2000, dnssec: true }) }),
+  s3('Stage 3 TTL-less key record (expires undefined) with bogus crypto -> verification_failed (exercises the expires!==undefined false branch)', { challenge: CH_EMPTY, response: RESP_BOGUS }, { dnsEntries: johnKeyRecord('', { dnssec: true }) }),
 
   // ===================================================================================
-  // Stage 3 — expired / time-window (402). ATTEST-DISTINCT: notBefore = now - attestTimeout (15min).
+  // Stage 3 — expired / time-window (request_expired). ATTEST-DISTINCT: notBefore = now - attestTimeout (15min).
   // ===================================================================================
-  s3('Stage 3 challenge iat far before notBefore returns 402', { challenge: CH_PAST, response: RESP_FOR_IAT }),
-  s3('Stage 3 challenge iat in the future (after notAfter == now) returns 402', { challenge: CH_FUTURE, response: RESP_FOR_IAT }),
-  // The 402 boundary sits at attestTimeout + maximalAllowedServerClockDrift: a CH_JUST_EXP challenge
+  s3('Stage 3 challenge iat far before notBefore returns request_expired', { challenge: CH_PAST, response: RESP_FOR_IAT }),
+  s3('Stage 3 challenge iat in the future (after notAfter == now) returns request_expired', { challenge: CH_FUTURE, response: RESP_FOR_IAT }),
+  // The request_expired boundary sits at attestTimeout + maximalAllowedServerClockDrift: a CH_JUST_EXP challenge
   // (1ms past the bare 15min window relative to T) only expires once the clock has also advanced
   // past the 5s server-drift widening, so this test verifies at T + 5s.
-  s3('Stage 3 challenge iat 1ms past the 15min attestTimeout + 5s maximalAllowedServerClockDrift returns 402 (boundary)', { challenge: CH_JUST_EXP, response: RESP_FOR_IAT }, { currentTime: T + 5e3 }),
-  s3('Stage 3 challenge with a non-numeric iat returns 402 (Response.verify typeof-guard)', { challenge: CH_IAT_NAN, response: RESP_FOR_IAT }),
-  s3('Stage 3 fresh challenge but the SIGNATURE ts is before the widened window -> 402 (Signature.verify ts check)', { challenge: CH, response: RESP_TS_PAST }),
-  s3('Stage 3 fresh challenge but the SIGNATURE ts is after the widened window -> 402', { challenge: CH, response: RESP_TS_FUTURE }),
+  s3('Stage 3 challenge iat 1ms past the 15min attestTimeout + 5s maximalAllowedServerClockDrift returns request_expired (boundary)', { challenge: CH_JUST_EXP, response: RESP_FOR_IAT }, { currentTime: T + 5e3 }),
+  s3('Stage 3 challenge with a non-numeric iat returns request_expired (Response.verify typeof-guard)', { challenge: CH_IAT_NAN, response: RESP_FOR_IAT }),
+  s3('Stage 3 fresh challenge but the SIGNATURE ts is before the widened window -> request_expired (Signature.verify ts check)', { challenge: CH, response: RESP_TS_PAST }),
+  s3('Stage 3 fresh challenge but the SIGNATURE ts is after the widened window -> request_expired', { challenge: CH, response: RESP_TS_FUTURE }),
 
   // ===================================================================================
-  // Stage 3 — metadata parse rejections (225), shared Signature/safeParseJson machinery (USER segment)
+  // Stage 3 — metadata parse rejections (invalid_signature), shared Signature/safeParseJson machinery (USER segment)
   // ===================================================================================
-  s3('Stage 3 garbage signedMetadata (decodes to a JSON array) returns 225', { challenge: CH_EMPTY, response: RESP_GARBAGE_SIGNED }),
-  s3('Stage 3 __proto__-poisoning signedMetadata is caught by safeParseJson -> 225', { challenge: CH_EMPTY, response: RESP_PROTO_SIGNED }),
-  s3('Stage 3 signedMetadata that is valid base64url but non-JSON text returns 225', { challenge: CH_EMPTY, response: RESP_RAWTEXT_SIGNED }),
-  s3("Stage 3 SECURITY: signedMetadata segment decodes to a UTF-8 BOM (EF BB BF) followed by otherwise-valid ext JSON ({\"ext\":{\"bom\":true}}) — rejected at parse time with 225; the decoder must not strip the BOM, so a non-canonical byte encoding of valid metadata is never accepted (real signature covers the BOM segment)", { challenge: CH_EMPTY, response: RESP_BOM_SIGNED }),
-  s3('Stage 3 garbage unsignedMetadata (decodes to a JSON array) returns 225 (real sig, slot MITM-swapped)', { challenge: CH_EMPTY, response: RESP_GARBAGE_UNSIGNED }),
-  s3('Stage 3 constructor.prototype-poisoning unsignedMetadata is caught by safeParseJson (second clause) -> 225', { challenge: CH_EMPTY, response: RESP_PROTO_UNSIGNED }),
-  s3('Stage 3 unsignedMetadata of raw binary bytes (no valid JSON token) returns 225', { challenge: CH_EMPTY, response: RESP_RAWBIN_UNSIGNED }),
-  s3('Stage 3 unsignedMetadata nested 9 deep exceeds jsonMaxNestingDepth=8 -> 225', { challenge: CH_EMPTY, response: RESP_DEEP_UNSIGNED }),
-  s3('Stage 3 unsignedMetadata with a 257-char key exceeds jsonMaxKeyLength=256 -> 225', { challenge: CH_EMPTY, response: RESP_LONGKEY_UNSIGNED }),
-  s3('Stage 3 unsignedMetadata with a non-ASCII key returns 225', { challenge: CH_EMPTY, response: RESP_NONASCII_UNSIGNED }),
-  s3('Stage 3 SECURITY: unsignedMetadata whose bytes are not well-formed UTF-8 inside a string value returns 225 — payload-slot bytes must be well-formed UTF-8; decoders reject rather than substitute U+FFFD (string values have no charset rule of their own, so only the decode-time rejection pins this)', { challenge: CH_EMPTY, response: RESP_BADUTF8_VALUE_UNSIGNED }),
-  s3('Stage 3 unsignedMetadata with a non-ASCII key in well-formed UTF-8 ({"résumé":1} as C3 A9 bytes) returns 225 — the Bounded-JSON ASCII-key rule, distinct from the ill-formed-byte rejection', { challenge: CH_EMPTY, response: RESP_EKEY_UNSIGNED }),
-  s3('Stage 3 SECURITY: unsignedMetadata whose JSON carries a lone-surrogate escape (\\ud800) in a key returns 225 — parser-independent: a parser that preserves the escape yields a non-ASCII key, one that substitutes U+FFFD likewise, one that rejects it fails the parse; no conformance vector requires accepting a lone-surrogate escape anywhere', { challenge: CH_EMPTY, response: RESP_SURROGATE_KEY_UNSIGNED }),
+  s3('Stage 3 garbage signedMetadata (decodes to a JSON array) returns invalid_signature', { challenge: CH_EMPTY, response: RESP_GARBAGE_SIGNED }),
+  s3('Stage 3 __proto__-poisoning signedMetadata is caught by safeParseJson -> invalid_signature', { challenge: CH_EMPTY, response: RESP_PROTO_SIGNED }),
+  s3('Stage 3 signedMetadata that is valid base64url but non-JSON text returns invalid_signature', { challenge: CH_EMPTY, response: RESP_RAWTEXT_SIGNED }),
+  s3("Stage 3 SECURITY: signedMetadata segment decodes to a UTF-8 BOM (EF BB BF) followed by otherwise-valid ext JSON ({\"ext\":{\"bom\":true}}) — rejected at parse time with invalid_signature; the decoder must not strip the BOM, so a non-canonical byte encoding of valid metadata is never accepted (real signature covers the BOM segment)", { challenge: CH_EMPTY, response: RESP_BOM_SIGNED }),
+  s3('Stage 3 garbage unsignedMetadata (decodes to a JSON array) returns invalid_signature (real sig, slot MITM-swapped)', { challenge: CH_EMPTY, response: RESP_GARBAGE_UNSIGNED }),
+  s3('Stage 3 constructor.prototype-poisoning unsignedMetadata is caught by safeParseJson (second clause) -> invalid_signature', { challenge: CH_EMPTY, response: RESP_PROTO_UNSIGNED }),
+  s3('Stage 3 unsignedMetadata of raw binary bytes (no valid JSON token) returns invalid_signature', { challenge: CH_EMPTY, response: RESP_RAWBIN_UNSIGNED }),
+  s3('Stage 3 unsignedMetadata nested 9 deep exceeds jsonMaxNestingDepth=8 -> invalid_signature', { challenge: CH_EMPTY, response: RESP_DEEP_UNSIGNED }),
+  s3('Stage 3 unsignedMetadata with a 257-char key exceeds jsonMaxKeyLength=256 -> invalid_signature', { challenge: CH_EMPTY, response: RESP_LONGKEY_UNSIGNED }),
+  s3('Stage 3 unsignedMetadata with a non-ASCII key returns invalid_signature', { challenge: CH_EMPTY, response: RESP_NONASCII_UNSIGNED }),
+  s3('Stage 3 SECURITY: unsignedMetadata whose bytes are not well-formed UTF-8 inside a string value returns invalid_signature — payload-slot bytes must be well-formed UTF-8; decoders reject rather than substitute U+FFFD (string values have no charset rule of their own, so only the decode-time rejection pins this)', { challenge: CH_EMPTY, response: RESP_BADUTF8_VALUE_UNSIGNED }),
+  s3('Stage 3 unsignedMetadata with a non-ASCII key in well-formed UTF-8 ({"résumé":1} as C3 A9 bytes) returns invalid_signature — the Bounded-JSON ASCII-key rule, distinct from the ill-formed-byte rejection', { challenge: CH_EMPTY, response: RESP_EKEY_UNSIGNED }),
+  s3('Stage 3 SECURITY: unsignedMetadata whose JSON carries a lone-surrogate escape (\\ud800) in a key returns invalid_signature — parser-independent: a parser that preserves the escape yields a non-ASCII key, one that substitutes U+FFFD likewise, one that rejects it fails the parse; no conformance vector requires accepting a lone-surrogate escape anywhere', { challenge: CH_EMPTY, response: RESP_SURROGATE_KEY_UNSIGNED }),
 
   // ===================================================================================
   // Stage 3 — WebAuthn verifier backend (key type=webauthn-es256), reached via IdentityKeys.verify.
   // ===================================================================================
   s3('Stage 3 WebAuthn valid assertion (challenge=sha256(payload), webauthn.get, matching origin, crossOrigin=false) attests successfully', { challenge: CH_WA, response: RESP_WA_OK }),
-  s3('Stage 3 WebAuthn structurally valid assertion but a bad ECDSA signature -> 401 (crypto.subtle.verify false)', { challenge: CH_WA, response: RESP_WA_BADSIG }),
-  s3('Stage 3 WebAuthn unsignedMetadata has no sig object -> 401 (structure guard)', { challenge: CH_WA, response: RESP_WA_NOSIG }),
-  s3('Stage 3 WebAuthn sig has no entry for the key index -> 401 (structure guard)', { challenge: CH_WA, response: RESP_WA_NOIDX }),
-  s3('Stage 3 WebAuthn clientDataJSON is not a string -> 401 (structure guard)', { challenge: CH_WA, response: RESP_WA_CDJ_NOSTR }),
-  s3('Stage 3 WebAuthn authenticatorData is not base64url -> 401 (structure guard)', { challenge: CH_WA, response: RESP_WA_AD_NOB64 }),
-  s3('Stage 3 WebAuthn clientData.challenge != sha256(payload) -> 401', { challenge: CH_WA, response: RESP_WA_BADCHAL }),
-  s3('Stage 3 WebAuthn clientDataJSON contains "challenge": more than once -> 401 (anti-injection guard)', { challenge: CH_WA, response: RESP_WA_DUPCHAL }),
-  s3("Stage 3 WebAuthn clientData.type != 'webauthn.get' -> 401", { challenge: CH_WA, response: RESP_WA_BADTYPE }),
-  s3('Stage 3 WebAuthn clientData.crossOrigin is not false -> 401', { challenge: CH_WA, response: RESP_WA_CROSSORIG }),
-  s3('Stage 3 WebAuthn clientData.origin != the authentication endpoint origin -> 401', { challenge: CH_WA, response: RESP_WA_BADORIGIN }),
-  s3('Stage 3 WebAuthn clientDataJSON is not valid JSON -> safeParseJson throws -> caught -> 401', { challenge: CH_WA, response: RESP_WA_BADJSON }),
-  s3('Stage 3 WebAuthn published key value too short to import -> fromPublishableKey returns null -> 401', { challenge: CH_WA, response: RESP_WA_OK }, { dnsEntries: { 'webauthn._at.triauthdemo.org': { TXT: ['name WebAuthn', 'key wa[1/1]:AAAA type=webauthn-es256'] } } }),
+  s3('Stage 3 WebAuthn structurally valid assertion but a bad ECDSA signature -> verification_failed (crypto.subtle.verify false)', { challenge: CH_WA, response: RESP_WA_BADSIG }),
+  s3('Stage 3 WebAuthn unsignedMetadata has no sig object -> verification_failed (structure guard)', { challenge: CH_WA, response: RESP_WA_NOSIG }),
+  s3('Stage 3 WebAuthn sig has no entry for the key index -> verification_failed (structure guard)', { challenge: CH_WA, response: RESP_WA_NOIDX }),
+  s3('Stage 3 WebAuthn clientDataJSON is not a string -> verification_failed (structure guard)', { challenge: CH_WA, response: RESP_WA_CDJ_NOSTR }),
+  s3('Stage 3 WebAuthn authenticatorData is not base64url -> verification_failed (structure guard)', { challenge: CH_WA, response: RESP_WA_AD_NOB64 }),
+  s3('Stage 3 WebAuthn clientData.challenge != sha256(payload) -> verification_failed', { challenge: CH_WA, response: RESP_WA_BADCHAL }),
+  s3('Stage 3 WebAuthn clientDataJSON contains "challenge": more than once -> verification_failed (anti-injection guard)', { challenge: CH_WA, response: RESP_WA_DUPCHAL }),
+  s3("Stage 3 WebAuthn clientData.type != 'webauthn.get' -> verification_failed", { challenge: CH_WA, response: RESP_WA_BADTYPE }),
+  s3('Stage 3 WebAuthn clientData.crossOrigin is not false -> verification_failed', { challenge: CH_WA, response: RESP_WA_CROSSORIG }),
+  s3('Stage 3 WebAuthn clientData.origin != the authentication endpoint origin -> verification_failed', { challenge: CH_WA, response: RESP_WA_BADORIGIN }),
+  s3('Stage 3 WebAuthn clientDataJSON is not valid JSON -> safeParseJson throws -> caught -> verification_failed', { challenge: CH_WA, response: RESP_WA_BADJSON }),
+  s3('Stage 3 WebAuthn published key value too short to import -> fromPublishableKey returns null -> verification_failed', { challenge: CH_WA, response: RESP_WA_OK }, { dnsEntries: { 'webauthn._at.triauthdemo.org': { TXT: ['name WebAuthn', 'key wa[1/1]:AAAA type=webauthn-es256'] } } }),
 
   // ===================================================================================
   // Stage 3 — SUCCESS (attested:true). Pins attest's result shape:
@@ -886,7 +886,7 @@ const tests = [
   s3('Stage 3 user segment bind stating its own verified values -> attested:true (bind means the same on every segment)', { challenge: CH, response: RESP_BIND_ON_USER }),
   s3('Stage 3 PRIVATE: private-mode subject attests successfully - the user segment carries the lookup code, the public-mode attester none (per-segment independence)', { challenge: CH_PRIVATE, response: RESP_PRIVATE_OK }),
   s3('Stage 3 PRIVATE: an attester binder binding the result-form deviceTag (<tag>~<lookupCode>) matches and attests successfully - the binder pins the lookup-code epoch', { challenge: CH_PRIVATE, response: RESP_PRIVATE_BIND }),
-  s3('Stage 3 PRIVATE SECURITY: an attester binder binding the bare device digest mismatches the suffixed result form -> 401 (the bound value is the result-form handle, not the bare digest)', { challenge: CH_PRIVATE, response: RESP_PRIVATE_BIND_UNSALTED }),
+  s3('Stage 3 PRIVATE SECURITY: an attester binder binding the bare device digest mismatches the suffixed result form -> verification_failed (the bound value is the result-form handle, not the bare digest)', { challenge: CH_PRIVATE, response: RESP_PRIVATE_BIND_UNSALTED }),
   s3('Stage 3 callbackUrl already ending in / attests successfully (getBaseUrl THEN branch)', { challenge: CH_TRAILING, response: RESP_TRAILING }),
   s3('Stage 3 use=attest-only user key attests successfully', { challenge: CH_ATTESTONLY, response: RESP_ATTESTONLY }),
   s3('Stage 3 unsignedMetadata with a null value parses fine and attests successfully', { challenge: CH_EMPTY, response: RESP_NULLVALUE_UNSIGNED }),
@@ -906,11 +906,11 @@ const tests = [
   s3("Stage 3 SECURITY: USER endpoint triauth record with dnssec:false caps top-level secure to false while the attestation's own secure stays true", { challenge: CH, response: RESP_OK }, { dnsEntries: { 'triauthdemo.org': { TXT: [{ value: 'triauth auth.triauthdemo.org mode=public', ttl: 1800, dnssec: false }] } } }),
   s3('Stage 3 SECURITY: ATTESTER endpoint triauth record with dnssec:false caps both the per-attestation secure and the top-level secure to false', { challenge: CH, response: RESP_OK }, { dnsEntries: { 'attest.triauthdemo.org': { TXT: [{ value: 'triauth auth.attest.triauthdemo.org mode=public', ttl: 1800, dnssec: false }] } } }),
   s3('Stage 3 SECURITY: challenge 4.999s past the 15min attestTimeout still attests — the expiry boundary is widened by maximalAllowedServerClockDrift', { challenge: CH, response: RESP_OK }, { currentTime: T + (15 * 60e3) + 4999 }),
-  s3('Stage 3 SECURITY: WebAuthn assertion with the User Present (UP) flag cleared (CTAP-level silent assertion) -> 401 even though its ECDSA signature is valid', { challenge: CH_WA, response: RESP_WA_NOUP }),
-  s3('Stage 3 SECURITY: WebAuthn authenticatorData shorter than 37 bytes (rpIdHash+flags+signCount) -> 401 (length guard)', { challenge: CH_WA, response: RESP_WA_SHORT }),
-  s3('Stage 3 SECURITY: uv=required key record rejects an assertion without the User Verified (UV) flag -> 401 (UP alone is not enough)', { challenge: CH_WA, response: RESP_WA_OK }, { dnsEntries: waKeyRecord(' uv=required') }),
+  s3('Stage 3 SECURITY: WebAuthn assertion with the User Present (UP) flag cleared (CTAP-level silent assertion) -> verification_failed even though its ECDSA signature is valid', { challenge: CH_WA, response: RESP_WA_NOUP }),
+  s3('Stage 3 SECURITY: WebAuthn authenticatorData shorter than 37 bytes (rpIdHash+flags+signCount) -> verification_failed (length guard)', { challenge: CH_WA, response: RESP_WA_SHORT }),
+  s3('Stage 3 SECURITY: uv=required key record rejects an assertion without the User Verified (UV) flag -> verification_failed (UP alone is not enough)', { challenge: CH_WA, response: RESP_WA_OK }, { dnsEntries: waKeyRecord(' uv=required') }),
   s3('Stage 3 uv=required key record accepts an assertion with both UP and UV flags set -> attested:true', { challenge: CH_WA, response: RESP_WA_UPUV }, { dnsEntries: waKeyRecord(' uv=required') }),
-  s3('Stage 3 SECURITY: a mistyped uv value (uv=reuired) taints the keyGroup -> 401 - fail closed, a typo must not silently drop the user verification requirement', { challenge: CH_WA, response: RESP_WA_OK }, { dnsEntries: waKeyRecord(' uv=reuired') }),
+  s3('Stage 3 SECURITY: a mistyped uv value (uv=reuired) taints the keyGroup -> verification_failed - fail closed, a typo must not silently drop the user verification requirement', { challenge: CH_WA, response: RESP_WA_OK }, { dnsEntries: waKeyRecord(' uv=reuired') }),
 
   // ===================================================================================
   // Stage 3 — Ed25519 (type=ed25519) and WebAuthn-Ed25519 (type=webauthn-ed25519) verifier
@@ -920,14 +920,14 @@ const tests = [
   // ===================================================================================
   s3('Stage 3 Ed25519: USER with a type=ed25519 key + es256 robot attester attests successfully (mixed-algorithm multisig)', { challenge: CH_ED25519U, response: RESP_ED25519U }),
   s3('Stage 3 Ed25519: THIRD-PARTY ATTESTER backed by a type=ed25519 key attests successfully (es256 user + ed25519 attester)', { challenge: CH_EDATT, response: RESP_EDATT }),
-  s3('Stage 3 Ed25519: 65-byte P-256 key material published as the USER\'s type=ed25519 key cannot import (raw Ed25519 keys are exactly 32 bytes) -> fromPublishableKey null -> 401', { challenge: CH_ED25519U, response: RESP_ED25519U }, { dnsEntries: { 'ed25519._at.triauthdemo.org': { TXT: ['name Ed25519', `key desktop[1/1]:${john.devices[0].keys[0].public} type=ed25519`] } } }),
-  s3('Stage 3 Ed25519: 65-byte P-256 key material published as the ATTESTER\'s type=ed25519 key cannot import -> attester unverified -> 401', { challenge: CH_EDATT, response: RESP_EDATT }, { dnsEntries: { 'ed25519-attester._at.attest.triauthdemo.org': { TXT: ['name Ed25519 Checker', `key server[1/1]:${robot.devices[0].keys[0].public} use=attest type=ed25519`] } } }),
-  s3('Stage 3 Ed25519 SECURITY: uv=required on a type=ed25519 (non-webauthn) key is unenforceable and taints the keyGroup -> 401 - fail closed', { challenge: CH_ED25519U, response: RESP_ED25519U }, { dnsEntries: { 'ed25519._at.triauthdemo.org': { TXT: ['name Ed25519', `key desktop[1/1]:${ed25519.keys[0].public} type=ed25519 uv=required`] } } }),
+  s3('Stage 3 Ed25519: 65-byte P-256 key material published as the USER\'s type=ed25519 key cannot import (raw Ed25519 keys are exactly 32 bytes) -> fromPublishableKey null -> verification_failed', { challenge: CH_ED25519U, response: RESP_ED25519U }, { dnsEntries: { 'ed25519._at.triauthdemo.org': { TXT: ['name Ed25519', `key desktop[1/1]:${john.devices[0].keys[0].public} type=ed25519`] } } }),
+  s3('Stage 3 Ed25519: 65-byte P-256 key material published as the ATTESTER\'s type=ed25519 key cannot import -> attester unverified -> verification_failed', { challenge: CH_EDATT, response: RESP_EDATT }, { dnsEntries: { 'ed25519-attester._at.attest.triauthdemo.org': { TXT: ['name Ed25519 Checker', `key server[1/1]:${robot.devices[0].keys[0].public} use=attest type=ed25519`] } } }),
+  s3('Stage 3 Ed25519 SECURITY: uv=required on a type=ed25519 (non-webauthn) key is unenforceable and taints the keyGroup -> verification_failed - fail closed', { challenge: CH_ED25519U, response: RESP_ED25519U }, { dnsEntries: { 'ed25519._at.triauthdemo.org': { TXT: ['name Ed25519', `key desktop[1/1]:${ed25519.keys[0].public} type=ed25519 uv=required`] } } }),
   s3('Stage 3 WebAuthn-Ed25519: valid assertion backed by a type=webauthn-ed25519 user key attests successfully', { challenge: CH_WAED, response: RESP_WAED_OK }),
-  s3('Stage 3 WebAuthn-Ed25519: structurally valid assertion with bogus crypto -> 401', { challenge: CH_WAED, response: RESP_WAED_BADSIG }),
+  s3('Stage 3 WebAuthn-Ed25519: structurally valid assertion with bogus crypto -> verification_failed', { challenge: CH_WAED, response: RESP_WAED_BADSIG }),
   // callbackUrl base-directory delimiter guards (";" and "|" are envelope separators).
-  s1("Stage 1 SECURITY: callbackUrl with a \";\" in its base directory (https://example.com/a;b/cb) returns 221 — \";\" is the signature envelope field delimiter, so the base URL that becomes the signed via must not contain it; rejecting at validation avoids a silent downstream failure (the authenticator’s Signature.generate refuses such a via)", {"identifier":ID,"callbackUrl":"https://example.com/a;b/cb","attestations":{"not-a-robot":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}}),
-  s1("Stage 1 SECURITY: callbackUrl with a \"|\" in its base directory (https://example.com/a|b/cb) returns 221 — \"|\" is the signature envelope wrapper/separator; a base URL containing it would corrupt the envelope, so it is rejected at validation rather than failing silently downstream", {"identifier":ID,"callbackUrl":"https://example.com/a|b/cb","attestations":{"not-a-robot":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}}),
+  s1("Stage 1 SECURITY: callbackUrl with a \";\" in its base directory (https://example.com/a;b/cb) returns invalid_callback_url — \";\" is the signature envelope field delimiter, so the base URL that becomes the signed via must not contain it; rejecting at validation avoids a silent downstream failure (the authenticator’s Signature.generate refuses such a via)", {"identifier":ID,"callbackUrl":"https://example.com/a;b/cb","attestations":{"not-a-robot":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}}),
+  s1("Stage 1 SECURITY: callbackUrl with a \"|\" in its base directory (https://example.com/a|b/cb) returns invalid_callback_url — \"|\" is the signature envelope wrapper/separator; a base URL containing it would corrupt the envelope, so it is rejected at validation rather than failing silently downstream", {"identifier":ID,"callbackUrl":"https://example.com/a|b/cb","attestations":{"not-a-robot":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}}),
   s1("Stage 1 callbackUrl with a \";\" in its LAST path segment (https://example.com/cb;sid=1) builds a challenge — the final segment never enters the base URL/via, so the envelope delimiter rule stops at the base span", {"identifier":ID,"callbackUrl":"https://example.com/cb;sid=1","sessionKey":SESSION_KEY,"attestations":{"not-a-robot":{"label":"I am not a robot","providers":["https://attest.triauthdemo.org/not-a-robot"]}}}, { random: RAND }),
   // PUBLICPROFILE: shape and hardening of the publicProfile surfaced on attest (the ATTESTER profile) results
   // (per-test dnsEntries publish the profile records; the envelope is the canonical minted one).
@@ -996,7 +996,7 @@ const tests = [
     } }),
   // requireSecure: per-call config; the non-DNSSEC twin patches the key record to dnssec:false.
   s3("requireSecure: attest stage 3 - DNSSEC-secure result still succeeds when requireSecure:true", { challenge: CH_WA, response: RESP_WA_OK }, { _argsOverride: [{ challenge: CH_WA, response: RESP_WA_OK }, { requireSecure: true }] }),
-  s3("SECURITY requireSecure: attest stage 3 - non-DNSSEC (secure:false) result is rejected with 404", { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { _argsOverride: [{ challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { requireSecure: true }], dnsEntries: {
+  s3("SECURITY requireSecure: attest stage 3 - non-DNSSEC (secure:false) result is rejected with dnssec_required", { challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { _argsOverride: [{ challenge: CH_EMPTY, response: RESP_EMPTY_OK }, { requireSecure: true }], dnsEntries: {
       "john._at.triauthdemo.org": {
         "TXT": [
           "initials JD",
@@ -1020,7 +1020,7 @@ const tests = [
       'include jane@triauthdemo.org use=attest scope=any',
     ] },
   } }),
-  s3('Stage 3 delegated USER segment whose grant publishes no scope option returns 401 - scope is required, and the record is ignored as a whole', { challenge: CH, response: RESP_DELEGATED_USER }, { dnsEntries: {
+  s3('Stage 3 delegated USER segment whose grant publishes no scope option returns verification_failed - scope is required, and the record is ignored as a whole', { challenge: CH, response: RESP_DELEGATED_USER }, { dnsEntries: {
     'john._at.triauthdemo.org': { TXT: [
       'initials JD', 'name John Doe',
       `key desktop[1/1]:${john.devices[0].keys[0].public}`,
@@ -1029,7 +1029,7 @@ const tests = [
       'include jane@triauthdemo.org use=attest',
     ] },
   } }),
-  s3('Stage 3 SECURITY: a delegated ATTESTER segment never satisfies an attestation (attester statements are first-party) even when the delegation itself verifies -> 401', { challenge: CH, response: RESP_DELEGATED_ATTESTER }, { dnsEntries: {
+  s3('Stage 3 SECURITY: a delegated ATTESTER segment never satisfies an attestation (attester statements are first-party) even when the delegation itself verifies -> verification_failed', { challenge: CH, response: RESP_DELEGATED_ATTESTER }, { dnsEntries: {
     'attest.triauthdemo.org': { TXT: ['triauth auth.attest.triauthdemo.org include=triauthdemo.org mode=public'] },
     'robot-attester._at.attest.triauthdemo.org': { TXT: [
       'name Robot Checker',
@@ -1046,7 +1046,7 @@ const tests = [
       'include jane@triauthdemo.org use=attest scope=example.com',
     ] },
   } }),
-  s3('Stage 3 SECURITY: delegated USER segment whose grant is scoped to a different host (use=attest scope=other.example) returns 401', { challenge: CH, response: RESP_DELEGATED_USER }, { dnsEntries: {
+  s3('Stage 3 SECURITY: delegated USER segment whose grant is scoped to a different host (use=attest scope=other.example) returns verification_failed', { challenge: CH, response: RESP_DELEGATED_USER }, { dnsEntries: {
     'john._at.triauthdemo.org': { TXT: [
       'initials JD', 'name John Doe',
       `key desktop[1/1]:${john.devices[0].keys[0].public}`,
@@ -1092,13 +1092,13 @@ const suite = {
   title: 'attest',
   description:
     'Comprehensive, branch-complete coverage of Triauth.attest. Stage 1 (request): dispatch/arg guards, ' +
-    'identifier/callbackUrl/ext/sessionKey validation, the ATTEST-DISTINCT attestations (229) validation done ' +
-    'in onChallenge, DNS configuration (301/302) and DNS failure (110), and deterministic challenge + ' +
+    'identifier/callbackUrl/ext/sessionKey validation, the ATTEST-DISTINCT attestations (invalid_attestations) validation done ' +
+    'in onChallenge, DNS configuration (domain_not_configured) and DNS failure (dns_unavailable), and deterministic challenge + ' +
     '/attest.html redirect building (with the attestations object baked in, and the request sealed under the session key). Stage 3 ' +
-    '(verify): challenge/response validation, the onResponse attest re-validation (229), dispatch ' +
-    'constraints (401/403), signature-envelope parse failures (225), generic verification failures (401), ' +
+    '(verify): challenge/response validation, the onResponse attest re-validation (invalid_attestations), dispatch ' +
+    'constraints (verification_failed/request_denied), signature-envelope parse failures (invalid_signature), generic verification failures (verification_failed), ' +
     'the IdentityKeys add/verify branches and WebAuthn verifier reached via the verify path, the 15min ' +
-    'attestTimeout window (402), metadata parse rejections (225), and the heart of attest — the ' +
+    'attestTimeout window (request_expired), metadata parse rejections (invalid_signature), and the heart of attest — the ' +
     'multi-signature envelope whose first segment is the user signature and the rest are third-party ' +
     'attester signatures: the bind binder object (identifier/via/deviceTag) is enforced on every ' +
     'segment (every member of bind is critical and must match the verified user; members outside ' +
