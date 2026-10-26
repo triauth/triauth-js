@@ -107,7 +107,7 @@
       "expected": {
         "error": {
           "code": "invalid_arguments",
-          "message": "Invalid arguments"
+          "message": "Invalid or missing function arguments"
         }
       }
     },
@@ -121,7 +121,7 @@
       "expected": {
         "error": {
           "code": "invalid_arguments",
-          "message": "Invalid arguments"
+          "message": "Invalid or missing function arguments"
         }
       }
     },
@@ -136,7 +136,7 @@
       "expected": {
         "error": {
           "code": "invalid_arguments",
-          "message": "Invalid arguments"
+          "message": "Invalid or missing function arguments"
         }
       }
     },
@@ -151,7 +151,7 @@
       "expected": {
         "error": {
           "code": "invalid_arguments",
-          "message": "Invalid arguments"
+          "message": "Invalid or missing function arguments"
         }
       }
     },
@@ -166,7 +166,7 @@
       "expected": {
         "error": {
           "code": "invalid_arguments",
-          "message": "Invalid arguments"
+          "message": "Invalid or missing function arguments"
         }
       }
     },
@@ -183,7 +183,7 @@
       "expected": {
         "error": {
           "code": "invalid_arguments",
-          "message": "Invalid arguments"
+          "message": "Invalid or missing function arguments"
         }
       }
     },
@@ -3817,7 +3817,7 @@
       "expected": {
         "error": {
           "code": "invalid_arguments",
-          "message": "Invalid arguments"
+          "message": "Invalid or missing function arguments"
         }
       }
     },

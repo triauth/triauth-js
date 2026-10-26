@@ -54,8 +54,8 @@ export class Response {
    *                                not the cryptographic input to verification.
    * @param [constraints={}] {object}             - Optional constraints that the response must satisfy:
    * @param [constraints.identifier] {string}     - If given, must match the identifier embedded in the challenge.
-   * @param [constraints.notBefore] {number}      - If given, the challenge `iat` must be >= this timestamp.
-   * @param [constraints.notAfter] {number}       - If given, the challenge `iat` must be <= this timestamp.
+   * @param [constraints.notBefore] {number}      - If given, the challenge `iat` and the signature timestamp must be >= this timestamp. The check allows for clock drift.
+   * @param [constraints.notAfter] {number}       - If given, the challenge `iat` and the signature timestamp must be <= this timestamp. The check allows for clock drift.
    * @param [constraints.minSignatures] {number}  - If given, the multi-signature envelope must contain at least this many signatures.
    * @param [constraints.maxSignatures] {number}  - If given, the multi-signature envelope must contain at most this many signatures.
    *

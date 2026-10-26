@@ -108,7 +108,7 @@ export const validate = function(objects, config = {}) {
   if (!Helpers.hasOnlyKnownProperties(Helpers.mergeConfig(config), KNOWN_CONFIG_KEYS)) {
     return {
       valid: false,
-      errors: [{code: 'invalid_config', message: 'Unrecognized configuration override'}]
+      errors: [{code: 'invalid_config', message: 'Unrecognized configuration key'}]
     };
   }
 

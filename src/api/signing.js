@@ -640,8 +640,8 @@ export const stamp = async(options = {}, config = {}) => {
  * @param [constraints.ver] {number} - the triauth signature envelope version to require
  * @param [constraints.type] {string} - the type of signature to require — one of 'attest'|'auth'|'ping'|'sign'|'stamp'. Pin this to the expected signature type when possible.
  * @param [constraints.via] {string} - the base URL (e.g., https://example.com/) of the client application the signature was issued to (the base URL of its `callbackUrl`). Pin it when possible. Otherwise a signature requested by another application verifies just as well.
- * @param [constraints.notBefore] {number} - a Unix timestamp in milliseconds (a non-number is rejected with the error `invalid_arguments`). If the timestamp encoded in the signature is earlier than this value, the result is `{valid:false, reason:'expired'}`. Note: unlike the internal verify path used by `authenticate`/`ping`/`sign`/`stamp`, `Triauth.verify` does **not** widen this bound by `config.maximalAllowedClientClockDrift` - the comparison is strict.
- * @param [constraints.notAfter] {number} - a Unix timestamp in milliseconds (a non-number is rejected with the error `invalid_arguments`). If the timestamp encoded in the signature is greater than this value, the result is `{valid:false, reason:'expired'}`. Note: strict comparison; no clock-drift slack is applied (see `notBefore`).
+ * @param [constraints.notBefore] {number} - a Unix timestamp in milliseconds (a non-number or `NaN` gives `{valid:false, reason:'invalid'}`). If the timestamp encoded in the signature is earlier than this value, the result is `{valid:false, reason:'expired'}`. Note: unlike the internal verify path used by `authenticate`/`ping`/`sign`/`stamp`, `Triauth.verify` does **not** widen this bound by `config.maximalAllowedClientClockDrift` - the comparison is strict.
+ * @param [constraints.notAfter] {number} - a Unix timestamp in milliseconds (a non-number or `NaN` gives `{valid:false, reason:'invalid'}`). If the timestamp encoded in the signature is greater than this value, the result is `{valid:false, reason:'expired'}`. Note: strict comparison; no clock-drift slack is applied (see `notBefore`).
  * @param [constraints.minSignatures] {number} - the minimum number of signature segments the (multi-)signature envelope must contain. A count below this is a signature-count policy decline, reported as `{valid:false, reason:'declined'}`. Note: this counts segments, NOT distinct signers - the same identity may legitimately contribute multiple (e.g., per-device) signatures; to require distinct signers, additionally check `signatures[].identifier` and/or `signatures[].deviceTag` in the result. Because `maxSignatures` defaults to 1, requiring more than one signature means you must also raise `maxSignatures`.
  * @param [constraints.maxSignatures] {number} - the maximum number of signature segments the (multi-)signature envelope may contain. **Defaults to 1** (secure-by-default): when omitted, `Triauth.verify` accepts only a single signature, so a multi-segment envelope is reported as `{valid:false, reason:'declined'}`. To verify a multi-signature envelope, pass an explicit `maxSignatures` (>= the number of segments you expect). The default of 1 also pins the result to the flat single-signature shape and bounds the per-segment DNS resolution work for untrusted input.
  * @param [config={}] {object} - optional overrides for the global Triauth.config settings. When `config.requireSecure` is set, an otherwise-valid signature whose DNS chain was not reported DNSSEC-validated (`secure !== true`) is rejected with the error `dnssec_required` (surfaced as `{error}`).
@@ -666,7 +666,7 @@ export const verify = async function(message, signature, constraints = {}, confi
       (typeof message !== 'string' || typeof signature !== 'string' || typeof constraints !== 'object' || typeof config !== 'object') ||
       (!Helpers.hasOnlyKnownProperties(constraints, ['identifier', 'actor', 'ver', 'type', 'via', 'notBefore', 'notAfter', 'minSignatures', 'maxSignatures']))
     ){
-      throw new TriauthError({code: 'invalid_arguments', message: 'Invalid arguments'});
+      throw new TriauthError({code: 'invalid_arguments', message: 'Invalid or missing function arguments'});
     }
 
     // Reject config overrides carrying unknown keys
@@ -679,7 +679,7 @@ export const verify = async function(message, signature, constraints = {}, confi
       (constraints.minSignatures != null && (typeof constraints.minSignatures !== 'number' || Number.isNaN(constraints.minSignatures))) ||
       (constraints.maxSignatures != null && (typeof constraints.maxSignatures !== 'number' || Number.isNaN(constraints.maxSignatures)))
     ) {
-      throw new TriauthError({code: 'invalid_arguments', message: 'Invalid arguments'});
+      throw new TriauthError({code: 'invalid_arguments', message: 'Invalid or missing function arguments'});
     }
 
     // Secure-by-default: when the caller does not specify maxSignatures, it defaults to 1, so an

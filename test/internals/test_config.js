@@ -81,7 +81,7 @@ export default function() { describe('Config override guard (invalid_config)', (
     // unknown key -> invalid_config
     const bad = Triauth.validate({ identifier: 'john@triauthdemo.org' }, { requireSecur: true });
     assert.strictEqual(bad.valid, false);
-    assert.ok(bad.errors.some((e) => e.code === 'invalid_config' && e.message === 'Unrecognized configuration override'));
+    assert.ok(bad.errors.some((e) => e.code === 'invalid_config' && e.message === 'Unrecognized configuration key'));
 
     // strict: a known key set to undefined is rejected too (JSON suites can't express undefined, so it lives here)
     const undef = Triauth.validate({ identifier: 'john@triauthdemo.org' }, { requireSecure: undefined });

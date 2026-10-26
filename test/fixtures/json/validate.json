@@ -110,7 +110,7 @@
       "args": [{ "identifier": "john@example.com" }, { "requireSecur": true }],
       "expected": {
         "valid": false,
-        "errors": [{ "code": "invalid_config", "message": "Unrecognized configuration override" }]
+        "errors": [{ "code": "invalid_config", "message": "Unrecognized configuration key" }]
       }
     },
 
